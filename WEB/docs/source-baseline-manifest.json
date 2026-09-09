@@ -1,0 +1,324 @@
+{
+  "archive": "NaverSabermetrics_V2_KboPitcherWarV3.zip",
+  "archiveSha256": "b62561943048b162afddf55938dab300fdd01acec9344c41497fe3e047fce497",
+  "files": [
+    {
+      "path": "server/src/NaverRelay.Parser/Models/GameModels.cs",
+      "uploadedSha256": "8b6814c5e6b17a1d9d129eb15996ee22f5d9fbc5d35a7aec66520c814e44d9cf",
+      "packagedSha256": "8b6814c5e6b17a1d9d129eb15996ee22f5d9fbc5d35a7aec66520c814e44d9cf",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Models/PlayModels.cs",
+      "uploadedSha256": "51981321a86154d79c97c8887f22eef78e900a96918669b379d2ae797b901e27",
+      "packagedSha256": "51981321a86154d79c97c8887f22eef78e900a96918669b379d2ae797b901e27",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Models/RelayDataModels.cs",
+      "uploadedSha256": "9b567ae72f2b4e6698d9c6f16eb5c65de0c386adb85341108a6b7c9786a511a8",
+      "packagedSha256": "9b567ae72f2b4e6698d9c6f16eb5c65de0c386adb85341108a6b7c9786a511a8",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/NaverRelay.Parser.csproj",
+      "uploadedSha256": "3bd3071dae137d0446003b4db458458676146cc19d6e3d251ef41481d2130212",
+      "packagedSha256": "3bd3071dae137d0446003b4db458458676146cc19d6e3d251ef41481d2130212",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/AdministrativeEventParser.cs",
+      "uploadedSha256": "b73f92dc1ad87c4d46fcfe97e6ec414d89f0d5d3cfa38a7feb110000a7a2f4d1",
+      "packagedSha256": "b73f92dc1ad87c4d46fcfe97e6ec414d89f0d5d3cfa38a7feb110000a7a2f4d1",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/BatterResultClassifier.cs",
+      "uploadedSha256": "a4b5fb66f518cce03105a8b6e5ee9d0e153f179a42a246141dabe09e1bb98cfa",
+      "packagedSha256": "a4b5fb66f518cce03105a8b6e5ee9d0e153f179a42a246141dabe09e1bb98cfa",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/FlexibleNullableScalarJsonConverters.cs",
+      "uploadedSha256": "ede9273743cde704b391e8d4ef900b213551038fafbf45b604634b67ce4947a3",
+      "packagedSha256": "ede9273743cde704b391e8d4ef900b213551038fafbf45b604634b67ce4947a3",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/FlexibleStringJsonConverter.cs",
+      "uploadedSha256": "d5c876fc2c95888459777ee624028cbecb429b782b473bae8ea28516263bbbbc",
+      "packagedSha256": "d5c876fc2c95888459777ee624028cbecb429b782b473bae8ea28516263bbbbc",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/GameConsistencyValidator.cs",
+      "uploadedSha256": "86f46b75959aa21c7f7398e7991f2c36b531950f8aab5fd52cbde7e992eafeeb",
+      "packagedSha256": "86f46b75959aa21c7f7398e7991f2c36b531950f8aab5fd52cbde7e992eafeeb",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/NormalizedEnums.cs",
+      "uploadedSha256": "a2650ae3bbad3783138583b947e4c48d3288eb5ac36b56ab9b9bce39dcdf688d",
+      "packagedSha256": "a2650ae3bbad3783138583b947e4c48d3288eb5ac36b56ab9b9bce39dcdf688d",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/NormalizedModels.cs",
+      "uploadedSha256": "bd9b61f4608adf7d49e6bd7cc4dfa5acb523d8b82c4a014d1bcf5a13d8c36797",
+      "packagedSha256": "bd9b61f4608adf7d49e6bd7cc4dfa5acb523d8b82c4a014d1bcf5a13d8c36797",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/ParserUtilities.cs",
+      "uploadedSha256": "b109d7b17e24f5604c13238de892a12485069eaa5c79a5b87c148dcba968719d",
+      "packagedSha256": "b109d7b17e24f5604c13238de892a12485069eaa5c79a5b87c148dcba968719d",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/ParsingContext.cs",
+      "uploadedSha256": "c3e0748aa84e77b2966051242590108cc067222fa34cbb2d60ab1566f4bedf6b",
+      "packagedSha256": "c3e0748aa84e77b2966051242590108cc067222fa34cbb2d60ab1566f4bedf6b",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/PitchHelpers.cs",
+      "uploadedSha256": "d9064cc88affad2aa3e820c15ce3af0a47b6b10dafcd8886a27a5d3561673db3",
+      "packagedSha256": "d9064cc88affad2aa3e820c15ce3af0a47b6b10dafcd8886a27a5d3561673db3",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/PlayerChangeParser.cs",
+      "uploadedSha256": "52d646e602a10fbf3aa0db275cca731f1ffb7bdabf2843f7d5a960ced4ddbf97",
+      "packagedSha256": "52d646e602a10fbf3aa0db275cca731f1ffb7bdabf2843f7d5a960ced4ddbf97",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/RelayDeserializer.cs",
+      "uploadedSha256": "22e41c616a87cc4fca7a9b3d1fedf662ce1354fe2191e2e039ba51116eeadc72",
+      "packagedSha256": "22e41c616a87cc4fca7a9b3d1fedf662ce1354fe2191e2e039ba51116eeadc72",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/RelayParser.cs",
+      "uploadedSha256": "7c01cd8f7fb5be13193089e348f4c9be2c71f70179e615f8555ab107d5654d03",
+      "packagedSha256": "7c01cd8f7fb5be13193089e348f4c9be2c71f70179e615f8555ab107d5654d03",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Parser/Parsing/RunnerEventParser.cs",
+      "uploadedSha256": "74764f15f38cbcf0345b745cef93728a248fcc5f32b9ecb7ec44b95f8df2b65b",
+      "packagedSha256": "74764f15f38cbcf0345b745cef93728a248fcc5f32b9ecb7ec44b95f8df2b65b",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Importing/InputDocument.cs",
+      "uploadedSha256": "6dc79f71444bf5196f1933d4aa70741efdc95f73e733a41be4118b5560ee6b5d",
+      "packagedSha256": "6dc79f71444bf5196f1933d4aa70741efdc95f73e733a41be4118b5560ee6b5d",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/NaverRelay.Application.csproj",
+      "uploadedSha256": "71657ac660af4c0a93eac22281358d437aed2cdd9c3a630da9e4f3a79f1b770e",
+      "packagedSha256": "71657ac660af4c0a93eac22281358d437aed2cdd9c3a630da9e4f3a79f1b770e",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Players/PlayerPageContracts.cs",
+      "uploadedSha256": "2d8f2fce9fe4b9673db06a8428ed3e9fa6b72ca5c769f2622c53228ae7f10e2f",
+      "packagedSha256": "2d8f2fce9fe4b9673db06a8428ed3e9fa6b72ca5c769f2622c53228ae7f10e2f",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Queries/DatabaseQueryModels.cs",
+      "uploadedSha256": "4db04b2e0553f80c37ba42fad22c72d47da0b724de5164a9f6da74ba8380354f",
+      "packagedSha256": "4db04b2e0553f80c37ba42fad22c72d47da0b724de5164a9f6da74ba8380354f",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Queries/RecordRoomContracts.cs",
+      "uploadedSha256": "ee2204dff482df1fe43637b943013675ca12769ab5ee1e5c5409d8cff81b47b9",
+      "packagedSha256": "ee2204dff482df1fe43637b943013675ca12769ab5ee1e5c5409d8cff81b47b9",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Queries/ServiceContracts.cs",
+      "uploadedSha256": "8fd246a2c71e23e83e99ebaf1a2e56a74f062ef4d14bb80bf5863c05863ed938",
+      "packagedSha256": "8fd246a2c71e23e83e99ebaf1a2e56a74f062ef4d14bb80bf5863c05863ed938",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Statistics/DisplayText.cs",
+      "uploadedSha256": "51c53dcb2d940cb69fdbff96776c973511ad842d2d13a2922f21f556148562b8",
+      "packagedSha256": "51c53dcb2d940cb69fdbff96776c973511ad842d2d13a2922f21f556148562b8",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Statistics/GridRows.cs",
+      "uploadedSha256": "41853792db28e9aac83be543cd14bde7bbebc11dfb4b9a4bb287140fac6e3bc0",
+      "packagedSha256": "41853792db28e9aac83be543cd14bde7bbebc11dfb4b9a4bb287140fac6e3bc0",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Statistics/PitcherRecordRoomRows.cs",
+      "uploadedSha256": "0e2a1917f744b3fbabcb8c0a21947cd6ad4e9fb6eea8783ae54292ecccfa80b6",
+      "packagedSha256": "0e2a1917f744b3fbabcb8c0a21947cd6ad4e9fb6eea8783ae54292ecccfa80b6",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Statistics/RecordRoomRows.cs",
+      "uploadedSha256": "8f8207a53e508c93a04caef730a264fcc9f455870d6d24985e9017cd37c2f7d0",
+      "packagedSha256": "8f8207a53e508c93a04caef730a264fcc9f455870d6d24985e9017cd37c2f7d0",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Statistics/SabermetricRows.cs",
+      "uploadedSha256": "de159c19e58e738495c88cee6bd7d081ba0492ee436af971709169e01103b098",
+      "packagedSha256": "de159c19e58e738495c88cee6bd7d081ba0492ee436af971709169e01103b098",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Application/Teams/TeamPageContracts.cs",
+      "uploadedSha256": "006f1e475817b648e6b77d8aa550553883517b3341083d3d78bb2bde9e87e99a",
+      "packagedSha256": "006f1e475817b648e6b77d8aa550553883517b3341083d3d78bb2bde9e87e99a",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs",
+      "uploadedSha256": "87d1fedd087ac3021ae85031ec54a4d4be7720fa0e11b6be31e52d0612f6c854",
+      "packagedSha256": "ad6c7fde08702e217498708e31774b9fdfd33899f249b5e2f62857c2b38153bf",
+      "modified": true
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseBatterRecordRoomService.cs",
+      "uploadedSha256": "eea428a646298b69e0d608764bc6faaf0f8631aec896b19e252a031ac80230e2",
+      "packagedSha256": "eea428a646298b69e0d608764bc6faaf0f8631aec896b19e252a031ac80230e2",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Analytics.cs",
+      "uploadedSha256": "3659668f1b98bab9b099ef77e89bdbe2e87ebe1ee901c9b166abb8c4452b012e",
+      "packagedSha256": "786b4472e2c9c2dd98d9f71a7f477ea6fa8f7119b9fc8145dfd837569f7a0bf2",
+      "modified": true
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Import.cs",
+      "uploadedSha256": "92b3d566bbb51748729d4e7f6d9ee57286b903b241eb791b2bd1260d3eeb9d0a",
+      "packagedSha256": "92b3d566bbb51748729d4e7f6d9ee57286b903b241eb791b2bd1260d3eeb9d0a",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.PitcherRecordRoom.Batted.cs",
+      "uploadedSha256": "73cfe159afa938d393367f2c97047b82f32c9afcb99cefd9894eb3b9feadd8ab",
+      "packagedSha256": "73cfe159afa938d393367f2c97047b82f32c9afcb99cefd9894eb3b9feadd8ab",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.PitcherRecordRoom.Core.cs",
+      "uploadedSha256": "f9ba9fa7fedce5a116fb4d9beb9921b7b4826d42f6e1810eb0e1467081acb5f8",
+      "packagedSha256": "f9ba9fa7fedce5a116fb4d9beb9921b7b4826d42f6e1810eb0e1467081acb5f8",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.PitcherWarCalibration.cs",
+      "uploadedSha256": "9df12aa8b7359e7cbc335f13c8bf327271086b5f3f599b091cca62a6da71f4b6",
+      "packagedSha256": "9df12aa8b7359e7cbc335f13c8bf327271086b5f3f599b091cca62a6da71f4b6",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Query.cs",
+      "uploadedSha256": "34c7017120599beab425e2b3685774f9a36461b349ef4025e9d06f27518fb5cd",
+      "packagedSha256": "34c7017120599beab425e2b3685774f9a36461b349ef4025e9d06f27518fb5cd",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Raw.cs",
+      "uploadedSha256": "bf5c1a563b9c1ebf254197733da3df0690b709941a6415e9f51eb9cf50531126",
+      "packagedSha256": "bf5c1a563b9c1ebf254197733da3df0690b709941a6415e9f51eb9cf50531126",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.RecordRoom.cs",
+      "uploadedSha256": "2424f401ad21c0a44d391510af217d7cb83e6de7a96f417a9a50221e690cec51",
+      "packagedSha256": "2424f401ad21c0a44d391510af217d7cb83e6de7a96f417a9a50221e690cec51",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Rehydrate.cs",
+      "uploadedSha256": "8082900534c235e19d980494d7d38b6f60cd8b9cec4d174bbabae8878f4e439d",
+      "packagedSha256": "8082900534c235e19d980494d7d38b6f60cd8b9cec4d174bbabae8878f4e439d",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.SituationAnalytics.cs",
+      "uploadedSha256": "bf644288f62b808c7800f5cd2fbb073ca7be86e6cdcacce7a6c3605450efc640",
+      "packagedSha256": "bf644288f62b808c7800f5cd2fbb073ca7be86e6cdcacce7a6c3605450efc640",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.SituationFilters.cs",
+      "uploadedSha256": "0b9c9eb9bf1d0e91af6180da772f7de68a93f20eb5c5036d409ee155d1d03005",
+      "packagedSha256": "0b9c9eb9bf1d0e91af6180da772f7de68a93f20eb5c5036d409ee155d1d03005",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.cs",
+      "uploadedSha256": "b7b18de6dba530a5d2c86e14afd71454a2b5385815c9fd1fd5a6705795553257",
+      "packagedSha256": "1d0a154c6771862fc5f8f41d5cb52cb93cd6079d9e2bcc08dc2e1631b472e96b",
+      "modified": true
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabasePitcherRecordRoomService.cs",
+      "uploadedSha256": "fbd96dc2ae8b06e686912a52697514a948eb6c223dc695aee710ca3aba33656b",
+      "packagedSha256": "fbd96dc2ae8b06e686912a52697514a948eb6c223dc695aee710ca3aba33656b",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabasePlayerPageService.Splits.cs",
+      "uploadedSha256": "6a64e9ffaa34b70b27b999886dd3ac6daf21dc7d6411786d8a02eeac773dde48",
+      "packagedSha256": "6a64e9ffaa34b70b27b999886dd3ac6daf21dc7d6411786d8a02eeac773dde48",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabasePlayerPageService.cs",
+      "uploadedSha256": "a5895857f45039c23b40ad676adaf48a50e1ceef6a2d8de3cdd363322530d079",
+      "packagedSha256": "a5895857f45039c23b40ad676adaf48a50e1ceef6a2d8de3cdd363322530d079",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseTeamPageService.Splits.cs",
+      "uploadedSha256": "609a2b8a4b0c729a54c4293103e267058bf975b18f417ea4f1374e940cc0ff4d",
+      "packagedSha256": "609a2b8a4b0c729a54c4293103e267058bf975b18f417ea4f1374e940cc0ff4d",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseTeamPageService.cs",
+      "uploadedSha256": "950b3a27e1d3b8b16537d7d772dca0be767e81c19e16979190f518316e7827d8",
+      "packagedSha256": "950b3a27e1d3b8b16537d7d772dca0be767e81c19e16979190f518316e7827d8",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/KboPitcherWarMath.cs",
+      "uploadedSha256": "74745a8c3d798146c44df614ec23c60ce47d6ee8c010ef48c0f5c252b56e4eff",
+      "packagedSha256": "74745a8c3d798146c44df614ec23c60ce47d6ee8c010ef48c0f5c252b56e4eff",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj",
+      "uploadedSha256": "8c09c038dd5b361c4c3e6703ce30bfca4e2170491f3f4effc71513d911dca961",
+      "packagedSha256": "8c09c038dd5b361c4c3e6703ce30bfca4e2170491f3f4effc71513d911dca961",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/WarehouseProjectionBuilder.cs",
+      "uploadedSha256": "6e39d864a0c14eccad589da79114f7171e5070b0a94529bcbf2ecf58ec309a46",
+      "packagedSha256": "6e39d864a0c14eccad589da79114f7171e5070b0a94529bcbf2ecf58ec309a46",
+      "modified": false
+    },
+    {
+      "path": "server/src/NaverRelay.Infrastructure.Sqlite/WarehouseRecords.cs",
+      "uploadedSha256": "d41e767932f0ef2a649cbb4122cf72465d27061fac83c104e472ae10c2626f6c",
+      "packagedSha256": "d41e767932f0ef2a649cbb4122cf72465d27061fac83c104e472ae10c2626f6c",
+      "modified": false
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.vs/
+.vscode/
+.idea/
+normalized_output/
+raw_games/
+*.user
+*.suo
+*.tmp
+*.log
+.DS_Store
+publish/
+*.db
+*.db-wal
+*.db-shm
+validation/smoke-output/

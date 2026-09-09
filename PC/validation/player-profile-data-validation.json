@@ -1,0 +1,49 @@
+{
+  "pass": true,
+  "sources": [
+    "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3/SampleData/2026.zip",
+    "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3/SampleData/20260804HHSS02026.json"
+  ],
+  "observationCount": 275,
+  "uniquePlayerCodeCount": 203,
+  "duplicateNameGroupCount": 3,
+  "duplicateNames": {
+    "김태훈": [
+      "55995",
+      "62360"
+    ],
+    "박건우": [
+      "55509",
+      "79215"
+    ],
+    "이승현": [
+      "51454",
+      "60146"
+    ]
+  },
+  "leeSeunghyunChecks": [
+    {
+      "pcode": "51454",
+      "found": true,
+      "nameMatches": true,
+      "birthMatches": true,
+      "teamMatches": true,
+      "roleMatches": true
+    },
+    {
+      "pcode": "60146",
+      "found": true,
+      "nameMatches": true,
+      "birthMatches": true,
+      "teamMatches": true,
+      "roleMatches": true
+    }
+  ],
+  "pitcherFinalLineRows": 72,
+  "pitcherFinalLineRowsWithRequiredFields": 72,
+  "notes": [
+    "동명이인은 이름이 아닌 pcode로 분리해야 한다.",
+    "선수 검색 선택창에는 생년월일·최근 팀·역할을 함께 표시할 수 있다.",
+    "투수 경기별 최종 라인에서 IP/R/ER/BB/HBP/SO를 읽을 수 있다."
+  ]
+}

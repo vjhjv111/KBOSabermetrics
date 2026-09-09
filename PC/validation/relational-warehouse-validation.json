@@ -1,0 +1,18 @@
+{
+  "pass": true,
+  "schemaTableCount": 21,
+  "schemaIndexCount": 58,
+  "insertStatementsChecked": 21,
+  "sqlStatementsCompiled": 63,
+  "interpolatedSqlStatementsSkipped": 25,
+  "sourceJsonColumns": 0,
+  "sample": {
+    "gameCount": 7,
+    "kboRGameCount": 7,
+    "gamesWithFinalPitcherLines": 7,
+    "gamesWithMetricOptions": 7,
+    "issues": []
+  },
+  "failures": [],
+  "note": "SQLite/schema/architecture validation only; dotnet build is still required on Windows."
+}

@@ -1,0 +1,37 @@
+@baseUrl = http://localhost:5080
+
+### Health
+GET {{baseUrl}}/api/health
+Accept: application/json
+
+### Catalog
+GET {{baseUrl}}/api/catalog
+Accept: application/json
+
+### 2026 regular-season games
+GET {{baseUrl}}/api/games?year=2026&competition=정규시즌
+Accept: application/json
+
+### Batter statistics
+GET {{baseUrl}}/api/stats/batters?year=2026&competition=정규시즌
+Accept: application/json
+
+### Pitcher statistics
+GET {{baseUrl}}/api/stats/pitchers?year=2026&competition=정규시즌
+Accept: application/json
+
+### Player search
+GET {{baseUrl}}/api/players/search?q=이승현&limit=20
+Accept: application/json
+
+### Player page
+GET {{baseUrl}}/api/players/51454
+Accept: application/json
+
+### Team catalog
+GET {{baseUrl}}/api/teams
+Accept: application/json
+
+### Team page
+GET {{baseUrl}}/api/teams/SS
+Accept: application/json

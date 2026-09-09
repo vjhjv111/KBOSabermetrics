@@ -1,0 +1,10 @@
+{
+  "projectRoot": "/mnt/data/db_lazy_work",
+  "pass": true,
+  "csharpFileCount": 48,
+  "projectFileCount": 4,
+  "objectInitializerAssignmentCount": 983,
+  "enumReferenceCount": 499,
+  "failures": [],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}

@@ -1,0 +1,10 @@
+{
+  "projectRoot": "/mnt/data/playerdetail_work",
+  "pass": true,
+  "csharpFileCount": 45,
+  "projectFileCount": 4,
+  "objectInitializerAssignmentCount": 777,
+  "enumReferenceCount": 398,
+  "failures": [],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}

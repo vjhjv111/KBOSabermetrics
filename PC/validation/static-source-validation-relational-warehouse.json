@@ -1,0 +1,10 @@
+{
+  "projectRoot": "/mnt/data/sqlite_dw/relational_work",
+  "pass": true,
+  "csharpFileCount": 50,
+  "projectFileCount": 4,
+  "objectInitializerAssignmentCount": 1399,
+  "enumReferenceCount": 382,
+  "failures": [],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}

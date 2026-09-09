@@ -1,0 +1,34 @@
+{
+  "projects": 4,
+  "csharp_files": 62,
+  "schema_tables": 21,
+  "schema_indexes": 58,
+  "insert_shapes": 21,
+  "sql_templates_explained": 63,
+  "sql_templates_not_reconstructed": 25,
+  "sample_source_structure": {
+    "gameCount": 7,
+    "kboRGameCount": 7,
+    "gamesWithFinalPitcherLines": 7,
+    "gamesWithMetricOptions": 7,
+    "issues": []
+  },
+  "baseline_files": 53,
+  "modified_baseline_files": [
+    "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs",
+    "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Analytics.cs",
+    "server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.cs"
+  ],
+  "core_war_formula_files_byte_identical": true,
+  "views_batter": 13,
+  "views_pitcher": 12,
+  "views_constants": 2,
+  "javascript_syntax": "PASS",
+  "dotnet_build": "NOT_RUN: requires .NET 8 SDK and NuGet restore",
+  "actual_http_tests": "NOT_RUN: run verify-web.bat on Windows",
+  "browser_layout": "NOT_RUN: open the actual running app in Chrome/Edge",
+  "actual_user_db": "NOT_RUN: user database not supplied",
+  "static_asset_package": "PASS",
+  "issues": [],
+  "status": "OFFLINE_STRUCTURAL_CHECKS_PASS"
+}

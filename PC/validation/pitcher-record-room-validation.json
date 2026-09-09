@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "pitcherTabs": [
+    "기본",
+    "심화",
+    "가치",
+    "확장",
+    "WP",
+    "주자",
+    "선발",
+    "구원",
+    "타구",
+    "타구방향",
+    "투구",
+    "구종"
+  ],
+  "schemaIndexCount": 58,
+  "apiRoute": "/api/record-room/pitchers/{view}",
+  "failures": [],
+  "note": "Static/schema validation only; run dotnet build on Windows for final compiler validation."
+}

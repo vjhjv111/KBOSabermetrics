@@ -1,0 +1,11 @@
+{
+  "pass": true,
+  "teamSqlStatementsCompiled": 10,
+  "regularSeasonOnly": true,
+  "apiEndpoints": [
+    "/api/teams",
+    "/api/teams/{teamCode}"
+  ],
+  "failures": [],
+  "note": "Static/schema validation only; run dotnet build on Windows."
+}

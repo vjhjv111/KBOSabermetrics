@@ -1,0 +1,15 @@
+﻿wwwroot 시작 오류 수정본입니다. 새 폴더에서 verify-web.bat을 실행하세요.
+DB 재생성/원본 재파싱 불필요. 자세한 내용: docs/WWWROOT_FIX.md
+
+Naver Sabermetrics Web / uploaded WAR v3
+
+1. Install/use .NET 8 SDK (not runtime only).
+2. Run verify-web.bat. It builds, imports a NEW sample DB, then tests actual HTTP endpoints.
+3. Only if it passes: run start-sample.bat for UI check.
+4. To use your DB: run scripts/start-local.ps1 -DatabasePath 'FULL_PATH_TO_DESKTOP_DB'
+   A NEW readonly web snapshot is created. Never overwrite the original DB.
+5. Run verify-real-db.bat to compare the existing V3 engine and web adapter on the snapshot.
+
+Read README.md (Korean) for detailed instructions and limitations.
+This package has passed offline structural checks, NOT a C# build in the authoring environment.
+See docs/OFFLINE_VALIDATION.json. Successful integrated tests must be run on your machine.

@@ -1,0 +1,10 @@
+{
+  "projectRoot": "/mnt/data/NaverSabermetrics_V2_work",
+  "pass": true,
+  "csharpFileCount": 52,
+  "projectFileCount": 6,
+  "objectInitializerAssignmentCount": 1399,
+  "enumReferenceCount": 382,
+  "failures": [],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}

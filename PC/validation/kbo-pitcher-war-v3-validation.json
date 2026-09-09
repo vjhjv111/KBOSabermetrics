@@ -1,0 +1,9 @@
+{
+  "pass": true,
+  "targetPitcherWarFor720Games": 127.55520000000001,
+  "sampleWarIp": 0.002511975308641976,
+  "samplePostCorrectionWar": 127.55520000000001,
+  "sampleBlendWar": 4.3,
+  "failures": [],
+  "note": "Static/formula validation only; Windows dotnet build remains the final compiler check."
+}

@@ -1,0 +1,24 @@
+Naver Sabermetrics V2 시작 순서
+
+1. Visual Studio 2022에서 NaverSabermetrics.V2.sln을 엽니다.
+2. NaverRelay.Gui를 시작 프로젝트로 설정합니다.
+3. NuGet 패키지를 복원합니다.
+4. 솔루션을 다시 빌드합니다.
+5. F5로 실행합니다.
+6. 먼저 '7경기 샘플'을 적재해 화면과 DB 저장을 확인합니다.
+7. 문제가 없으면 5년치 JSON/ZIP/폴더를 최초 한 번 가져옵니다.
+
+V2 DB 경로
+%LOCALAPPDATA%\NaverSabermetrics\Data\sabermetrics_v2.db
+
+중요
+- 기존 sabermetrics.db와 sabermetrics_warehouse.db는 V2에서 읽지 않습니다.
+- 원본 JSON은 신규·변경 경기를 적재할 때만 사용합니다.
+- 이후 실행·탭 전환·선수 페이지·기간 통계는 관계형 SQLite DB만 조회합니다.
+- DB를 다시 만들려면 프로그램을 종료하고 reset-v2-db.bat을 실행합니다.
+- 자동 확인은 verify-v2.bat을 실행합니다.
+
+자세한 설명
+README.md
+docs\V2_ARCHITECTURE.md
+docs\V2_BUILD_AND_SMOKE_TEST.md

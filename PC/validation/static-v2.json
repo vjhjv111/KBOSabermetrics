@@ -1,0 +1,12 @@
+{
+  "projectRoot": "/mnt/data/NaverSabermetrics_V2_work",
+  "pass": false,
+  "csharpFileCount": 51,
+  "projectFileCount": 6,
+  "objectInitializerAssignmentCount": 1399,
+  "enumReferenceCount": 382,
+  "failures": [
+    "/mnt/data/NaverSabermetrics_V2_work/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.cs: required parser invariant is missing: 'sabermetrics_warehouse.db'"
+  ],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}

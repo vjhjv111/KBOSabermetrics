@@ -1,0 +1,9 @@
+**/bin
+**/obj
+artifacts
+data
+state
+App_Data
+local-settings.json
+**/appsettings.Local.json
+*.db

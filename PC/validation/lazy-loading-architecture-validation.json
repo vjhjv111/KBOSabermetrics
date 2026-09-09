@@ -1,0 +1,75 @@
+{
+  "projectRoot": "/mnt/data/NaverSabermetrics_V2_work",
+  "pass": false,
+  "checks": [
+    {
+      "name": "no-global-all-games-list",
+      "pass": true,
+      "detail": "MainForm does not retain the whole database as List<NormalizedGame>."
+    },
+    {
+      "name": "no-eager-load-api",
+      "pass": true,
+      "detail": "No eager LoadAllGamesAsync path remains in the GUI project."
+    },
+    {
+      "name": "startup-metadata-only",
+      "pass": true,
+      "detail": "Startup uses catalog/header metadata and bounded read-index migration."
+    },
+    {
+      "name": "bounded-index-backfill",
+      "pass": false,
+      "detail": "Legacy DB backfill processes at most eight normalized JSON rows per batch and is resumable."
+    },
+    {
+      "name": "sqlite-read-indexes",
+      "pass": true,
+      "detail": "Players, GamePlayers, and ComputedCache read-side tables exist."
+    },
+    {
+      "name": "streaming-analytics",
+      "pass": false,
+      "detail": "Filtered analytics stream one game at a time and cache only the aggregate snapshot."
+    },
+    {
+      "name": "large-import-does-not-retain-games",
+      "pass": true,
+      "detail": "Only small inputs are retained for validation; large imports persist each game immediately."
+    },
+    {
+      "name": "raw-data-pagination",
+      "pass": false,
+      "detail": "Raw tabs are limited to 5,000 displayed rows per page."
+    },
+    {
+      "name": "db-player-search",
+      "pass": false,
+      "detail": "Player search uses the SQLite index and loads only the selected player's games."
+    },
+    {
+      "name": "exact-kbo-r-reference",
+      "pass": true,
+      "detail": "Regular-season filtering and league-reference source use exact roundCode=kbo_r."
+    },
+    {
+      "name": "view-cancellation",
+      "pass": true,
+      "detail": "Changing filters/tabs or pressing Escape can cancel the current database view load."
+    },
+    {
+      "name": "latest-year-default",
+      "pass": true,
+      "detail": "The initial view defaults to the latest season rather than all years."
+    },
+    {
+      "name": "no-eager-save-from-global-list",
+      "pass": true,
+      "detail": "No legacy global-list save/restore pattern remains."
+    }
+  ],
+  "notes": [
+    "This is a static architecture check, not a C# compiler or runtime memory benchmark.",
+    "Run the Visual Studio build and a representative multi-year DB smoke test on Windows."
+  ]
+}

@@ -1,0 +1,111 @@
+using System.Text.Json;
+using Microsoft.Data.Sqlite;
+using NaverRelay.Application.Queries;
+
+namespace NaverRelay.Infrastructure.Sqlite;
+
+public sealed partial class DatabaseCacheService
+{
+    // Only small calculated results, never NormalizedGame or source documents.
+    // The readonly snapshot must not be replaced while the web process is running.
+    private readonly object _webCacheLock = new();
+    private readonly Dictionary<string, (byte[] Data, DateTime At)> _webComputed = new(StringComparer.Ordinal);
+    private long _webComputedBytes;
+
+    private bool TryReadWebComputed<T>(string key, out T? value)
+    {
+        byte[]? bytes = null;
+        lock (_webCacheLock)
+            if (_webComputed.TryGetValue(key, out var item)) bytes = item.Data;
+        value = bytes is null ? default : JsonSerializer.Deserialize<T>(bytes, JsonOptions);
+        return bytes is not null;
+    }
+    private void SaveWebComputed<T>(string key, T value)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
+        if (bytes.Length > 16 * 1024 * 1024) return;
+        lock (_webCacheLock)
+        {
+            if (_webComputed.Remove(key, out var old)) _webComputedBytes -= old.Data.Length;
+            while (_webComputed.Count > 0 && (_webComputed.Count >= 64 || _webComputedBytes + bytes.Length > 64 * 1024 * 1024))
+            {
+                var oldest = _webComputed.MinBy(x => x.Value.At).Key;
+                _webComputedBytes -= _webComputed[oldest].Data.Length;
+                _webComputed.Remove(oldest);
+            }
+            _webComputed[key] = (bytes, DateTime.UtcNow);
+            _webComputedBytes += bytes.Length;
+        }
+    }
+
+    public Task<string> GetWebSourceVersionAsync(CancellationToken token = default) => GetSourceVersionAsync(token);
+
+    public async Task ValidateWebSchemaAsync(CancellationToken token = default)
+    {
+        if (!File.Exists(DatabasePath)) throw new FileNotFoundException("조회 DB가 없습니다.", DatabasePath);
+        // Expected DDL is evaluated only in an in-memory connection, never in the user's DB.
+        await using var expected = new SqliteConnection("Data Source=:memory:");
+        await expected.OpenAsync(token).ConfigureAwait(false);
+        await ExecuteAsync(expected, SchemaSql, token).ConfigureAwait(false);
+        await using var actual = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = DatabasePath, Mode = SqliteOpenMode.ReadOnly, Pooling = false, DefaultTimeout = 3
+        }.ToString());
+        await actual.OpenAsync(token).ConfigureAwait(false);
+        var tables = new List<string>();
+        await using (var cmd = expected.CreateCommand())
+        {
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+            await using var r = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false);
+            while (await r.ReadAsync(token).ConfigureAwait(false)) tables.Add(r.GetString(0));
+        }
+        foreach (var table in tables)
+        {
+            var wanted = Columns(expected, table);
+            var found = Columns(actual, table);
+            var missing = wanted.Except(found, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (missing.Length > 0) throw new InvalidDataException($"V3 스키마와 다릅니다: {table} 누락 열 {string.Join(", ", missing)}. 원본은 수정하지 않았습니다.");
+        }
+        static List<string> Columns(SqliteConnection db, string table)
+        {
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "PRAGMA table_info(\"" + table.Replace("\"", "\"\"") + "\")";
+            using var r = cmd.ExecuteReader(); var names = new List<string>();
+            while (r.Read()) names.Add(r.GetString(1));
+            return names;
+        }
+    }
+
+    public async Task<(DateTime? Min, DateTime? Max)> GetWebDateBoundsAsync(GameQuery query, CancellationToken token)
+    {
+        var filter = BuildFilteredGamesCte(query);
+        await using var con = await OpenAsync(token).ConfigureAwait(false);
+        await using var cmd = con.CreateCommand();
+        cmd.CommandText = $"{filter.Cte} SELECT MIN(GameDate),MAX(GameDate) FROM FilteredGames";
+        AddParameters(cmd, filter.Parameters);
+        await using var r = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false);
+        if (!await r.ReadAsync(token).ConfigureAwait(false)) return (null, null);
+        return (ParseDate(r.IsDBNull(0) ? null : r.GetString(0)), ParseDate(r.IsDBNull(1) ? null : r.GetString(1)));
+    }
+
+    internal async Task<WarehouseAnalyticsData> GetWebRoleAggregateDataAsync(GameQuery query, bool pitcher, CancellationToken token)
+    {
+        var filter = BuildFilteredGamesCte(query);
+        await using var con = await OpenAsync(token).ConfigureAwait(false);
+        var batters = new List<BatterAggregateRecord>();
+        var pitchers = new List<PitcherAggregateRecord>();
+        if (pitcher)
+        {
+            pitchers = query.HasSituationFilters
+                ? await ReadSituationPitcherAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
+                : await ReadPitcherAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
+            if (!query.HasSituationFilters)
+                await AttachPitcherStadiumOutsAsync(con, filter, query.TeamCode, query.Grouping, pitchers, token).ConfigureAwait(false);
+        }
+        else batters = query.HasSituationFilters
+            ? await ReadSituationBatterAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
+            : await ReadBatterAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
+        var teamGames = await ReadTeamGamesAsync(con, filter, token).ConfigureAwait(false);
+        return new WarehouseAnalyticsData { Batters=batters, Pitchers=pitchers, TeamGames=teamGames };
+    }
+}

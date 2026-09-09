@@ -1,0 +1,344 @@
+
+=== validate_v2_architecture.py ===
+{
+  "projectRoot": "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3",
+  "pass": true,
+  "csharpFileCount": 73,
+  "projectFileCount": 6,
+  "checks": [
+    {
+      "name": "project-set",
+      "pass": true,
+      "detail": "expected=['NaverRelay.Api', 'NaverRelay.Application', 'NaverRelay.Cli', 'NaverRelay.Gui', 'NaverRelay.Infrastructure.Sqlite', 'NaverRelay.Parser'], actual=['NaverRelay.Api', 'NaverRelay.Application', 'NaverRelay.Cli', 'NaverRelay.Gui', 'NaverRelay.Infrastructure.Sqlite', 'NaverRelay.Parser']"
+    },
+    {
+      "name": "xml:NaverRelay.Application",
+      "pass": true,
+      "detail": "src/NaverRelay.Application/NaverRelay.Application.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Api",
+      "pass": true,
+      "detail": "src/NaverRelay.Api/NaverRelay.Api.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Parser",
+      "pass": true,
+      "detail": "src/NaverRelay.Parser/NaverRelay.Parser.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Gui",
+      "pass": true,
+      "detail": "src/NaverRelay.Gui/NaverRelay.Gui.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Cli",
+      "pass": true,
+      "detail": "src/NaverRelay.Cli/NaverRelay.Cli.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Infrastructure.Sqlite",
+      "pass": true,
+      "detail": "src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj"
+    },
+    {
+      "name": "solution-project-paths",
+      "pass": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "desktop-references-infrastructure",
+      "pass": true,
+      "detail": "Desktop must reference relational SQLite infrastructure"
+    },
+    {
+      "name": "desktop-no-sqlite-package",
+      "pass": true,
+      "detail": "SQLite package belongs only to Infrastructure"
+    },
+    {
+      "name": "api-no-winforms-reference",
+      "pass": true,
+      "detail": "Web API must not depend on WinForms"
+    },
+    {
+      "name": "api-references-application",
+      "pass": true,
+      "detail": "API uses shared application contracts"
+    },
+    {
+      "name": "api-references-infrastructure",
+      "pass": true,
+      "detail": "API uses same relational DB implementation"
+    },
+    {
+      "name": "application-no-gui-dependency",
+      "pass": true,
+      "detail": "Application contracts must be UI independent"
+    },
+    {
+      "name": "infrastructure-no-gui-dependency",
+      "pass": true,
+      "detail": "SQLite infrastructure must be usable by Desktop and API"
+    },
+    {
+      "name": "v2-database-name",
+      "pass": true,
+      "detail": "V2 must use a DB isolated from all legacy files"
+    },
+    {
+      "name": "exact-regular-season",
+      "pass": true,
+      "detail": "Regular-season and league constants use exact kbo_r"
+    },
+    {
+      "name": "application-run-qualified",
+      "pass": true,
+      "detail": "Avoid Application namespace collision"
+    },
+    {
+      "name": "no-invalid-escape-shortcut",
+      "pass": true,
+      "detail": "Escape is handled through ProcessCmdKey, not ToolStrip shortcut"
+    },
+    {
+      "name": "no-designer-splitter-distance",
+      "pass": true,
+      "detail": "Splitter distance is applied after layout"
+    },
+    {
+      "name": "schema-version-3",
+      "pass": true,
+      "detail": "Current V2 relational schema"
+    },
+    {
+      "name": "custom-db-path-constructor",
+      "pass": true,
+      "detail": "Desktop/API can point to the same DB"
+    },
+    {
+      "name": "nullable-fipr9-explicit",
+      "pass": true,
+      "detail": "Prevent CS0173 from double/null conditional"
+    },
+    {
+      "name": "analytics-interface",
+      "pass": true,
+      "detail": "Analytics implementation is exposed through an application contract"
+    },
+    {
+      "name": "api-route:/api/health",
+      "pass": true,
+      "detail": "route /api/health"
+    },
+    {
+      "name": "api-route:/api/catalog",
+      "pass": true,
+      "detail": "route /api/catalog"
+    },
+    {
+      "name": "api-route:/api/games",
+      "pass": true,
+      "detail": "route /api/games"
+    },
+    {
+      "name": "api-route:/api/stats/batters",
+      "pass": true,
+      "detail": "route /api/stats/batters"
+    },
+    {
+      "name": "api-route:/api/stats/pitchers",
+      "pass": true,
+      "detail": "route /api/stats/pitchers"
+    },
+    {
+      "name": "api-route:/api/players/search",
+      "pass": true,
+      "detail": "route /api/players/search"
+    },
+    {
+      "name": "api-route:/api/players/{pcode}",
+      "pass": true,
+      "detail": "route /api/players/{pcode}"
+    },
+    {
+      "name": "balanced-csharp-delimiters",
+      "pass": true,
+      "detail": "failures=[]"
+    },
+    {
+      "name": "no-var-value-null-conditional",
+      "pass": true,
+      "detail": "hazards=[]"
+    },
+    {
+      "name": "custom-type-namespace-resolution",
+      "pass": true,
+      "detail": "issues=[]"
+    },
+    {
+      "name": "no-cross-project-internal-types",
+      "pass": true,
+      "detail": "issues=[]"
+    },
+    {
+      "name": "no-json-blob-columns",
+      "pass": true,
+      "detail": "forbidden schema columns=[]"
+    },
+    {
+      "name": "schema-sql-compiles",
+      "pass": true,
+      "detail": "tables=22, indexes=78"
+    },
+    {
+      "name": "core-relational-tables",
+      "pass": true,
+      "detail": "tables=['Metadata', 'ParsedSources', 'Games', 'GameSummaries', 'RelayGroups', 'NormalizedEvents', 'PlateAppearances', 'Pitches', 'RunnerEvents', 'PlayerChanges', 'AdministrativeEvents', 'BattingGameLines', 'PitchingGameLines', 'Diagnostics', 'sqlite_sequence', 'GamePlayers', 'Players', 'BatterGameStats', 'PitcherGameStats', 'ComputedCache', 'LeagueConstants', 'ParkFactors']"
+    }
+  ],
+  "failures": [],
+  "note": "Static architecture/schema validation. A Windows dotnet build is still the final compiler check."
+}
+
+=== static_source_check.py ===
+{
+  "projectRoot": "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3",
+  "pass": true,
+  "csharpFileCount": 73,
+  "projectFileCount": 6,
+  "objectInitializerAssignmentCount": 2478,
+  "enumReferenceCount": 492,
+  "failures": [],
+  "note": "Structural source check only; run dotnet build for compiler validation."
+}
+
+=== validate_relational_warehouse.py ===
+{
+  "pass": true,
+  "schemaTableCount": 21,
+  "schemaIndexCount": 58,
+  "insertStatementsChecked": 21,
+  "sqlStatementsCompiled": 63,
+  "interpolatedSqlStatementsSkipped": 25,
+  "sourceJsonColumns": 0,
+  "sample": {
+    "gameCount": 7,
+    "kboRGameCount": 7,
+    "gamesWithFinalPitcherLines": 7,
+    "gamesWithMetricOptions": 7,
+    "issues": []
+  },
+  "failures": [],
+  "note": "SQLite/schema/architecture validation only; dotnet build is still required on Windows."
+}
+
+=== validate_player_profile_data.py ===
+{
+  "pass": true,
+  "sources": [
+    "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3/SampleData/2026.zip",
+    "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3/SampleData/20260804HHSS02026.json"
+  ],
+  "observationCount": 275,
+  "uniquePlayerCodeCount": 203,
+  "duplicateNameGroupCount": 3,
+  "duplicateNames": {
+    "김태훈": [
+      "55995",
+      "62360"
+    ],
+    "박건우": [
+      "55509",
+      "79215"
+    ],
+    "이승현": [
+      "51454",
+      "60146"
+    ]
+  },
+  "leeSeunghyunChecks": [
+    {
+      "pcode": "51454",
+      "found": true,
+      "nameMatches": true,
+      "birthMatches": true,
+      "teamMatches": true,
+      "roleMatches": true
+    },
+    {
+      "pcode": "60146",
+      "found": true,
+      "nameMatches": true,
+      "birthMatches": true,
+      "teamMatches": true,
+      "roleMatches": true
+    }
+  ],
+  "pitcherFinalLineRows": 72,
+  "pitcherFinalLineRowsWithRequiredFields": 72,
+  "notes": [
+    "동명이인은 이름이 아닌 pcode로 분리해야 한다.",
+    "선수 검색 선택창에는 생년월일·최근 팀·역할을 함께 표시할 수 있다.",
+    "투수 경기별 최종 라인에서 IP/R/ER/BB/HBP/SO를 읽을 수 있다."
+  ]
+}
+
+=== validate_team_pages.py ===
+{
+  "pass": true,
+  "teamSqlStatementsCompiled": 10,
+  "regularSeasonOnly": true,
+  "apiEndpoints": [
+    "/api/teams",
+    "/api/teams/{teamCode}"
+  ],
+  "failures": [],
+  "note": "Static/schema validation only; run dotnet build on Windows."
+}
+
+=== validate_record_room_ui.py ===
+{
+  "pass": true,
+  "recordRoomForm": "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3/src/NaverRelay.Gui/RecordRoomMainForm.cs",
+  "schemaTableCount": 22,
+  "schemaIndexCount": 78,
+  "failures": [],
+  "note": "Static UI/schema validation; run dotnet build on Windows for final compiler validation."
+}
+
+=== validate_pitcher_record_room.py ===
+{
+  "pass": true,
+  "pitcherTabs": [
+    "기본",
+    "심화",
+    "가치",
+    "확장",
+    "WP",
+    "주자",
+    "선발",
+    "구원",
+    "타구",
+    "타구방향",
+    "투구",
+    "구종"
+  ],
+  "schemaIndexCount": 58,
+  "apiRoute": "/api/record-room/pitchers/{view}",
+  "failures": [],
+  "note": "Static/schema validation only; run dotnet build on Windows for final compiler validation."
+}
+
+=== validate_kbo_pitcher_war_v3.py ===
+{
+  "pass": true,
+  "targetPitcherWarFor720Games": 127.55520000000001,
+  "sampleWarIp": 0.002511975308641976,
+  "samplePostCorrectionWar": 127.55520000000001,
+  "sampleBlendWar": 4.3,
+  "failures": [],
+  "note": "Static/formula validation only; Windows dotnet build remains the final compiler check."
+}
+
+V2 static validation: PASS

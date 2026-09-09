@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+    <AssemblyName>NaverSabermetrics.Desktop</AssemblyName>
+    <RootNamespace>NaverRelay.Gui</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NaverRelay.Parser\NaverRelay.Parser.csproj" />
+    <ProjectReference Include="..\NaverRelay.Application\NaverRelay.Application.csproj" />
+    <ProjectReference Include="..\NaverRelay.Infrastructure.Sqlite\NaverRelay.Infrastructure.Sqlite.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\SampleData\2026.zip"
+          Link="SampleData\2026.zip"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

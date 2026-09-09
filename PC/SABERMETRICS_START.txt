@@ -1,0 +1,19 @@
+세이버매트릭스 화면 사용 순서
+
+1. NaverRelay.Gui를 실행합니다.
+2. JSON/ZIP/폴더를 최초 한 번 적재합니다.
+3. 연도·경기구분·팀·포지션·규정·기간·상대·홈원정·요일·구장 필터를 선택합니다.
+4. 클래식, 세이버, 선구·컨택, Value·WAR, 리그 상수, 파크 팩터 탭을 확인합니다.
+5. 상단 선수 검색에서 이름 또는 pcode를 검색해 개인 페이지를 엽니다.
+
+정규시즌 기준
+roundCode == "kbo_r"
+
+조회 방식
+- 시즌/기간 통계: BatterGameStats, PitcherGameStats SQL 합산
+- 선수 검색: Players 조회
+- 개인 페이지: 해당 pcode의 관계 행만 조회
+- 상세 로그: PlateAppearances, Pitches 등 페이지 조회
+- 원본 JSON 재조회: 없음
+
+공식과 한계는 docs 폴더를 확인하십시오.
