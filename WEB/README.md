@@ -1,4 +1,4 @@
-# Naver Sabermetrics Web — 업로드된 WAR v3 기준
+# KBO Sabermetrics Web — WAR v3 기준
 
 ## wwwroot 시작 오류 수정 (2026-09-10)
 
