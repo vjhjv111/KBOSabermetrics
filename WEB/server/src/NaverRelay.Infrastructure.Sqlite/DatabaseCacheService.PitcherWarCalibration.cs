@@ -289,6 +289,11 @@ public sealed partial class DatabaseCacheService
             line.EarnedRuns += ReadInt32(reader, 12);
             line.EntryAbsoluteWpaSum += ReadDouble(reader, 13);
             line.EntryWpaCount += ReadInt32(reader, 14);
+            if (!string.IsNullOrWhiteSpace(stadium))
+            {
+                line.StadiumOuts.TryGetValue(stadium, out var existingOuts);
+                line.StadiumOuts[stadium] = existingOuts + outs;
+            }
             var parkFactor = parkByStadium.TryGetValue(stadium, out var factor) ? factor : 100.0;
             line.WeightedParkFactorOuts += outs * parkFactor;
         }
@@ -331,6 +336,7 @@ public sealed partial class DatabaseCacheService
         public double EntryAbsoluteWpaSum { get; set; }
         public int EntryWpaCount { get; set; }
         public double WeightedParkFactorOuts { get; set; }
+        public Dictionary<string, int> StadiumOuts { get; } = new(StringComparer.OrdinalIgnoreCase);
         public double ParkFactor { get; set; } = 100.0;
         public double ParkAdjustedFipR9 { get; set; }
         public double ParkAdjustedRa9 { get; set; }
