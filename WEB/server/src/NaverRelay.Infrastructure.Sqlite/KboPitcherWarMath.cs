@@ -49,9 +49,14 @@ internal static class KboPitcherWarMath
         return runRate / divisor;
     }
 
+    public static double ComputeTotalReplacementWar(
+        int leagueGameCount,
+        double replacementWinningPercentage = DefaultReplacementWinningPercentage) =>
+        Math.Max(0, leagueGameCount) * 2.0 * (0.500 - replacementWinningPercentage);
+
     public static double ComputeTargetPitcherWar(
         int leagueGameCount,
         double replacementWinningPercentage = DefaultReplacementWinningPercentage,
         double pitcherShare = DefaultPitcherWarShare) =>
-        Math.Max(0, leagueGameCount) * 2.0 * (0.500 - replacementWinningPercentage) * pitcherShare;
+        ComputeTotalReplacementWar(leagueGameCount, replacementWinningPercentage) * pitcherShare;
 }
