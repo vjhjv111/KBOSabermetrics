@@ -7,7 +7,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// JSON 또는 NormalizedGame 역직렬화 없이 BatterGameStats/PitcherGameStats를 SQL로 합산해
 /// 화면용 통계를 만듭니다. 계산 결과는 DataVersion 기반 ComputedCache에 저장됩니다.
 /// </summary>
-public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
+public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
     private const string AnalyticsCacheVersion = "relational-analytics-kbo-pitcher-war-v4";
     private const double Wbb = 0.69;
