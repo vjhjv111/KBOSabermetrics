@@ -119,7 +119,8 @@ public sealed partial class DatabaseCacheService
         reference.Constants = BuildLeagueConstantRows(reference);
 
         progress?.Report(new DatabaseLoadProgress(5, 5, "리그 상수와 파크 팩터 저장 중"));
-        await SaveLeagueReferenceTablesAsync(connection, reference, cancellationToken).ConfigureAwait(false);
+        if (!WebReadOnly)
+            await SaveLeagueReferenceTablesAsync(connection, reference, cancellationToken).ConfigureAwait(false);
         await SaveComputedAsync(cacheKey, reference, cancellationToken).ConfigureAwait(false);
         return reference;
     }
