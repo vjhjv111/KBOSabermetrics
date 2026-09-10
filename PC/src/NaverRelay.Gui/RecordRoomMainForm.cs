@@ -29,6 +29,7 @@ internal sealed class RecordRoomMainForm : Form
 
     private DatabaseCatalog? _catalog;
     private LeagueReference? _league;
+    private PitcherWarDiagnosticBundle? _warDiagnostics;
     private AnalyticsSnapshot? _snapshot;
     private string? _snapshotKey;
     private CancellationTokenSource? _loadCts;
@@ -48,6 +49,17 @@ internal sealed class RecordRoomMainForm : Form
     private readonly FlowLayoutPanel _mainFilters = new();
     private readonly FlowLayoutPanel _advancedFilters = new();
     private readonly DataGridView _grid = CreateGrid();
+    private readonly Panel _leagueOverview = new() { Dock = DockStyle.Fill, Visible = false, BackColor = Color.White, Padding = new Padding(4) };
+    private readonly TableLayoutPanel _gridLayout = new()
+    {
+        Dock = DockStyle.Fill,
+        ColumnCount = 1,
+        RowCount = 2,
+        BackColor = Surface,
+        Padding = new Padding(10, 8, 10, 6),
+    };
+    private readonly Label _leagueOverviewTitle = new() { AutoSize = false, Dock = DockStyle.Left, Width = 100, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("맑은 고딕", 10F, FontStyle.Bold) };
+    private readonly FlowLayoutPanel _leagueOverviewMetrics = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = true, Padding = new Padding(4, 4, 4, 4) };
     private readonly Label _roomTitle = new() { AutoSize = true, Font = new Font("맑은 고딕", 18F, FontStyle.Bold) };
     private readonly Label _roomDescription = new() { AutoSize = true, ForeColor = Muted, Margin = new Padding(8, 7, 0, 0) };
     private readonly Label _status = new() { AutoSize = false, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Muted };
@@ -345,14 +357,30 @@ internal sealed class RecordRoomMainForm : Form
 
     private Control BuildGridPanel()
     {
-        var panel = new Panel
+        _gridLayout.RowStyles.Clear();
+        _gridLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
+        _gridLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+        _leagueOverview.Controls.Clear();
+        _leagueOverview.Controls.Add(_leagueOverviewMetrics);
+        _leagueOverview.Controls.Add(_leagueOverviewTitle);
+
+        _gridLayout.Controls.Clear();
+        _gridLayout.Controls.Add(_leagueOverview, 0, 0);
+        _gridLayout.Controls.Add(_grid, 0, 1);
+        return _gridLayout;
+    }
+
+    private void SetLeagueOverviewVisible(bool visible)
+    {
+        _leagueOverview.Visible = visible;
+        if (_gridLayout.RowStyles.Count >= 2)
         {
-            Dock = DockStyle.Fill,
-            BackColor = Surface,
-            Padding = new Padding(10, 8, 10, 6),
-        };
-        panel.Controls.Add(_grid);
-        return panel;
+            _gridLayout.RowStyles[0].SizeType = SizeType.Absolute;
+            _gridLayout.RowStyles[0].Height = visible ? 66F : 0F;
+            _gridLayout.RowStyles[1].SizeType = SizeType.Percent;
+            _gridLayout.RowStyles[1].Height = 100F;
+        }
     }
 
     private Control BuildStatusBar()
@@ -441,6 +469,7 @@ internal sealed class RecordRoomMainForm : Form
         };
         _grid.Sorted += (_, _) =>
         {
+            GridFilterInfoDecorator.UpdateHeader(_grid);
             if (_grid.Columns.Contains(GridFilterInfoDecorator.ColumnName))
                 _grid.InvalidateColumn(_grid.Columns[GridFilterInfoDecorator.ColumnName].Index);
         };
@@ -653,7 +682,7 @@ internal sealed class RecordRoomMainForm : Form
         _subNavigation.Controls.Clear();
         _subButtons.Clear();
         var labels = _section == RecordRoomSection.Constants
-            ? new[] { "리그 상수", "파크 팩터" }
+            ? new[] { "리그 상수", "파크 팩터", "투수 WAR 진단", "대체후보" }
             : _role == RecordRoomRole.Batter
                 ? new[] { "기본", "심화", "가치", "확장", "클러치", "파워", "팀배팅", "도루", "주루", "타구", "타구방향", "투구", "구종" }
                 : new[] { "기본", "심화", "가치", "확장", "WP", "주자", "선발", "구원", "타구", "타구방향", "투구", "구종" };
@@ -756,11 +785,28 @@ internal sealed class RecordRoomMainForm : Form
         {
             if (_section == RecordRoomSection.Constants)
             {
+                SetLeagueOverviewVisible(false);
                 var league = await GetLeagueAsync(token);
                 if (_subView == "파크 팩터")
+                {
                     BindRows(league.ParkFactors, playerGrid: false, filterDescription: string.Empty);
+                }
+                else if (_subView == "투수 WAR 진단")
+                {
+                    var diagnostics = await GetWarDiagnosticsAsync(token);
+                    BindRows(diagnostics.Seasons, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "연도별 KBO 투수 WAR 진단 · 현재 WAR 공식은 변경하지 않은 관찰용 값입니다.";
+                }
+                else if (_subView == "대체후보")
+                {
+                    var diagnostics = await GetWarDiagnosticsAsync(token);
+                    BindRows(diagnostics.Candidates, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"연도별 SP/RP 대체후보 전체 {diagnostics.Candidates.Count:N0}건 · CSV는 화면 상태와 무관하게 전체 후보를 저장합니다.";
+                }
                 else
+                {
                     BindRows(league.Constants, playerGrid: false, filterDescription: string.Empty);
+                }
                 return;
             }
 
@@ -768,6 +814,7 @@ internal sealed class RecordRoomMainForm : Form
             var leagueReference = await GetLeagueAsync(token);
             var snapshot = await GetSnapshotAsync(query, leagueReference, force, token);
             var filterDescription = BuildFilterDescription();
+            UpdateLeagueOverview(snapshot, query);
 
             if (_role == RecordRoomRole.Batter)
             {
@@ -793,6 +840,37 @@ internal sealed class RecordRoomMainForm : Form
         {
             SetBusy(false);
         }
+    }
+
+    private void UpdateLeagueOverview(AnalyticsSnapshot snapshot, GameQuery query)
+    {
+        if (_section != RecordRoomSection.Team)
+        {
+            SetLeagueOverviewVisible(false);
+            return;
+        }
+
+        var fullLeague = string.IsNullOrWhiteSpace(query.TeamCode);
+        var overview = _role == RecordRoomRole.Pitcher
+            ? LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague)
+            : LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+
+        _leagueOverviewTitle.Text = overview.Title;
+        _leagueOverviewTitle.BackColor = Color.FromArgb(255, 244, 239);
+        _leagueOverviewTitle.ForeColor = Color.FromArgb(185, 70, 34);
+        _leagueOverviewMetrics.SuspendLayout();
+        _leagueOverviewMetrics.Controls.Clear();
+        foreach (var metric in overview.Metrics)
+        {
+            var card = new Panel { Width = 78, Height = 50, Margin = new Padding(0, 0, 1, 0), BackColor = Color.White };
+            var label = new Label { Text = metric.Label, Dock = DockStyle.Top, Height = 20, TextAlign = ContentAlignment.BottomCenter, ForeColor = Muted, Font = new Font("맑은 고딕", 8F) };
+            var value = new Label { Text = metric.Value, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = metric.Emphasis ? Accent : Color.FromArgb(42, 59, 82), Font = new Font("맑은 고딕", 10F, FontStyle.Bold) };
+            card.Controls.Add(value); card.Controls.Add(label);
+            _leagueOverviewMetrics.Controls.Add(card);
+        }
+        _leagueOverviewMetrics.ResumeLayout();
+        SetLeagueOverviewVisible(true);
+        _leagueOverview.BringToFront();
     }
 
     private async Task BindBatterViewAsync(
@@ -969,6 +1047,14 @@ internal sealed class RecordRoomMainForm : Form
         _status.Text = "전체 kbo_r 리그 상수 확인 중...";
         _league = await _database.GetLeagueReferenceAsync(cancellationToken: cancellationToken);
         return _league;
+    }
+
+    private async Task<PitcherWarDiagnosticBundle> GetWarDiagnosticsAsync(CancellationToken cancellationToken)
+    {
+        if (_warDiagnostics is not null) return _warDiagnostics;
+        _status.Text = "연도별 대체선수 후보와 FIP- 분포 계산 중...";
+        _warDiagnostics = await _database.GetPitcherWarDiagnosticsAsync(cancellationToken);
+        return _warDiagnostics;
     }
 
     private async Task<AnalyticsSnapshot> GetSnapshotAsync(
@@ -1180,7 +1266,8 @@ internal sealed class RecordRoomMainForm : Form
         if (!string.IsNullOrWhiteSpace(_playerNameFilter.Text)) parts.Add($"선수 {_playerNameFilter.Text.Trim()}");
         AddStatFilterDescription(parts, _stat1, _stat1Operator, _stat1Value);
         AddStatFilterDescription(parts, _stat2, _stat2Operator, _stat2Value);
-        if (SelectedText(_resultLimit) != "전체") parts.Add($"출력 {SelectedText(_resultLimit)}");
+        if (_section != RecordRoomSection.Constants && SelectedText(_resultLimit) != "전체")
+            parts.Add($"출력 {SelectedText(_resultLimit)}");
         return string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
@@ -1198,9 +1285,12 @@ internal sealed class RecordRoomMainForm : Form
         filtered = ApplyStatCondition(filtered, _stat1, _stat1Operator, _stat1Value);
         filtered = ApplyStatCondition(filtered, _stat2, _stat2Operator, _stat2Value);
 
-        var limitText = SelectedText(_resultLimit);
-        if (int.TryParse(limitText, out var limit) && limit > 0)
-            filtered = filtered.Take(limit);
+        if (_section != RecordRoomSection.Constants)
+        {
+            var limitText = SelectedText(_resultLimit);
+            if (int.TryParse(limitText, out var limit) && limit > 0)
+                filtered = filtered.Take(limit);
+        }
         return filtered;
     }
 
@@ -1381,8 +1471,17 @@ internal sealed class RecordRoomMainForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         try
         {
-            await CsvExporter.ExportAsync(_grid, dialog.FileName);
-            _status.Text = $"CSV 저장 완료: {dialog.FileName}";
+            if (_section == RecordRoomSection.Constants && _subView == "대체후보")
+            {
+                var diagnostics = await GetWarDiagnosticsAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(diagnostics.Candidates, dialog.FileName);
+                _status.Text = $"대체후보 전체 {diagnostics.Candidates.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else
+            {
+                await CsvExporter.ExportAsync(_grid, dialog.FileName);
+                _status.Text = $"CSV 저장 완료: {dialog.FileName}";
+            }
         }
         catch (Exception ex)
         {

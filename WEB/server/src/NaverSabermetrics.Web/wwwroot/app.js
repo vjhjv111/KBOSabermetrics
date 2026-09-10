@@ -173,7 +173,20 @@ function renderHeader(columns){
   }
   thead.replaceChildren(groupRow,metricRow);
 }
+function renderLeagueOverview(result){
+  const box=$('league-overview'), metrics=$('league-overview-metrics');
+  const summary=result.leagueOverview;
+  if(state.room!=='team'||!summary){box.hidden=true;metrics.replaceChildren();return;}
+  $('league-overview-title').textContent=summary.title;
+  const frag=document.createDocumentFragment();
+  for(const m of summary.metrics){
+    const item=document.createElement('div');item.className='league-metric'+(m.emphasis?' emphasis':'');
+    item.append(text('span',m.label,'league-metric-label'),text('strong',m.value,'league-metric-value'));frag.append(item);
+  }
+  metrics.replaceChildren(frag);box.hidden=false;
+}
 function renderTable(result){
+  renderLeagueOverview(result);
   renderHeader(result.columns);
   const body=document.createDocumentFragment();
   for(const row of result.rows){
@@ -181,7 +194,6 @@ function renderTable(result){
     for(const col of result.columns){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
-      if(col.key==='Applied')td.title=value;
       if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
       if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
         const b=text('button',value,'player-link');b.title='이 선수만 조회';b.type='button';b.onclick=()=>selectPlayer(row.entityCode,value);

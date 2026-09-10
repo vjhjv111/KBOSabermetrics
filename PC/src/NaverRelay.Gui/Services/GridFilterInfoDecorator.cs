@@ -1,8 +1,9 @@
 namespace NaverRelay.Gui.Services;
 
 /// <summary>
-/// 선수명 바로 오른쪽에 현재 그리드 정렬 기준과 해당 행의 값을 표시합니다.
-/// 예: wRC+ ↓ 149, OPS ↑ 0.930. 바인딩 DTO에는 영향을 주지 않는 화면 전용 열입니다.
+/// 선수명 바로 오른쪽에 현재 그리드 정렬 기준의 실제 행 값을 표시합니다.
+/// 정렬 기준명/방향은 헤더에 한 번만 표시합니다.
+/// 예: 헤더 "적용 조건 = wRC+ ↓", 행 "149".
 /// </summary>
 internal static class GridFilterInfoDecorator
 {
@@ -29,18 +30,42 @@ internal static class GridFilterInfoDecorator
             HeaderText = "적용 조건",
             ReadOnly = true,
             SortMode = DataGridViewColumnSortMode.NotSortable,
-            Width = 230,
-            MinimumWidth = 160,
+            Width = 112,
+            MinimumWidth = 88,
             Tag = string.IsNullOrWhiteSpace(filterDescription) ? "전체" : filterDescription,
             DefaultCellStyle = new DataGridViewCellStyle
             {
-                ForeColor = Color.DimGray,
-                Font = new Font(grid.Font, FontStyle.Italic),
-                Alignment = DataGridViewContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(38, 61, 92),
+                Font = new Font(grid.Font, FontStyle.Regular),
+                Alignment = DataGridViewContentAlignment.MiddleRight,
+            },
+            HeaderCell = new DataGridViewColumnHeaderCell
+            {
+                Style = new DataGridViewCellStyle
+                {
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Font = new Font(grid.Font, FontStyle.Bold),
+                },
             },
         };
         grid.Columns.Add(column);
         column.DisplayIndex = Math.Min(nameColumn.DisplayIndex + 1, grid.Columns.Count - 1);
+        UpdateHeader(grid);
+    }
+
+    public static void UpdateHeader(DataGridView grid)
+    {
+        if (!grid.Columns.Contains(ColumnName)) return;
+        var infoColumn = grid.Columns[ColumnName];
+        var sorted = grid.SortedColumn;
+        if (sorted is null || string.Equals(sorted.Name, ColumnName, StringComparison.Ordinal))
+        {
+            infoColumn.HeaderText = "적용 조건";
+            return;
+        }
+
+        var arrow = grid.SortOrder == SortOrder.Ascending ? "↑" : "↓";
+        infoColumn.HeaderText = $"적용 조건 = {sorted.HeaderText} {arrow}";
     }
 
     public static bool TryFormat(DataGridView grid, DataGridViewCellFormattingEventArgs eventArgs)
@@ -66,9 +91,7 @@ internal static class GridFilterInfoDecorator
         }
 
         var value = row.Cells[sorted.Index].FormattedValue?.ToString();
-        if (string.IsNullOrWhiteSpace(value)) value = "-";
-        var arrow = grid.SortOrder == SortOrder.Ascending ? "↑" : "↓";
-        eventArgs.Value = $"{sorted.HeaderText} {arrow} {value}";
+        eventArgs.Value = string.IsNullOrWhiteSpace(value) ? "-" : value;
         eventArgs.FormattingApplied = true;
         return true;
     }

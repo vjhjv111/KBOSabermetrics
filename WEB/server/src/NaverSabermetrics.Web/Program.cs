@@ -28,6 +28,7 @@ foreach (var asset in new[] { "index.html", "app.css", "app.js" })
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
         throw new FileNotFoundException("필수 프런트 파일이 없습니다. frontend 파일을 확인하고 다시 빌드하세요.", assetPath);
 }
+var isRender=string.Equals(Environment.GetEnvironmentVariable("RENDER"),"true",StringComparison.OrdinalIgnoreCase);
 var builder=WebApplication.CreateBuilder(new WebApplicationOptions{Args=args,ContentRootPath=AppContext.BaseDirectory,WebRootPath=webRoot});
 var localConfig=Environment.GetEnvironmentVariable("SABER_LOCAL_CONFIG");
 if (!string.IsNullOrWhiteSpace(localConfig)) builder.Configuration.AddJsonFile(Path.GetFullPath(localConfig),optional:false,reloadOnChange:false);
@@ -36,6 +37,12 @@ builder.Configuration.AddEnvironmentVariables(); // Deployment secrets override 
 builder.Configuration.AddCommandLine(args);
 var settings=builder.Configuration.GetSection("Site").Get<SiteOptions>()??new SiteOptions();
 settings.DatabasePath=Environment.GetEnvironmentVariable("NAVER_SABERMETRICS_DB")??settings.DatabasePath;
+if(isRender)
+{
+    if(string.IsNullOrWhiteSpace(settings.DatabasePath)) settings.DatabasePath="/var/data/sabermetrics_v2.db";
+    if(string.IsNullOrWhiteSpace(settings.StateDirectory) || string.Equals(settings.StateDirectory,"App_Data",StringComparison.OrdinalIgnoreCase))
+        settings.StateDirectory="/var/data/state";
+}
 settings.StateDirectory=Path.GetFullPath(settings.StateDirectory,builder.Environment.ContentRootPath);
 if(!string.IsNullOrEmpty(settings.DatabasePath))settings.DatabasePath=Path.GetFullPath(settings.DatabasePath,builder.Environment.ContentRootPath);
 if(settings.MaxPageSize is < 1 or > 100 || settings.QuerySeconds is < 1 or > 120 || settings.ConcurrentQueries is <1 or >4
@@ -44,7 +51,7 @@ if(settings.MaxPageSize is < 1 or > 100 || settings.QuerySeconds is < 1 or > 120
 var development=builder.Environment.IsDevelopment();
 if(!development && (settings.AllowDevelopmentGuest || settings.Demo))throw new InvalidOperationException("운영 환경에서는 Demo/AllowDevelopmentGuest를 꺼야 합니다.");
 
-if (string.IsNullOrWhiteSpace(settings.DatabasePath) || !File.Exists(settings.DatabasePath)) throw new FileNotFoundException("웹 DB 경로를 설정하세요. --prepare 또는 --sample-db를 먼저 실행하세요.", settings.DatabasePath);
+var databaseReady=!string.IsNullOrWhiteSpace(settings.DatabasePath) && File.Exists(settings.DatabasePath);
 if(settings.DatabasePath.StartsWith(Path.GetFullPath(webRoot)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)
     || settings.StateDirectory.StartsWith(Path.GetFullPath(webRoot),StringComparison.OrdinalIgnoreCase))
     throw new InvalidOperationException("DB 및 상태 디렉터리를 wwwroot에 넣을 수 없습니다.");
@@ -64,7 +71,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(o=>
     o.ForwardedHeaders=ForwardedHeaders.XForwardedFor|ForwardedHeaders.XForwardedProto;
     o.KnownNetworks.Clear();o.KnownProxies.Clear();o.ForwardLimit=1;
     foreach(var p in settings.TrustedProxies)o.KnownProxies.Add(IPAddress.Parse(p));
-    // Never enable forwarding without an explicit trusted proxy list.
+    // Render terminates TLS and forwards the original client/protocol headers.
+    // A Render web service is only reached through Render's proxy, so accept those headers there.
+    if(isRender) o.ForwardLimit=1;
 });
 builder.Services.AddRateLimiter(o=>
 {
@@ -80,9 +89,16 @@ builder.Services.AddRateLimiter(o=>
 });
 var app=builder.Build();
 var db=app.Services.GetRequiredService<DatabaseCacheService>();
-await db.InitializeAsync(); // Read-only validation. No CREATE TABLE, no ALTER, no source cache writes.
+if(databaseReady)
+{
+    await db.InitializeAsync(); // Read-only validation. No CREATE TABLE, no ALTER, no source cache writes.
+}
+else
+{
+    app.Logger.LogWarning("Database is not ready at {DatabasePath}. Upload it to the persistent disk and restart the service.",settings.DatabasePath);
+}
 _ = app.Services.GetRequiredService<QuotaStore>();
-if(settings.TrustedProxies.Length>0)app.UseForwardedHeaders();
+if(isRender || settings.TrustedProxies.Length>0)app.UseForwardedHeaders();
 app.Use(async(c,next)=>
 {
     c.Response.Headers["X-Content-Type-Options"]="nosniff";
@@ -131,9 +147,13 @@ app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(n
     csrfToken=antiforgery.GetAndStoreTokens(c).RequestToken,
     demo=settings.Demo
 }));
-app.MapGet("/api/health",()=>Results.Ok(new{status="ok"}));
+app.MapGet("/api/health",()=>Results.Ok(new{status=databaseReady?"ok":"waiting_for_database",databaseReady,databasePath=settings.DatabasePath}));
+app.MapGet("/api/ready",()=>databaseReady
+    ? Results.Ok(new{status="ready"})
+    : Results.Json(new{status="waiting_for_database",message="Upload sabermetrics_v2.db to the persistent disk, then restart the service."},statusCode:503));
 app.MapGet("/api/catalog",async (HttpContext c,QueryGate gate,QuotaStore quotas)=>
 {
+    if(!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다. /var/data/sabermetrics_v2.db를 업로드한 뒤 서비스를 재시작하세요.",503,"DB_NOT_READY");
     quotas.Consume(Ip(c),0);
     var catalog=await gate.RunAsync(t=>db.GetCatalogAsync(t),c.RequestAborted);
     return Results.Ok(new
@@ -149,6 +169,7 @@ app.MapGet("/api/schema/{role}/{view}",(string role,string view,RecordService re
     Results.Ok(records.Schema(role=="constants"?"constants":"season",role,view)));
 app.MapPost("/api/query",async(RecordRequest query,HttpContext c,RecordService records,QueryGate gate,QuotaStore quotas)=>
 {
+    if(!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
     query.Validate(settings);
     quotas.Consume(Ip(c),query.PageSize);
     var result=await gate.RunAsync(t=>records.QueryAsync(query,t),c.RequestAborted);
@@ -158,6 +179,7 @@ app.MapPost("/api/query",async(RecordRequest query,HttpContext c,RecordService r
 });
 app.MapPost("/api/players/search",async(PlayerSearchRequest input,HttpContext c,QueryGate gate,QuotaStore quotas)=>
 {
+    if(!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
     if(string.IsNullOrWhiteSpace(input.Query)||input.Query.Length<2||input.Query.Length>40||input.Query.Any(ch=>ch is '%' or '_' || char.IsControl(ch)))
         throw new RequestError("선수명 또는 선수 코드를 2~40자로 입력하세요.");
     var limit=Math.Min(20,settings.MaxPageSize);

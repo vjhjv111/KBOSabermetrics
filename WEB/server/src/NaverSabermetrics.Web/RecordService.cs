@@ -34,17 +34,34 @@ public sealed class RecordService
         return new { columns = Columns(definition), title = definition.Title };
     }
 
-    private IReadOnlyList<WebColumn> Columns(ViewDefinition definition)
+    private IReadOnlyList<WebColumn> Columns(ViewDefinition definition, PropertyInfo? sort = null, bool descending = true)
     {
         var columns = new List<WebColumn>();
         foreach (var p in ViewRegistry.Properties(definition))
         {
+            if (PublicHidden(p, definition.Role)) continue;
             columns.Add(new(p.Name, ViewRegistry.Label(p), ViewRegistry.Kind(p), ViewRegistry.IsNumber(p) && !WarHidden(p), !WarHidden(p)));
-            if (p.Name == "Name") columns.Add(new("Applied", "적용 조건", "text", false, false));
+            if (p.Name == "Name")
+            {
+                var appliedLabel = sort is null
+                    ? "적용 조건"
+                    : $"적용 조건 = {ViewRegistry.Label(sort)} {(descending ? "↓" : "↑")}";
+                columns.Add(new("Applied", appliedLabel, "text", false, false));
+            }
         }
         return columns;
     }
     private bool WarHidden(PropertyInfo p) => !_options.ShowWar && p.Name.Contains("War", StringComparison.OrdinalIgnoreCase);
+
+    // Public web policy: keep the calculations internally, but never expose
+    // pitcher RA9-WAR or blended WAR in schemas, filters, sorting, or row DTOs.
+    private static bool PublicHidden(PropertyInfo p, string role)
+    {
+        if (!string.Equals(role, "pitcher", StringComparison.OrdinalIgnoreCase)) return false;
+        var name = p.Name;
+        return name.Contains("Ra9War", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("BlendWar", StringComparison.OrdinalIgnoreCase);
+    }
 
     public async Task<TablePage> QueryAsync(RecordRequest request, CancellationToken token)
     {
@@ -74,14 +91,14 @@ public sealed class RecordService
         foreach (var condition in request.Conditions)
         {
             var p = properties.FirstOrDefault(x => x.Name == condition.Stat && ViewRegistry.IsNumber(x));
-            if (p is null || WarHidden(p) || ContextHidden(p, query, request.Role)) throw new RequestError("현재 탭에서 사용할 수 없는 스탯 조건입니다.");
+            if (p is null || PublicHidden(p, request.Role) || WarHidden(p) || ContextHidden(p, query, request.Role)) throw new RequestError("현재 탭에서 사용할 수 없는 스탯 조건입니다.");
             _ = ViewRegistry.Threshold(p, condition.Value);
         }
         PropertyInfo? sort = null;
         if (!string.IsNullOrEmpty(request.SortBy))
         {
             sort = properties.FirstOrDefault(x => x.Name == request.SortBy);
-            if (sort is null || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
+            if (sort is null || PublicHidden(sort, request.Role) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
         var key = $"web-v3-result-v1|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
@@ -127,25 +144,53 @@ public sealed class RecordService
             var cells = new Dictionary<string,string>();
             foreach (var p in properties)
             {
+                if (PublicHidden(p, request.Role)) continue;
                 cells[p.Name] = WarHidden(p) || ContextHidden(p,query,request.Role) ? "-" :
                     p.Name == "Rank" ? (skip + i + 1).ToString(CultureInfo.InvariantCulture) : ViewRegistry.Display(p, p.GetValue(row));
                 if (p.Name == "Name")
                 {
                     cells["Applied"] = sort is null
                         ? "-"
-                        : $"{ViewRegistry.Label(sort)} {(request.Descending ? "↓" : "↑")} {ViewRegistry.Display(sort, sort.GetValue(row))}";
+                        : ViewRegistry.Display(sort, sort.GetValue(row));
                 }
             }
             display.Add(new(Convert.ToString(codeProperty?.GetValue(row)), cells));
         }
         var warnings = new List<string>();
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
-        else warnings.Add("업로드된 KBO 투수 WAR v3 계산 소스를 사용합니다. 사이트 자체 추정치이며 공식 fWAR/bWAR와 동일한 값은 아닙니다.");
+        else warnings.Add(request.Role == "pitcher"
+            ? "웹 공개 지표는 KBO fWAR만 제공합니다. 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
+            : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
         if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점이며 ER·공식 IP·WAR·득점/주루 일부는 표시하지 않습니다.");
         if (total > accessible) warnings.Add($"대량 수집 제한으로 정렬 결과 상위 {accessible}행까지만 열람할 수 있습니다.");
         if (_options.Demo) warnings.Insert(0,"샘플 DB입니다. 전체 시즌 기록이 아닙니다.");
-        return new(Columns(definition),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion);
+        var leagueOverview = request.Room == "team"
+            ? await BuildLeagueOverviewAsync(request, query, token).ConfigureAwait(false)
+            : null;
+        return new(Columns(definition, sort, request.Descending),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion,leagueOverview);
+    }
+
+    private async Task<LeagueOverview> BuildLeagueOverviewAsync(RecordRequest request, GameQuery query, CancellationToken token)
+    {
+        var league = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
+        var snapshot = await _analytics.GetWebRoleSnapshotAsync(query, league, request.Role == "pitcher", token).ConfigureAwait(false);
+        var fullLeague = string.IsNullOrWhiteSpace(request.Team);
+        var overview = request.Role == "pitcher"
+            ? LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague)
+            : LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+
+        if (request.Role == "pitcher")
+        {
+            overview = overview with
+            {
+                Metrics = overview.Metrics
+                    .Where(m => !m.Label.Contains("RA9-WAR", StringComparison.OrdinalIgnoreCase)
+                             && !m.Label.Contains("Blend WAR", StringComparison.OrdinalIgnoreCase))
+                    .ToArray()
+            };
+        }
+        return overview;
     }
 
     private async Task<List<object>> ComputeAsync(RecordRequest r, GameQuery q, ViewDefinition def, CancellationToken token)

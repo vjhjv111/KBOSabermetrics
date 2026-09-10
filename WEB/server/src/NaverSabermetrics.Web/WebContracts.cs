@@ -1,4 +1,5 @@
 using NaverRelay.Application.Queries;
+using NaverRelay.Application.Statistics;
 
 namespace NaverSabermetrics.Web;
 
@@ -108,4 +109,5 @@ public sealed record WebRow(string? EntityCode, Dictionary<string,string> Cells)
 public sealed record TablePage(
     IReadOnlyList<WebColumn> Columns, IReadOnlyList<WebRow> Rows,
     int Total, int AccessibleTotal, int Page, int PageSize, string Applied,
-    IReadOnlyList<string> Warnings, long ElapsedMs, bool Cached, string FormulaVersion);
+    IReadOnlyList<string> Warnings, long ElapsedMs, bool Cached, string FormulaVersion,
+    LeagueOverview? LeagueOverview = null);

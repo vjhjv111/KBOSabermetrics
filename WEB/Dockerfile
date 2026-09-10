@@ -1,11 +1,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet publish server/src/NaverSabermetrics.Web/NaverSabermetrics.Web.csproj -c Release -o /out
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+RUN dotnet publish server/src/NaverSabermetrics.Web/NaverSabermetrics.Web.csproj -c Release -o /out --no-self-contained
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /out .
-ENV ASPNETCORE_URLS=http://+:8080
+
+# Render normally sets PORT=10000. The shell form below expands the runtime value.
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_ENVIRONMENT=Production \
+    DOTNET_EnableDiagnostics=0
+
+EXPOSE 10000
 USER $APP_UID
-EXPOSE 8080
-ENTRYPOINT ["dotnet", "NaverSabermetrics.Web.dll"]
+CMD ["sh", "-c", "ASPNETCORE_URLS=http://0.0.0.0:${PORT:-10000} exec dotnet NaverSabermetrics.Web.dll"]

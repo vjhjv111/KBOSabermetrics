@@ -1,7 +1,7 @@
 {
-  "projectRoot": "/mnt/data/kbo_pitcher_war_v3/NaverSabermetrics_V2_KboPitcherWarV3",
+  "projectRoot": "/mnt/data/war_diag_work/NaverSabermetrics_V2_KboPitcherWarV3_WarDiagnostics",
   "pass": true,
-  "csharpFileCount": 73,
+  "csharpFileCount": 76,
   "projectFileCount": 6,
   "checks": [
     {
@@ -10,14 +10,14 @@
       "detail": "expected=['NaverRelay.Api', 'NaverRelay.Application', 'NaverRelay.Cli', 'NaverRelay.Gui', 'NaverRelay.Infrastructure.Sqlite', 'NaverRelay.Parser'], actual=['NaverRelay.Api', 'NaverRelay.Application', 'NaverRelay.Cli', 'NaverRelay.Gui', 'NaverRelay.Infrastructure.Sqlite', 'NaverRelay.Parser']"
     },
     {
+      "name": "xml:NaverRelay.Cli",
+      "pass": true,
+      "detail": "src/NaverRelay.Cli/NaverRelay.Cli.csproj"
+    },
+    {
       "name": "xml:NaverRelay.Application",
       "pass": true,
       "detail": "src/NaverRelay.Application/NaverRelay.Application.csproj"
-    },
-    {
-      "name": "xml:NaverRelay.Api",
-      "pass": true,
-      "detail": "src/NaverRelay.Api/NaverRelay.Api.csproj"
     },
     {
       "name": "xml:NaverRelay.Parser",
@@ -30,14 +30,14 @@
       "detail": "src/NaverRelay.Gui/NaverRelay.Gui.csproj"
     },
     {
-      "name": "xml:NaverRelay.Cli",
-      "pass": true,
-      "detail": "src/NaverRelay.Cli/NaverRelay.Cli.csproj"
-    },
-    {
       "name": "xml:NaverRelay.Infrastructure.Sqlite",
       "pass": true,
       "detail": "src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj"
+    },
+    {
+      "name": "xml:NaverRelay.Api",
+      "pass": true,
+      "detail": "src/NaverRelay.Api/NaverRelay.Api.csproj"
     },
     {
       "name": "solution-project-paths",

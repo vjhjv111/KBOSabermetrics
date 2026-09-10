@@ -16,6 +16,7 @@ SCRIPTS = [
     "validate_record_room_ui.py",
     "validate_pitcher_record_room.py",
     "validate_kbo_pitcher_war_v3.py",
+    "validate_pitcher_war_diagnostics.py",
 ]
 
 

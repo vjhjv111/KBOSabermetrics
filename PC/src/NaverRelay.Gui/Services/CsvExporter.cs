@@ -47,6 +47,36 @@ internal static class CsvExporter
             cancellationToken);
     }
 
+
+    public static async Task ExportRowsAsync<T>(
+        IEnumerable<T> rows,
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        var properties = System.ComponentModel.TypeDescriptor.GetProperties(typeof(T))
+            .Cast<System.ComponentModel.PropertyDescriptor>()
+            .Where(property => property.IsBrowsable)
+            .ToList();
+
+        if (properties.Count == 0)
+            throw new InvalidOperationException("내보낼 열이 없습니다.");
+
+        var builder = new StringBuilder();
+        builder.AppendLine(string.Join(",", properties.Select(property => Escape(property.DisplayName))));
+
+        foreach (var row in rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            builder.AppendLine(string.Join(",", properties.Select(property => Escape(FormatValue(property.GetValue(row))))));
+        }
+
+        await File.WriteAllTextAsync(
+            filePath,
+            builder.ToString(),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
+            cancellationToken);
+    }
+
     private static string FormatValue(object? value)
     {
         return value switch
