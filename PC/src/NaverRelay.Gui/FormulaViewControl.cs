@@ -32,7 +32,7 @@ internal sealed class FormulaViewControl : UserControl
         {
             "AVG", "OBP", "SLG", "OPS", "ISO", "BABIP", "BB% / K%", "wOBA*", "wRAA*", "wRC*", "wRC+*", "OPS+",
             "FIP*", "xFIP*", "FIP- / xFIP-", "Swing% / Contact%", "CSW%", "RE24 (예정)", "WPA (예정)",
-            "Site WAR v1*", "KBO 투수 대체수준*", "KBO WARIP*", "KBO fWAR v3*",
+            "Site WAR v1*", "KBO 투수 대체수준*", "KBO WARIP*", "KBO fWAR v4*",
             "KBO RA9-WAR*", "Blend WAR 70/30*", "파크 팩터*"
         });
         main.Panel1.Controls.Add(_metrics);
@@ -115,12 +115,12 @@ internal sealed class FormulaViewControl : UserControl
             "RE24 (예정)" => "RE24 = 타석 종료 후 기대득점 - 타석 시작 전 기대득점 + 실제 득점\r\n\r\n24개 주자·아웃 상태의 기대득점표가 완성된 뒤 적용합니다.",
             "WPA (예정)" => "WPA = 타석 종료 후 승리확률 - 타석 시작 전 승리확률",
             "Site WAR v1*" => "타격 Runs = wRAA\r\n주루 Runs = 0.20×SB - 0.40×CS\r\n수비 Runs = 0 (데이터 준비 전)\r\n포지션 보정 = 0 (데이터 준비 전)\r\n대체선수 Runs = PA × 20 / 600\r\nRAR = 위 Runs의 합\r\nSite WAR v1 = RAR / 10\r\n\r\n* 임시 추정 WAR이며 공식 KBO/Statiz WAR와 동일하지 않습니다.",
-            "KBO 투수 대체수준*" => "[표본]\r\n최근 3개 정규시즌의 저사용 투수-시즌-역할 라인을 사용합니다.\r\n선발은 최소 9IP, 구원은 최소 5IP를 우선 적용하고 역할별 이닝 하위권을 대체선수 풀로 잡습니다.\r\n\r\n[회귀]\r\n회귀 pFIPR9 = lgFIPR9 + 신뢰도×(관측 pFIPR9-lgFIPR9)\r\n신뢰도 = IP/(IP+회귀이닝)\r\n선발 회귀이닝 40, 구원 회귀이닝 20\r\n\r\nKBO Repl FIP- = 100×대체 pFIPR9/lgFIPR9\r\n\r\n소표본 대체풀이 우연히 너무 잘 던진 경우에는 FanGraphs 고정 대체수준(선발 0.12, 구원 0.03 승/9이닝 환산)을 하한으로 사용합니다.",
+            "KBO 투수 대체수준*" => "KBO fWAR v4 정책값\r\n\r\n선발 Replacement FIP- = 120\r\n구원 Replacement FIP- = 115\r\n\r\nReplacement FIPR9 = lgFIPR9 × FIP-/100\r\n\r\n2020~2025 완료 시즌과 KBO PF v2로 검증했습니다. 대체후보 WAR 중앙값은 선발 약 -0.008, 구원 약 -0.005였고 후보의 양/음수 비율이 약 50:50에 위치했습니다.",
             "KBO WARIP*" => "목표 투수 WAR = 리그 경기수×2×(0.500-0.294)×0.43\r\n\r\nKBO WARIP = (목표 투수 WAR-보정 전 리그 투수 WAR 합)/리그 전체 IP\r\n선수 WARIP 보정 = KBO WARIP×선수 IP\r\n최종 KBO fWAR = 보정 전 fWAR+WARIP 보정\r\n\r\n0.294는 대체선수 승률, 0.43은 전체 WAR 중 투수 배분율 정책입니다.",
-            "KBO fWAR v3*" => "ifFIP = [13×HR + 3×(BB+HBP) - 2×(SO+IFFB)] / IP + 상수\r\nFIPR9 = ifFIP + (lgRA9-lgERA)\r\npFIPR9 = FIPR9/(FIP PF/100)\r\ndRPW = ((((18-IP/G)×lgFIPR9 + (IP/G)×pFIPR9)/18)+2)×1.5\r\nRAA 승 = (lgFIPR9-pFIPR9)/dRPW×IP/9\r\n대체 승 = (KBO Repl FIPR9-lgFIPR9)/dRPW×IP/9\r\n구원 LI 배수 = (1+gmLI)/2\r\n보정 전 fWAR = RAA 승+대체 승(구원은 LI 적용)\r\n최종 fWAR = 보정 전 fWAR+KBO WARIP×IP",
+            "KBO fWAR v4*" => "ifFIP = [13×HR + 3×(BB+HBP) - 2×(SO+IFFB)] / IP + 상수\r\nFIPR9 = ifFIP + (lgRA9-lgERA)\r\npFIPR9 = FIPR9/(FIP PF/100)\r\ndRPW = ((((18-IP/G)×lgFIPR9 + (IP/G)×pFIPR9)/18)+2)×1.5\r\nRAA 승 = (lgFIPR9-pFIPR9)/dRPW×IP/9\r\n대체 승 = (KBO Repl FIPR9-lgFIPR9)/dRPW×IP/9\r\n구원 LI 배수 = (1+gmLI)/2\r\n보정 전 fWAR = RAA 승+대체 승(구원은 LI 적용)\r\n최종 fWAR = 보정 전 fWAR+KBO WARIP×IP",
             "KBO RA9-WAR*" => "pRA9* = RA9/(FIP PF/100)\r\nRA9 dRPW = ((((18-IP/G)×lgRA9 + (IP/G)×pRA9)/18)+2)×1.5\r\nRA9 RAA 승 = (lgRA9-pRA9)/RA9 dRPW×IP/9\r\nRA9 대체 승 = (KBO Repl RA9-lgRA9)/RA9 dRPW×IP/9\r\n최종 RA9-WAR = 보정 전 RA9-WAR+RA9 WARIP×IP\r\n\r\n* 별도 득점 파크팩터가 없어 현재 FIP PF를 구장 보정 대용값으로 사용합니다. 팀 수비·상대 타선 보정은 아직 없습니다.",
             "Blend WAR 70/30*" => "Blend WAR = 0.70×KBO fWAR + 0.30×KBO RA9-WAR\r\n\r\n삼진·볼넷·홈런 중심의 수비 독립 성과를 주값으로 두고 실제 실점 억제를 보조적으로 반영하는 사이트 보조 지표입니다. 공식 FanGraphs 지표가 아닙니다.",
-            "파크 팩터*" => "roundCode=kbo_r 경기만 사용합니다. 구장 내 FIP 구성요소율을 동일 팀의 원정 경기율과 비교해 100 기준 FIP PF를 계산합니다. 5년 이상 JSON을 함께 불러오면 전체 기간이 자동 반영됩니다.",
+            "파크 팩터*" => "KBO PF v2\r\n\r\n최근 5년 득점 환경을 30/25/20/15/10% 최근가중으로 결합합니다.\r\nReliability = G/(G+100)\r\n회귀 PF = 100 + (Raw PF-100)×Reliability\r\n안전범위 = 85~115\r\n마지막으로 시즌 투구이닝 가중평균이 100이 되도록 재중앙화합니다.\r\n\r\nLegacy FIP PF는 진단 화면에만 보존합니다.",
             _ => string.Empty,
         };
     }

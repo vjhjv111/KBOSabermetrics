@@ -123,7 +123,7 @@ public sealed class PitcherValueGridRow
     [DisplayName("보정 전 fWAR")] public double? WarBeforeCorrection { get; init; }
     [DisplayName("KBO WARIP")] public double? WarPerInningCorrection { get; init; }
     [DisplayName("WARIP 보정")] public double? LeagueCorrection { get; init; }
-    [DisplayName("KBO fWAR v3")] public double? War { get; init; }
+    [DisplayName("KBO fWAR v4")] public double? War { get; init; }
     [DisplayName("pRA9*")] public double? ParkAdjustedRa9 { get; init; }
     [DisplayName("RA9 dRPW*")] public double? Ra9RunsPerWin { get; init; }
     [DisplayName("보정 전 RA9-WAR*")] public double? Ra9WarBeforeCorrection { get; init; }

@@ -33,6 +33,7 @@ public sealed partial class DatabaseCacheService
         progress?.Report(new DatabaseLoadProgress(3, 5, "원본 WPA와 구장별 FIP 환경 조회 중"));
         var averageAbsoluteWpa = await ReadAverageAbsoluteWpaAsync(connection, cancellationToken).ConfigureAwait(false);
         var parkFactors = await BuildParkFactorsAsync(connection, cancellationToken).ConfigureAwait(false);
+        var parkFactorsV2 = await BuildProductionParkFactorsV2Async(connection, cancellationToken).ConfigureAwait(false);
 
         var plateAppearanceInnings = batting.Outs / 3.0;
         var wobaDenominator = batting.AtBats + batting.Walks - batting.IntentionalWalks +
@@ -109,6 +110,7 @@ public sealed partial class DatabaseCacheService
             LeagueFipR9 = leagueFipR9,
             AverageAbsoluteWpa = averageAbsoluteWpa > 0 ? averageAbsoluteWpa : 1.0,
             ParkFactors = parkFactors,
+            KboParkFactorsV2 = parkFactorsV2,
         };
 
         progress?.Report(new DatabaseLoadProgress(4, 5, "KBO 투수 대체수준과 WARIP 계산 중"));

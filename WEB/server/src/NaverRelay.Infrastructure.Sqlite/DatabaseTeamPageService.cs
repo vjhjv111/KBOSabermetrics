@@ -663,7 +663,7 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         "wRC+ = 100 × (팀 wRC / 팀 PA) / 리그 R/PA",
         string.Empty,
         "[팀 투수 가치]",
-        "KBO fWAR 합 = 소속 투수별 KBO fWAR v3의 합",
+        "KBO fWAR 합 = 소속 투수별 KBO fWAR v4의 합",
         "KBO RA9-WAR 합 = 소속 투수별 pRA9 기반 WAR의 합",
         "Blend WAR 합 = 0.70×KBO fWAR 합 + 0.30×KBO RA9-WAR 합",
         "KBO WARIP는 리그 전체 목표 투수 WAR와 보정 전 합의 차이를 이닝당 균일 배분합니다.",

@@ -30,6 +30,11 @@ internal sealed class RecordRoomMainForm : Form
     private DatabaseCatalog? _catalog;
     private LeagueReference? _league;
     private PitcherWarDiagnosticBundle? _warDiagnostics;
+    private ParkFactorDiagnosticBundle? _parkDiagnostics;
+    private ParkFactorV2ExperimentBundle? _parkV2Experiment;
+    private ParkFactorSensitivityBundle? _parkSensitivity;
+    private ReplacementSensitivityBundle? _replacementSensitivity;
+    private WarDistributionDiagnosticBundle? _warDistribution;
     private AnalyticsSnapshot? _snapshot;
     private string? _snapshotKey;
     private CancellationTokenSource? _loadCts;
@@ -682,7 +687,7 @@ internal sealed class RecordRoomMainForm : Form
         _subNavigation.Controls.Clear();
         _subButtons.Clear();
         var labels = _section == RecordRoomSection.Constants
-            ? new[] { "리그 상수", "파크 팩터", "투수 WAR 진단", "대체후보" }
+            ? new[] { "리그 상수", "파크 팩터", "파크팩터 진단", "파크팩터 상세", "KBO PF v2 실험", "WAR A/B", "PF 민감도 요약", "PF 민감도 상세", "Replacement 민감도 요약", "Replacement 민감도 상세", "WAR 분포 요약", "WAR 분포 선수", "투수 WAR 진단", "대체후보" }
             : _role == RecordRoomRole.Batter
                 ? new[] { "기본", "심화", "가치", "확장", "클러치", "파워", "팀배팅", "도루", "주루", "타구", "타구방향", "투구", "구종" }
                 : new[] { "기본", "심화", "가치", "확장", "WP", "주자", "선발", "구원", "타구", "타구방향", "투구", "구종" };
@@ -790,6 +795,66 @@ internal sealed class RecordRoomMainForm : Form
                 if (_subView == "파크 팩터")
                 {
                     BindRows(league.ParkFactors, playerGrid: false, filterDescription: string.Empty);
+                }
+                else if (_subView == "파크팩터 진단")
+                {
+                    var diagnostics = await GetParkDiagnosticsAsync(token);
+                    BindRows(diagnostics.Seasons, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "연도별 파크팩터 분포 진단 · WAR 공식에는 아직 반영하지 않는 관찰용 값입니다.";
+                }
+                else if (_subView == "파크팩터 상세")
+                {
+                    var diagnostics = await GetParkDiagnosticsAsync(token);
+                    BindRows(diagnostics.Stadiums, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"연도·구장별 파크팩터 상세 {diagnostics.Stadiums.Count:N0}건 · FIP PF와 단순 득점 PF를 비교합니다.";
+                }
+                else if (_subView == "KBO PF v2 실험")
+                {
+                    var experiment = await GetParkV2ExperimentAsync(token);
+                    BindRows(experiment.Stadiums, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "KBO PF v2 실험 · 5년 득점 PF + 100 회귀 + 85~115 제한 + 시즌 이닝가중 100 재중앙화 · WAR v3에는 미적용";
+                }
+                else if (_subView == "WAR A/B")
+                {
+                    var experiment = await GetParkV2ExperimentAsync(token);
+                    BindRows(experiment.WarComparisons, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "Legacy PF vs KBO PF v2 투수 WAR A/B · Replacement와 Pre-fWAR/WARIP 변화를 비교하는 실험값입니다.";
+                }
+                else if (_subView == "PF 민감도 요약")
+                {
+                    var sensitivity = await GetParkSensitivityAsync(token);
+                    BindRows(sensitivity.Summaries, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "PF 민감도 요약 · Prior 4 × Clamp 3 × Weight 2 = 24개 정책 · 완료시즌 기준 |WARIP| 순";
+                }
+                else if (_subView == "PF 민감도 상세")
+                {
+                    var sensitivity = await GetParkSensitivityAsync(token);
+                    BindRows(sensitivity.Details, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"PF 민감도 상세 {sensitivity.Details.Count:N0}건 · 24개 정책의 연도별 결과";
+                }
+                else if (_subView == "Replacement 민감도 요약")
+                {
+                    var sensitivity = await GetReplacementSensitivityAsync(token);
+                    BindRows(sensitivity.Summaries, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "Replacement 민감도 요약 · KBO PF v2 고정 · SP 120/125/130 × RP 105/110/115/120/125";
+                }
+                else if (_subView == "Replacement 민감도 상세")
+                {
+                    var sensitivity = await GetReplacementSensitivityAsync(token);
+                    BindRows(sensitivity.Details, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"Replacement 민감도 상세 {sensitivity.Details.Count:N0}건 · 시즌별 SP/RP WAR 배분과 WARIP 비교";
+                }
+                else if (_subView == "WAR 분포 요약")
+                {
+                    var distribution = await GetWarDistributionAsync(token);
+                    BindRows(distribution.Summaries, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "SP120 / RP115 + KBO PF v2 기준 WAR 분포 · 후보군이 0 WAR 근처에 모이는지 검증";
+                }
+                else if (_subView == "WAR 분포 선수")
+                {
+                    var distribution = await GetWarDistributionAsync(token);
+                    BindRows(distribution.Players, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"WAR 분포 선수 {distribution.Players.Count:N0}건 · 후보=Y는 기존 대체후보 선정 로직 포함 선수";
                 }
                 else if (_subView == "투수 WAR 진단")
                 {
@@ -1055,6 +1120,46 @@ internal sealed class RecordRoomMainForm : Form
         _status.Text = "연도별 대체선수 후보와 FIP- 분포 계산 중...";
         _warDiagnostics = await _database.GetPitcherWarDiagnosticsAsync(cancellationToken);
         return _warDiagnostics;
+    }
+
+    private async Task<ParkFactorDiagnosticBundle> GetParkDiagnosticsAsync(CancellationToken cancellationToken)
+    {
+        if (_parkDiagnostics is not null) return _parkDiagnostics;
+        _status.Text = "연도·구장별 파크팩터 구성요소 계산 중...";
+        _parkDiagnostics = await _database.GetParkFactorDiagnosticsAsync(cancellationToken);
+        return _parkDiagnostics;
+    }
+
+    private async Task<ParkFactorV2ExperimentBundle> GetParkV2ExperimentAsync(CancellationToken cancellationToken)
+    {
+        if (_parkV2Experiment is not null) return _parkV2Experiment;
+        _status.Text = "KBO PF v2 및 Legacy WAR A/B 계산 중...";
+        _parkV2Experiment = await _database.GetParkFactorV2ExperimentAsync(cancellationToken);
+        return _parkV2Experiment;
+    }
+
+    private async Task<ParkFactorSensitivityBundle> GetParkSensitivityAsync(CancellationToken cancellationToken)
+    {
+        if (_parkSensitivity is not null) return _parkSensitivity;
+        _status.Text = "PF 정책 24개 × 시즌별 WAR 민감도 계산 중...";
+        _parkSensitivity = await _database.GetParkFactorSensitivityAsync(cancellationToken);
+        return _parkSensitivity;
+    }
+
+    private async Task<ReplacementSensitivityBundle> GetReplacementSensitivityAsync(CancellationToken cancellationToken)
+    {
+        if (_replacementSensitivity is not null) return _replacementSensitivity;
+        _status.Text = "KBO PF v2 고정 · SP/RP Replacement FIP- 15개 조합 계산 중...";
+        _replacementSensitivity = await _database.GetReplacementSensitivityAsync(cancellationToken);
+        return _replacementSensitivity;
+    }
+
+    private async Task<WarDistributionDiagnosticBundle> GetWarDistributionAsync(CancellationToken cancellationToken)
+    {
+        if (_warDistribution is not null) return _warDistribution;
+        _status.Text = "SP120 / RP115 기준 WAR 분포와 대체후보 WAR 계산 중...";
+        _warDistribution = await _database.GetWarDistributionDiagnosticsAsync(cancellationToken);
+        return _warDistribution;
     }
 
     private async Task<AnalyticsSnapshot> GetSnapshotAsync(
@@ -1452,6 +1557,9 @@ internal sealed class RecordRoomMainForm : Form
         using (var manager = new MainForm())
             manager.ShowDialog(this);
         _league = null;
+        _warDiagnostics = null;
+        _parkDiagnostics = null;
+        _parkV2Experiment = null;
         _snapshot = null;
         _snapshotKey = null;
         _catalog = await _database.GetCatalogAsync();
@@ -1476,6 +1584,66 @@ internal sealed class RecordRoomMainForm : Form
                 var diagnostics = await GetWarDiagnosticsAsync(CancellationToken.None);
                 await CsvExporter.ExportRowsAsync(diagnostics.Candidates, dialog.FileName);
                 _status.Text = $"대체후보 전체 {diagnostics.Candidates.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "파크팩터 진단")
+            {
+                var diagnostics = await GetParkDiagnosticsAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(diagnostics.Seasons, dialog.FileName);
+                _status.Text = $"파크팩터 연도 진단 {diagnostics.Seasons.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "파크팩터 상세")
+            {
+                var diagnostics = await GetParkDiagnosticsAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(diagnostics.Stadiums, dialog.FileName);
+                _status.Text = $"파크팩터 상세 전체 {diagnostics.Stadiums.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "KBO PF v2 실험")
+            {
+                var experiment = await GetParkV2ExperimentAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(experiment.Stadiums, dialog.FileName);
+                _status.Text = $"KBO PF v2 실험 전체 {experiment.Stadiums.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "WAR A/B")
+            {
+                var experiment = await GetParkV2ExperimentAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(experiment.WarComparisons, dialog.FileName);
+                _status.Text = $"WAR A/B {experiment.WarComparisons.Count:N0}시즌 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "PF 민감도 요약")
+            {
+                var sensitivity = await GetParkSensitivityAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(sensitivity.Summaries, dialog.FileName);
+                _status.Text = $"PF 민감도 요약 {sensitivity.Summaries.Count:N0}정책 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "PF 민감도 상세")
+            {
+                var sensitivity = await GetParkSensitivityAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(sensitivity.Details, dialog.FileName);
+                _status.Text = $"PF 민감도 상세 {sensitivity.Details.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "Replacement 민감도 요약")
+            {
+                var sensitivity = await GetReplacementSensitivityAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(sensitivity.Summaries, dialog.FileName);
+                _status.Text = $"Replacement 민감도 요약 {sensitivity.Summaries.Count:N0}조합 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "Replacement 민감도 상세")
+            {
+                var sensitivity = await GetReplacementSensitivityAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(sensitivity.Details, dialog.FileName);
+                _status.Text = $"Replacement 민감도 상세 {sensitivity.Details.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "WAR 분포 요약")
+            {
+                var distribution = await GetWarDistributionAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(distribution.Summaries, dialog.FileName);
+                _status.Text = $"WAR 분포 요약 {distribution.Summaries.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "WAR 분포 선수")
+            {
+                var distribution = await GetWarDistributionAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(distribution.Players, dialog.FileName);
+                _status.Text = $"WAR 분포 선수 {distribution.Players.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
             }
             else
             {

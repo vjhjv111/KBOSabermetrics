@@ -7,9 +7,9 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// JSON 또는 NormalizedGame 역직렬화 없이 BatterGameStats/PitcherGameStats를 SQL로 합산해
 /// 화면용 통계를 만듭니다. 계산 결과는 DataVersion 기반 ComputedCache에 저장됩니다.
 /// </summary>
-public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
+public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-kbo-pitcher-war-v3";
+    private const string AnalyticsCacheVersion = "relational-analytics-kbo-pitcher-war-v4";
     private const double Wbb = 0.69;
     private const double Whbp = 0.72;
     private const double W1b = 0.88;
@@ -34,12 +34,12 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         if (cached is not null) return cached;
 
         var data = await _database.GetAggregateDataAsync(query, progress, cancellationToken).ConfigureAwait(false);
-        var result = Build(data, league);
+        var result = Build(data, league, query.SeasonYear);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
-    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league)
+    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear)
     {
         var batterClassic = data.Batters.Select(BuildBatterClassic)
             .OrderByDescending(row => row.PA)
@@ -76,7 +76,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .ToList();
         var pitcherValues = data.Pitchers
             .Where(row => row.FinalGames > 0)
-            .Select(row => BuildPitcherValue(row, league))
+            .Select(row => BuildPitcherValue(row, league, seasonYear))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.InningsPitched)
             .ToList();
@@ -290,7 +290,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         };
     }
 
-    private static PitcherValueGridRow BuildPitcherValue(PitcherAggregateRecord row, LeagueReference league)
+    private static PitcherValueGridRow BuildPitcherValue(PitcherAggregateRecord row, LeagueReference league, int? seasonYear)
     {
         var innings = row.InningsOuts / 3.0;
         var starterInnings = row.StarterInningsOuts / 3.0;
@@ -306,12 +306,24 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             ? ifFip.Value + league.Ra9Adjustment
             : null;
 
-        var parkByStadium = league.ParkFactors
-            .Where(factor => !string.IsNullOrWhiteSpace(factor.Stadium))
-            .GroupBy(factor => factor.Stadium, StringComparer.OrdinalIgnoreCase)
+        // KBO fWAR v4 uses season-aware KBO PF v2. Career/multi-season views fall back
+        // to the latest available v2 factor per stadium; season views use that exact year.
+        var v2Rows = league.KboParkFactorsV2
+            .Where(x => !string.IsNullOrWhiteSpace(x.Stadium))
+            .ToList();
+        var parkByStadium = v2Rows
+            .GroupBy(x => x.Stadium, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
-                group => group.Key,
-                group => group.First().UsedFipFactor ?? 100.0,
+                g => g.Key,
+                g =>
+                {
+                    if (seasonYear.HasValue)
+                    {
+                        var exact = g.FirstOrDefault(x => x.Year == seasonYear.Value);
+                        if (exact is not null) return exact.Factor;
+                    }
+                    return g.OrderByDescending(x => x.Year).First().Factor;
+                },
                 StringComparer.OrdinalIgnoreCase);
         var weightedParkNumerator = 0.0;
         foreach (var item in row.StadiumOuts)
@@ -338,12 +350,10 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             : 1.0;
         var leverageMultiplier = KboPitcherWarMath.LeverageMultiplier(gmLi, true);
 
-        var starterReplacementFipR9 = calibration.StarterReplacementFipR9 > league.LeagueFipR9
-            ? calibration.StarterReplacementFipR9
-            : league.LeagueFipR9 + 0.12 * fipRunsPerWin;
-        var relieverReplacementFipR9 = calibration.RelieverReplacementFipR9 > league.LeagueFipR9
-            ? calibration.RelieverReplacementFipR9
-            : league.LeagueFipR9 + 0.03 * fipRunsPerWin;
+        var starterReplacementFipR9 = calibration.StarterReplacementFipR9 > 0
+            ? calibration.StarterReplacementFipR9 : league.LeagueFipR9 * 1.20;
+        var relieverReplacementFipR9 = calibration.RelieverReplacementFipR9 > 0
+            ? calibration.RelieverReplacementFipR9 : league.LeagueFipR9 * 1.15;
 
         var starterQualityWins = adjustedFipR9.HasValue
             ? KboPitcherWarMath.WinsAboveAverage(

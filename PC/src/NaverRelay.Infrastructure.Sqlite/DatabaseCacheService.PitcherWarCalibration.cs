@@ -11,6 +11,21 @@ public sealed partial class DatabaseCacheService
         CancellationToken cancellationToken)
     {
         var roleLines = await ReadPitcherWarRoleLinesAsync(connection, league, cancellationToken).ConfigureAwait(false);
+        var v2ByYearStadium = league.KboParkFactorsV2
+            .ToDictionary(x => (x.Year, x.Stadium), x => x.Factor, SeasonStadiumComparer.Instance);
+        foreach (var line in roleLines)
+        {
+            double weighted = 0; var outs = 0;
+            foreach (var pair in line.StadiumOuts)
+            {
+                var pf = v2ByYearStadium.TryGetValue((line.SeasonYear, pair.Key), out var v) ? v : 100.0;
+                weighted += pf * pair.Value; outs += pair.Value;
+            }
+            line.ParkFactor = outs > 0 ? weighted / outs : 100.0;
+            var ifFip = (13.0 * line.HomeRuns + 3.0 * (line.Walks + line.HitBatters) -
+                         2.0 * (line.Strikeouts + line.InfieldFlies)) / line.Innings + league.IfFipConstant;
+            line.ParkAdjustedFipR9 = KboPitcherWarMath.ParkAdjust(ifFip + league.Ra9Adjustment, line.ParkFactor);
+        }
         if (roleLines.Count == 0 || league.PitchingInnings <= 0)
         {
             return BuildFallbackPitcherWarCalibration(league);
@@ -32,44 +47,23 @@ public sealed partial class DatabaseCacheService
         var starterPool = SelectReplacementPool(recentLines.Where(line => line.IsStarter).ToList(), true);
         var relieverPool = SelectReplacementPool(recentLines.Where(line => !line.IsStarter).ToList(), false);
 
-        var starterEmpiricalFip = EstimateReplacementRate(
-            starterPool,
-            line => line.ParkAdjustedFipR9,
-            league.LeagueFipR9,
-            regressionInnings: 40.0);
-        var relieverEmpiricalFip = EstimateReplacementRate(
-            relieverPool,
-            line => line.ParkAdjustedFipR9,
-            league.LeagueFipR9,
-            regressionInnings: 20.0);
-        var starterEmpiricalRa9 = EstimateReplacementRate(
-            starterPool,
-            line => line.ParkAdjustedRa9,
-            league.LeagueRa9,
-            regressionInnings: 50.0);
-        var relieverEmpiricalRa9 = EstimateReplacementRate(
-            relieverPool,
-            line => line.ParkAdjustedRa9,
-            league.LeagueRa9,
-            regressionInnings: 25.0);
+        // KBO Pitcher WAR v4: validated 2020-2025 replacement levels.
+        // SP/RP candidate median WAR was approximately zero at 120/115 FIP-.
+        var starterEmpiricalFip = league.LeagueFipR9 * 1.20;
+        var relieverEmpiricalFip = league.LeagueFipR9 * 1.15;
+        var starterReplacementFip = league.LeagueFipR9 * 1.20;
+        var relieverReplacementFip = league.LeagueFipR9 * 1.15;
 
-        var typicalFipRpw = Math.Max(1.0, (league.LeagueFipR9 + 2.0) * 1.5);
+        // RA9-WAR remains the existing internal/diagnostic model; v4 designation applies to KBO fWAR.
+        var starterEmpiricalRa9 = EstimateReplacementRate(
+            starterPool, line => line.ParkAdjustedRa9, league.LeagueRa9, regressionInnings: 50.0);
+        var relieverEmpiricalRa9 = EstimateReplacementRate(
+            relieverPool, line => line.ParkAdjustedRa9, league.LeagueRa9, regressionInnings: 25.0);
         var typicalRa9Rpw = Math.Max(1.0, (league.LeagueRa9 + 2.0) * 1.5);
-        var starterFipFloor = league.LeagueFipR9 + 0.12 * typicalFipRpw;
-        var relieverFipFloor = league.LeagueFipR9 + 0.03 * typicalFipRpw;
         var starterRa9Floor = league.LeagueRa9 + 0.12 * typicalRa9Rpw;
         var relieverRa9Floor = league.LeagueRa9 + 0.03 * typicalRa9Rpw;
-
-        // 소표본의 우연한 호투 때문에 대체선수 풀이 리그 평균보다 좋아지는 것을 막습니다.
-        // MLB 고정 대체수준(선발 0.12, 구원 0.03)을 하한으로 두고 KBO 관측값이 더 나쁘면 관측값을 사용합니다.
-        var starterReplacementFip = ClampReplacementRate(
-            Math.Max(starterEmpiricalFip, starterFipFloor), league.LeagueFipR9);
-        var relieverReplacementFip = ClampReplacementRate(
-            Math.Max(relieverEmpiricalFip, relieverFipFloor), league.LeagueFipR9);
-        var starterReplacementRa9 = ClampReplacementRate(
-            Math.Max(starterEmpiricalRa9, starterRa9Floor), league.LeagueRa9);
-        var relieverReplacementRa9 = ClampReplacementRate(
-            Math.Max(relieverEmpiricalRa9, relieverRa9Floor), league.LeagueRa9);
+        var starterReplacementRa9 = ClampReplacementRate(Math.Max(starterEmpiricalRa9, starterRa9Floor), league.LeagueRa9);
+        var relieverReplacementRa9 = ClampReplacementRate(Math.Max(relieverEmpiricalRa9, relieverRa9Floor), league.LeagueRa9);
 
         var targetWar = KboPitcherWarMath.ComputeTargetPitcherWar(league.GameCount);
         var totalInnings = roleLines.Sum(line => line.Innings);
@@ -129,8 +123,8 @@ public sealed partial class DatabaseCacheService
     {
         var fipRpw = Math.Max(1.0, (league.LeagueFipR9 + 2.0) * 1.5);
         var ra9Rpw = Math.Max(1.0, (league.LeagueRa9 + 2.0) * 1.5);
-        var starterFip = league.LeagueFipR9 + 0.12 * fipRpw;
-        var relieverFip = league.LeagueFipR9 + 0.03 * fipRpw;
+        var starterFip = league.LeagueFipR9 * 1.20;
+        var relieverFip = league.LeagueFipR9 * 1.15;
         var starterRa9 = league.LeagueRa9 + 0.12 * ra9Rpw;
         var relieverRa9 = league.LeagueRa9 + 0.03 * ra9Rpw;
         return new PitcherWarCalibration

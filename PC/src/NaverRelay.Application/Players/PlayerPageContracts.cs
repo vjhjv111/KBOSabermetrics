@@ -124,7 +124,7 @@ public sealed class PlayerPitchingSeasonRow
     [DisplayName("KBO 구원 Repl FIP-")] public double? RelieverReplacementFipMinus { get; init; }
     [DisplayName("KBO WARIP")] public double? WarPerInningCorrection { get; init; }
     [DisplayName("WARIP 보정")] public double? LeagueCorrection { get; init; }
-    [DisplayName("KBO fWAR v3")] public double? War { get; init; }
+    [DisplayName("KBO fWAR v4")] public double? War { get; init; }
     [DisplayName("pRA9*")] public double? ParkAdjustedRa9 { get; init; }
     [DisplayName("KBO RA9-WAR*")] public double? Ra9War { get; init; }
     [DisplayName("Blend WAR 70/30*")] public double? BlendWar { get; init; }

@@ -1,4 +1,4 @@
-# KBO 투수 WAR v3
+# KBO 투수 WAR v4
 
 ## 목적
 
@@ -95,7 +95,7 @@ KBO WARIP
 = (목표 투수 WAR - 보정 전 리그 투수 WAR 합) / 리그 전체 IP
 
 선수 WARIP 보정 = KBO WARIP × 선수 IP
-최종 KBO fWAR v3 = 보정 전 fWAR + 선수 WARIP 보정
+최종 KBO fWAR v4 = 보정 전 fWAR + 선수 WARIP 보정
 ```
 
 이 보정은 리그 전체 WAR 총량을 맞추면서 모든 투수에게 이닝에 비례해 동일한 보정률을 적용합니다.

@@ -17,7 +17,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
     private const string ParserCacheVersion = "sabermetrics-v2-relational-player-profile-v2";
-    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-kbo-war-v3";
+    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-kbo-war-v4";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -26,18 +26,14 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
     };
 
     public string DatabasePath { get; }
-    public bool WebReadOnly { get; }
 
-    public DatabaseCacheService(string? databasePath = null, bool webReadOnly = false)
+    public DatabaseCacheService(string? databasePath = null)
     {
-        WebReadOnly = webReadOnly;
-        if (webReadOnly && string.IsNullOrWhiteSpace(databasePath))
-            throw new ArgumentException("웹 조회용 DB 경로를 명시해야 합니다.", nameof(databasePath));
         if (!string.IsNullOrWhiteSpace(databasePath))
         {
             DatabasePath = Path.GetFullPath(databasePath);
             var customDirectory = Path.GetDirectoryName(DatabasePath);
-            if (!webReadOnly && !string.IsNullOrWhiteSpace(customDirectory))
+            if (!string.IsNullOrWhiteSpace(customDirectory))
                 Directory.CreateDirectory(customDirectory);
             return;
         }
@@ -53,7 +49,6 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        if (WebReadOnly) { await ValidateWebSchemaAsync(cancellationToken).ConfigureAwait(false); return; }
         var isNew = !File.Exists(DatabasePath) || new FileInfo(DatabasePath).Length == 0;
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         if (isNew)
@@ -165,7 +160,6 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 
     public async Task<T?> TryLoadComputedAsync<T>(string cacheKey, CancellationToken cancellationToken = default)
     {
-        if (WebReadOnly && TryReadWebComputed(cacheKey, out T? memoryValue)) return memoryValue;
         var sourceVersion = await GetSourceVersionAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -186,7 +180,6 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 
     public async Task SaveComputedAsync<T>(string cacheKey, T value, CancellationToken cancellationToken = default)
     {
-        if (WebReadOnly) { SaveWebComputed(cacheKey, value); return; }
         var sourceVersion = await GetSourceVersionAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -210,31 +203,17 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         var builder = new SqliteConnectionStringBuilder
         {
             DataSource = DatabasePath,
-            Mode = WebReadOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate,
-            Cache = SqliteCacheMode.Private,
-            Pooling = !WebReadOnly,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Cache = SqliteCacheMode.Shared,
+            Pooling = true,
             DefaultTimeout = 10,
         };
         var connection = new SqliteConnection(builder.ToString());
-        try
-        {
-            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-            // Per-connection VM callback; web connections are never pooled.
-            if (WebReadOnly && cancellationToken.CanBeCanceled)
-                SQLitePCL.raw.sqlite3_progress_handler(connection.Handle, 1000,
-                    _ => cancellationToken.IsCancellationRequested ? 1 : 0, null);
-            await using var command = connection.CreateCommand();
-            command.CommandText = WebReadOnly
-                ? "PRAGMA query_only=ON; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=3000; PRAGMA cache_size=-16384; PRAGMA temp_store=FILE;"
-                : "PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;";
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            return connection;
-        }
-        catch
-        {
-            await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;";
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return connection;
     }
 
     private async Task<string> GetSourceVersionAsync(CancellationToken cancellationToken)

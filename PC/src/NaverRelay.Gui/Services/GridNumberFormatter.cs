@@ -48,7 +48,7 @@ internal static class GridNumberFormatter
     {
         "WalkToStrikeout", "StrikeoutsPerNine", "WalksPerNine", "HomeRunsPerNine",
         "Fip", "Xfip", "PitchesPerPa", "ReplacementRa9", "ERA", "WHIP",
-        // KBO 투수 WAR v3
+        // KBO 투수 WAR v4
         "IfFip", "FipR9", "ParkAdjustedFipR9", "DynamicRunsPerWin",
         "GmLi", "LeverageMultiplier", "StarterReplacementWins",
         "RelieverReplacementWins", "WarBeforeCorrection", "LeagueCorrection",
@@ -74,7 +74,7 @@ internal static class GridNumberFormatter
         "RunsCreated",
         "RunsAboveReplacement", "RunsPerWin", "War", "Ra9War", "BlendWar",
         "BatterWar", "PitcherWar", "PitcherRa9War", "PitcherBlendWar", "TotalWar", "BatterRAR", "PitcherRAR",
-        // KBO 투수 WAR v3 / 파크 팩터
+        // KBO 투수 WAR v4 / 파크 팩터
         "ParkFactor", "RawFipFactor", "UsedFipFactor", "Innings",
         "StarterInnings", "ReliefInnings", "StarterRunsAboveAverage", "ReliefRunsAboveAverage",
         "RunsAboveAverage", "StarterReplacementRuns", "ReliefReplacementRuns", "StarterRAR", "ReliefRAR",

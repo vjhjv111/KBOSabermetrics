@@ -209,6 +209,17 @@ public sealed class PitcherWarCalibration
 /// 전체 roundCode=kbo_r 데이터에서 한 번만 계산해 SQLite 계산 캐시에 저장하는 기준값입니다.
 /// 화면의 연도/팀/기간 필터와 분리되어 wRC+, FIP, 투수 WAR, 파크 팩터가 같은 기준을 사용합니다.
 /// </summary>
+public sealed class KboParkFactorV2Row
+{
+    public int Year { get; set; }
+    public string Stadium { get; set; } = string.Empty;
+    public int Games { get; set; }
+    public double Innings { get; set; }
+    public double RawFiveYearFactor { get; set; } = 100.0;
+    public double Reliability { get; set; }
+    public double Factor { get; set; } = 100.0;
+}
+
 public sealed class LeagueReference
 {
     public int GameCount { get; set; }
@@ -253,6 +264,7 @@ public sealed class LeagueReference
 
     public PitcherWarCalibration PitcherWar { get; set; } = new();
     public List<ParkFactorGridRow> ParkFactors { get; set; } = new();
+    public List<KboParkFactorV2Row> KboParkFactorsV2 { get; set; } = new();
     public List<LeagueConstantGridRow> Constants { get; set; } = new();
 }
 

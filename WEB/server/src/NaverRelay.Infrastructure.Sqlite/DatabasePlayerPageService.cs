@@ -587,7 +587,7 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
             "보정 전 fWAR = 평균 대비 승 + 역할별 대체선수 승 (구원은 LI 배수 적용)",
             "구원 LI 배수 = (1 + gmLI) / 2",
             "KBO WARIP = (목표 투수 WAR - 리그 보정 전 투수 WAR 합) / 리그 전체 IP",
-            "KBO fWAR v3 = 보정 전 fWAR + KBO WARIP × IP",
+            "KBO fWAR v4 = 보정 전 fWAR + KBO WARIP × IP",
             "KBO RA9-WAR = pRA9 기반 보정 전 WAR + RA9 WARIP × IP",
             "Blend WAR = 0.70 × KBO fWAR + 0.30 × KBO RA9-WAR", string.Empty,
         };

@@ -1,8 +1,8 @@
 {
   "pass": true,
   "sources": [
-    "/mnt/data/war_diag_work/NaverSabermetrics_V2_KboPitcherWarV3_WarDiagnostics/SampleData/2026.zip",
-    "/mnt/data/war_diag_work/NaverSabermetrics_V2_KboPitcherWarV3_WarDiagnostics/SampleData/20260804HHSS02026.json"
+    "/mnt/data/pfv2_work/src/NaverSabermetrics_V2_KboPitcherWarV3_ParkFactorDiagnostics/SampleData/2026.zip",
+    "/mnt/data/pfv2_work/src/NaverSabermetrics_V2_KboPitcherWarV3_ParkFactorDiagnostics/SampleData/20260804HHSS02026.json"
   ],
   "observationCount": 275,
   "uniquePlayerCodeCount": 203,
