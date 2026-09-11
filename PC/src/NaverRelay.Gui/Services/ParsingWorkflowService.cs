@@ -84,6 +84,21 @@ internal static class ParsingWorkflowService
             }
         }
 
+        if (databaseCache is not null)
+        {
+            foreach(var year in result.Summaries.Select(x=>int.TryParse(x.GameId[..Math.Min(4,x.GameId.Length)],out var y)?y:0).Where(y=>y>=2022).Distinct())
+            {
+                try
+                {
+                    var sync=await databaseCache.SyncKboCorrectionsAsync(year,cancellationToken);
+                    if(documents.Count>0)Report(progress,documents[^1],documents.Count,documents.Count,WorkflowStage.Completed,sync.Message);
+                    if(sync.Pending>0)result.Failures.Add(new ParsingFailure{DocumentId="KBO",SourceName=$"KBO {year} 정정 대조",Error=sync.Message});
+                }
+                catch(OperationCanceledException){throw;}
+                catch(Exception ex){result.Failures.Add(new ParsingFailure{DocumentId="KBO",SourceName=$"KBO {year} 정정 대조",Error="수집 DB는 보존했습니다. 정정 조회 실패: "+ex.Message});}
+            }
+        }
+
         if (saveAsYouGo && !string.IsNullOrWhiteSpace(outputDirectory))
         {
             await NormalizedOutputWriter.SaveAggregateSummaryAsync(
