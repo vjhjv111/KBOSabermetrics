@@ -69,11 +69,12 @@ namespace NaverRelay.Parsing
             {
                 SetHit(outcome, BattingResultType.Single, 1);
             }
-            else if (Contains(normalized, "스트라이크 낫 아웃") || Contains(normalized, "삼진 아웃"))
+            else if (Regex.IsMatch(normalized, @"스트라이크\s*낫\s*아웃|삼진\s*아웃|쓰리\s*번트\s*아웃"))
             {
+                var reached = Contains(normalized, "출루") || Contains(normalized, "폭투") || Contains(normalized, "포일");
                 Set(outcome, BattingResultType.Strikeout, countsAsAtBat: true,
-                    isHit: false, isOut: true, isSacrifice: false, isWalk: false,
-                    isIntentionalWalk: false, isStrikeout: true, reachedBase: false, totalBases: 0);
+                    isHit: false, isOut: !reached, isSacrifice: false, isWalk: false,
+                    isIntentionalWalk: false, isStrikeout: true, reachedBase: reached, totalBases: 0);
             }
             else if (Contains(normalized, "희생플라이 아웃"))
             {
