@@ -455,6 +455,7 @@ const homeState={seq:0,controller:null};
 function initHome(){
   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
   home.innerHTML='<div class="home-heading"><div><p class="player-eyebrow">KBO SABERMETRICS</p><h1>오늘의 리그</h1><p>팀과 선수의 현재 기록, 득실점으로 바라본 남은 시즌</p></div><label>시즌 <select id="home-year"></select></label></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산 안내</summary><p id="home-model-note"></p><p><a href="https://m.koreabaseball.com/About/GameManage.aspx" target="_blank" rel="noopener">KBO 경기 운영 방식</a> · <a href="https://www.baseball-reference.com/bullpen/Pythagorean_W-L" target="_blank" rel="noopener">피타고리안 승률 설명</a></p></details>';
+  const results=text('section','','player-card');results.id='home-results';results.append(text('h2','최근 경기 결과'));home.querySelector('.home-top-grid').prepend(results);
   $('workspace').before(home);$('home-year').onchange=loadHome;
   const button=text('button','홈','room');button.onclick=()=>{if(!location.hash)homeRoute();else location.hash='';};document.querySelector('.room-nav').prepend(button);
   for(const b of document.querySelectorAll('.room[data-room],.role'))b.addEventListener('click',()=>{location.hash='records';});
@@ -470,17 +471,35 @@ async function homeRoute(){
 function homePlayer(p){const wrap=text('div','','home-player');wrap.append(teamLink(p.code,p.name,p.role),text('small',String(p.team).split(',').map(t=>teamNames[t.trim()]??t.trim()).join(', ')),text('strong',p.display));return wrap;}
 function homeTable(headers,rows){const wrap=text('div','','player-table-wrap'),table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers)tr.append(text('th',h));thead.append(tr);table.append(thead);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of row){const td=document.createElement('td');if(v instanceof Node)td.append(v);else td.textContent=v??'—';r.append(td);}body.append(r);}table.append(body);wrap.append(table);return wrap;}
 async function loadHome(){
+  $('home-results').replaceChildren(text('h2','최근 경기 결과'),text('p','불러오는 중…','muted'));
   homeState.controller?.abort();const controller=new AbortController();homeState.controller=controller;const seq=++homeState.seq;const year=Number($('home-year').value);$('home-status').textContent='리그 기록을 불러오는 중…';
   for(const [id,title] of [['home-war','WAR TOP 10'],['home-standings','팀 순위 · 피타고리안 전망'],['home-batters','타자 주요 순위'],['home-pitchers','투수 주요 순위']])$(id).replaceChildren(text('h2',title),text('p','불러오는 중…','muted'));$('home-model-note').textContent='';
   const results=await Promise.allSettled(['standings','leaders'].map(async section=>{const data=await api('/api/home',{year,section},controller.signal);if(seq!==homeState.seq)return;if(section==='standings')renderHomeStandings(data,year);else renderHomeLeaders(data);}));
   if(seq!==homeState.seq)return;const errors=results.filter(x=>x.status==='rejected'&&x.reason.name!=='AbortError');$('home-status').textContent=errors.length?errors.map(x=>x.reason.message).join(' · '):`${year} 정규시즌 · 수집된 종료 경기 기준`;
-  for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-standings']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
+  for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-results','home-standings']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
 }
 function renderHomeStandings(d,year){
+  renderHomeResults(d,year);
   const card=$('home-standings');card.replaceChildren(text('h2',`${year} 팀 순위 · 피타고리안 전망`));const pct=x=>x==null?'—':(x*100).toFixed(1)+'%';
   const rows=d.rows.map(r=>{const link=text('a',teamNames[r.team]??r.team,'player-link');link.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
   card.append(homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
   card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님':d.reason}`,'player-note'));$('home-model-note').textContent=d.note;
+}
+function renderHomeResults(d,year){
+  const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
+  const list=text('div','','home-results-list');
+  for(const g of d.latestGames??[]){
+    const game=text('article','','home-game');game.append(text('p',`${g.Stadium??'구장 정보 없음'} · 경기 종료`,'home-game-venue'));
+    const table=homeTable(['팀','득점','안타','실책'],['Away','Home'].map(side=>{
+      const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
+      const link=text('a',`${teamNames[code]??code} (${side==='Away'?'원정':'홈'})`,'player-link');link.href=`#team=${encodeURIComponent(code)}&year=${year}`;
+      const result=text('strong',`${score} ${score>other?'승':score<other?'패':'무'}`,score>other?'team-win':score<other?'team-loss':'');
+      return [link,result,g[side+'Hits'],g[side+'Errors']];
+    }));game.append(table);
+    const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const row=text('div');row.append(text('span',p.label,'home-decision-label'),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
+  }
+  card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
+  card.append(text('p','선택 시즌의 마지막 종료 경기일 기준 · 승리·패전·홀드·세이브는 수집된 중계에 기록된 경우 표시합니다.','player-note'));
 }
 function renderHomeLeaders(d){
   const war=$('home-war');war.replaceChildren(text('h2','WAR TOP 10'));war.append(homeTable(['순위','선수','구분','WAR'],d.war.map((p,i)=>[i+1,homePlayer({...p,display:''}),p.role==='pitcher'?'투수':'타자',p.display])));if(!d.war.length)war.append(text('p','표시 가능한 WAR 기록이 없습니다.','player-empty'));document.getElementById("home-leaders-note").textContent=d.note;
