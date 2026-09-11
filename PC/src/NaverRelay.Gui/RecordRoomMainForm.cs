@@ -35,6 +35,7 @@ internal sealed class RecordRoomMainForm : Form
     private ParkFactorSensitivityBundle? _parkSensitivity;
     private ReplacementSensitivityBundle? _replacementSensitivity;
     private WarDistributionDiagnosticBundle? _warDistribution;
+    private BatterReplacementDiagnosticBundle? _batterReplacementDiagnostics;
     private AnalyticsSnapshot? _snapshot;
     private string? _snapshotKey;
     private CancellationTokenSource? _loadCts;
@@ -687,7 +688,7 @@ internal sealed class RecordRoomMainForm : Form
         _subNavigation.Controls.Clear();
         _subButtons.Clear();
         var labels = _section == RecordRoomSection.Constants
-            ? new[] { "리그 상수", "파크 팩터", "파크팩터 진단", "파크팩터 상세", "KBO PF v2 실험", "WAR A/B", "PF 민감도 요약", "PF 민감도 상세", "Replacement 민감도 요약", "Replacement 민감도 상세", "WAR 분포 요약", "WAR 분포 선수", "투수 WAR 진단", "대체후보" }
+            ? new[] { "리그 상수", "파크 팩터", "파크팩터 진단", "파크팩터 상세", "KBO PF v2 실험", "WAR A/B", "PF 민감도 요약", "PF 민감도 상세", "Replacement 민감도 요약", "Replacement 민감도 상세", "WAR 분포 요약", "WAR 분포 선수", "타자 대체팀 진단", "타자 대체후보", "투수 WAR 진단", "대체후보" }
             : _role == RecordRoomRole.Batter
                 ? new[] { "기본", "심화", "가치", "확장", "클러치", "파워", "팀배팅", "도루", "주루", "타구", "타구방향", "투구", "구종" }
                 : new[] { "기본", "심화", "가치", "확장", "WP", "주자", "선발", "구원", "타구", "타구방향", "투구", "구종" };
@@ -855,6 +856,18 @@ internal sealed class RecordRoomMainForm : Form
                     var distribution = await GetWarDistributionAsync(token);
                     BindRows(distribution.Players, playerGrid: false, filterDescription: string.Empty);
                     _status.Text = $"WAR 분포 선수 {distribution.Players.Count:N0}건 · 후보=Y는 기존 대체후보 선정 로직 포함 선수";
+                }
+                else if (_subView == "타자 대체팀 진단")
+                {
+                    var diagnostics = await GetBatterReplacementDiagnosticsAsync(token);
+                    BindRows(diagnostics.Summaries, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = "1군 저사용 타자 + SP120/RP115 · PythagenPat와 Runs-based 두 방식으로 Replacement WPct를 교차검증합니다. .294는 아직 변경하지 않습니다.";
+                }
+                else if (_subView == "타자 대체후보")
+                {
+                    var diagnostics = await GetBatterReplacementDiagnosticsAsync(token);
+                    BindRows(diagnostics.Candidates, playerGrid: false, filterDescription: string.Empty);
+                    _status.Text = $"타자 대체후보 진단 {diagnostics.Candidates.Count:N0}건 · PA 20 이상 선수의 후보군 포함 여부와 회귀 wRC+를 표시합니다.";
                 }
                 else if (_subView == "투수 WAR 진단")
                 {
@@ -1160,6 +1173,14 @@ internal sealed class RecordRoomMainForm : Form
         _status.Text = "SP120 / RP115 기준 WAR 분포와 대체후보 WAR 계산 중...";
         _warDistribution = await _database.GetWarDistributionDiagnosticsAsync(cancellationToken);
         return _warDistribution;
+    }
+
+    private async Task<BatterReplacementDiagnosticBundle> GetBatterReplacementDiagnosticsAsync(CancellationToken cancellationToken)
+    {
+        if (_batterReplacementDiagnostics is not null) return _batterReplacementDiagnostics;
+        _status.Text = "1군 타자 대체후보와 가상 Replacement Team 승률 계산 중...";
+        _batterReplacementDiagnostics = await _analytics.GetBatterReplacementDiagnosticsAsync(cancellationToken);
+        return _batterReplacementDiagnostics;
     }
 
     private async Task<AnalyticsSnapshot> GetSnapshotAsync(
@@ -1644,6 +1665,18 @@ internal sealed class RecordRoomMainForm : Form
                 var distribution = await GetWarDistributionAsync(CancellationToken.None);
                 await CsvExporter.ExportRowsAsync(distribution.Players, dialog.FileName);
                 _status.Text = $"WAR 분포 선수 {distribution.Players.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "타자 대체팀 진단")
+            {
+                var diagnostics = await GetBatterReplacementDiagnosticsAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(diagnostics.Summaries, dialog.FileName);
+                _status.Text = $"타자 대체팀 진단 {diagnostics.Summaries.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
+            }
+            else if (_section == RecordRoomSection.Constants && _subView == "타자 대체후보")
+            {
+                var diagnostics = await GetBatterReplacementDiagnosticsAsync(CancellationToken.None);
+                await CsvExporter.ExportRowsAsync(diagnostics.Candidates, dialog.FileName);
+                _status.Text = $"타자 대체후보 {diagnostics.Candidates.Count:N0}건 CSV 저장 완료: {dialog.FileName}";
             }
             else
             {

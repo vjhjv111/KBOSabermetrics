@@ -7,9 +7,9 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// JSON 또는 NormalizedGame 역직렬화 없이 BatterGameStats/PitcherGameStats를 SQL로 합산해
 /// 화면용 통계를 만듭니다. 계산 결과는 DataVersion 기반 ComputedCache에 저장됩니다.
 /// </summary>
-public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
+public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-kbo-pitcher-war-v4";
+    private const string AnalyticsCacheVersion = "relational-analytics-common-war-allocation-v1";
     private const double Wbb = 0.69;
     private const double Whbp = 0.72;
     private const double W1b = 0.88;
@@ -34,12 +34,13 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
         if (cached is not null) return cached;
 
         var data = await _database.GetAggregateDataAsync(query, progress, cancellationToken).ConfigureAwait(false);
-        var result = Build(data, league, query.SeasonYear);
+        var allocation = await GetWarAllocationCalibrationAsync(query, league, cancellationToken).ConfigureAwait(false);
+        var result = Build(data, league, query.SeasonYear, allocation);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
-    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear)
+    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear, WarAllocationCalibration allocation)
     {
         var batterClassic = data.Batters.Select(BuildBatterClassic)
             .OrderByDescending(row => row.PA)
@@ -70,13 +71,13 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
             row => PlayerKey(row.Pcode, row.TeamCode),
             StringComparer.Ordinal);
         var batterValues = data.Batters
-            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode))))
+            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode)), allocation.BatterReplacementRunsPerPa))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.PA)
             .ToList();
         var pitcherValues = data.Pitchers
             .Where(row => row.FinalGames > 0)
-            .Select(row => BuildPitcherValue(row, league, seasonYear))
+            .Select(row => BuildPitcherValue(row, league, seasonYear, allocation.PitcherWarPerInning))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.InningsPitched)
             .ToList();
@@ -270,11 +271,12 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
 
     private static BatterValueGridRow BuildBatterValue(
         BatterAggregateRecord row,
-        BatterSabermetricGridRow? saber)
+        BatterSabermetricGridRow? saber,
+        double replacementRunsPerPa)
     {
         const double runsPerWin = 10.0;
         var runningRuns = row.StolenBases * 0.20 - row.CaughtStealing * 0.40;
-        var replacementRuns = row.PlateAppearances * 20.0 / 600.0;
+        var replacementRuns = row.PlateAppearances * replacementRunsPerPa;
         var battingRuns = saber?.Wraa ?? 0.0;
         var position = row.Position;
         var rar = battingRuns + runningRuns + position.Runs + replacementRuns;
@@ -290,7 +292,7 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
         };
     }
 
-    private static PitcherValueGridRow BuildPitcherValue(PitcherAggregateRecord row, LeagueReference league, int? seasonYear)
+    private static PitcherValueGridRow BuildPitcherValue(PitcherAggregateRecord row, LeagueReference league, int? seasonYear, double pitcherWarPerInning)
     {
         var innings = row.InningsOuts / 3.0;
         var starterInnings = row.StarterInningsOuts / 3.0;
@@ -370,7 +372,7 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
         var starterWarBeforeCorrection = starterQualityWins + starterReplacementWins;
         var relieverWarBeforeCorrection = relieverQualityWins + relieverReplacementWins;
         var fipWarBeforeCorrection = starterWarBeforeCorrection + relieverWarBeforeCorrection;
-        var fipLeagueCorrection = calibration.FipWarPerInning * innings;
+        var fipLeagueCorrection = pitcherWarPerInning * innings;
         var fipWar = fipWarBeforeCorrection + fipLeagueCorrection;
 
         double? rawRa9 = innings > 0 ? row.RunsAllowed * 9.0 / innings : null;
@@ -432,7 +434,7 @@ public sealed class DatabaseAnalyticsService : IAnalyticsQueryService
             StarterWarBeforeCorrection = starterWarBeforeCorrection,
             RelieverWarBeforeCorrection = relieverWarBeforeCorrection,
             WarBeforeCorrection = fipWarBeforeCorrection,
-            WarPerInningCorrection = calibration.FipWarPerInning,
+            WarPerInningCorrection = pitcherWarPerInning,
             LeagueCorrection = fipLeagueCorrection,
             War = fipWar,
             ParkAdjustedRa9 = parkAdjustedRa9, Ra9RunsPerWin = ra9RunsPerWin,

@@ -180,7 +180,7 @@ public sealed class PitcherStarterRecordRow
     [DisplayName("팀 W%")] public double? TeamWinRate { get; init; }
     [DisplayName("IP/GS")] public double? InningsPerStart { get; init; }
     [DisplayName("P/GS")] public double? PitchesPerStart { get; init; }
-    [DisplayName("선발 WAR*")] public double? StarterWar { get; set; }
+    [DisplayName("KBO fWAR v4")] public double? StarterWar { get; set; }
 }
 
 public sealed class PitcherRelieverRecordRow
@@ -200,7 +200,7 @@ public sealed class PitcherRelieverRecordRow
     [DisplayName("IP/GR")] public double? InningsPerReliefGame { get; init; }
     [DisplayName("P/GR")] public double? PitchesPerReliefGame { get; init; }
     [DisplayName("gmLI*")] public double? GmLi { get; init; }
-    [DisplayName("구원 WAR*")] public double? ReliefWar { get; set; }
+    [DisplayName("KBO fWAR v4")] public double? ReliefWar { get; set; }
 }
 
 public sealed class PitcherBattedBallRecordRow
