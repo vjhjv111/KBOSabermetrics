@@ -34,10 +34,10 @@
         <label>팀<select id="team"><option value="">전체</option></select></label>
         <label>포지션<select id="position"><option value="">전체</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option><option>DH</option></select></label>
         <label><span id="qual-label">규정타석</span><select id="qualification"><option value="0">전체</option><option value="10">10%</option><option value="30">30%</option><option value="50">50%</option><option value="70">70%</option><option value="100" selected>100%</option></select></label>
-        <button id="detail-toggle" class="button outline" type="button" aria-controls="detail-filters" aria-expanded="true">상세 접기 −</button>
+        <button id="detail-toggle" class="button outline" type="button" aria-controls="detail-filters" aria-expanded="false">상세 열기 +</button>
         <button class="button primary" type="submit">조회</button><button id="cancel-query" type="button" class="button outline" hidden>취소</button>
       </div>
-      <div id="detail-filters">
+      <div id="detail-filters" hidden>
         <div class="filter-line">
           <label>기간<select id="period"><option value="all">전체</option><option value="custom">직접 지정</option><option value="d7">최근 7일</option><option value="d14">최근 14일</option><option value="d30">최근 30일</option><option value="d60">최근 60일</option><option value="d90">최근 90일</option><option value="g5">최근 5경기</option><option value="g10">최근 10경기</option><option value="g20">최근 20경기</option><option value="g30">최근 30경기</option></select></label>
           <div class="date-range"><input type="date" id="start-date" aria-label="시작일" disabled><span>–</span><input type="date" id="end-date" aria-label="종료일" disabled></div>
