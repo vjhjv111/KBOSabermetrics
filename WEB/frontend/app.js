@@ -28,6 +28,7 @@ async function bootstrap(){
     await playerRoute();
     await teamRoute();
     await homeRoute();
+    if(typeof gameRoute==='function')await gameRoute();
   }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
 }
 
@@ -295,6 +296,7 @@ async function playerRoute(keep=false){
     const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | KBO Sabermetrics`;
     $('player-bio').textContent=`${teamNames[p.latestTeam]??p.latestTeam} · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`;
     $('player-history').textContent=`생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
+    if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
     const roles=[...new Set(data.seasons.map(s=>s.Role))];$('pp-role').replaceChildren(...roles.map(role=>new Option(role==='batter'?'타자':'투수',role)));
     if(!roles.includes(playerState.role))playerState.role=roles[0]??'batter';$('pp-role').value=playerState.role;
     options($('pp-opponent'),(state.catalog?.teams??[]).map(t=>[t,teamNames[t]??t]));
@@ -328,6 +330,7 @@ async function loadPlayerSection(){
     $('player-status').textContent='';
     if(s==='summary'){
       renderPlayerOverview(result);
+      if(playerState.role==='pitcher')await renderPitchLocations(req,seq,controller.signal);
       try{const direction=await api('/api/player',{...req,section:'direction',page:1},controller.signal);if(seq===playerState.sequence)renderPlayerDirection(direction);}catch(e){if(e.name!=='AbortError'&&seq===playerState.sequence)$('pp-direction').append(text('p',`타구 방향: ${e.message}`));}
     }else if(s==='trend'){renderPlayerTrend(result);renderPlayerTable(result);}
     else {
@@ -338,6 +341,7 @@ async function loadPlayerSection(){
         catch(e){if(e.name!=='AbortError'&&seq===playerState.sequence)total.append(text('p',e.message));}
       }
       if(s==='pitches'){
+        if(playerState.role==='pitcher')await renderPitchLocations(req,seq,controller.signal);
         const usage=playerCard('구종 비중 · 평균 구속');$('player-content').prepend(usage);
         try{const data=await api('/api/player',{...req,section:'arsenal',page:1,opponent:null,start:null,end:null},controller.signal);if(seq===playerState.sequence){usage.append(playerTableElement(data.columns,data.rows),text('p',data.note,'player-note'));}}
         catch(e){if(e.name!=='AbortError'&&seq===playerState.sequence)usage.append(text('p',e.message));}
@@ -496,7 +500,7 @@ function renderHomeResults(d,year){
       const link=text('a',teamNames[code]??code,'player-link');link.href=`#team=${encodeURIComponent(code)}&year=${year}`;link.title=side==='Away'?'원정':'홈';
       const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
       if(side==='Away')scoreline.append(link,result,text('span',d.asOf?.slice(5,10).replace('-','.')??'','home-game-date'));else scoreline.append(result,link);
-    }game.append(scoreline);
+    }game.append(scoreline);const detail=text('a','상세','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;scoreline.append(detail);
     const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';const row=text('div');row.title=p.label;row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
   }
   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));

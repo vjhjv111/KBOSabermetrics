@@ -114,7 +114,8 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         if(r.Section=="profile")
         {
             var seasons=await Sql($"SELECT g.SeasonYear Year, s.Role, GROUP_CONCAT(DISTINCT s.TeamCode) Team FROM (SELECT GameId,TeamCode,'batter' Role FROM BatterGameStats WHERE Pcode=$code UNION ALL SELECT GameId,TeamCode,'pitcher' Role FROM PitcherGameStats WHERE Pcode=$code) s JOIN Games g ON g.GameId=s.GameId WHERE {Round(r.Competition)} AND g.SeasonYear IS NOT NULL GROUP BY g.SeasonYear,s.Role ORDER BY Year DESC LIMIT 100",r,ct);
-            return new{profile,seasons,notes=new[]{"수상·계약·연봉·등번호·선수 사진은 현재 DB에서 제공하지 않습니다.","퍼센타일은 자체 DB 기준이며 외부 사이트의 평가값과 다를 수 있습니다."}};
+            var details=await Sql("SELECT s.BackNumber,s.Height,s.Weight,g.GameDate Date FROM (SELECT GameId,Pcode,BackNumber,Height,Weight FROM BattingGameLines UNION ALL SELECT GameId,Pcode,BackNumber,Height,Weight FROM PitchingGameLines) s JOIN Games g ON g.GameId=s.GameId WHERE s.Pcode=$code ORDER BY g.GameDate DESC,g.GameId DESC LIMIT 1",r,ct);
+            return new{profile,seasons,details=details.FirstOrDefault(),notes=new[]{"신체정보·등번호는 마지막 수집 경기 기준입니다. 수상·계약·연봉·선수 사진은 제공하지 않습니다.","퍼센타일은 자체 DB 기준이며 외부 사이트의 평가값과 다를 수 있습니다."}};
         }
         if(r.Section=="career")
         {

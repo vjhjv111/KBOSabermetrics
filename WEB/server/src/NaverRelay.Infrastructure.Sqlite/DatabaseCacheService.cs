@@ -16,7 +16,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
-    private const string ParserCacheVersion = "sabermetrics-v2-relational-player-profile-v2";
+    private const string ParserCacheVersion = "sabermetrics-v2-game-metadata-v3";
     private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-common-war-v1";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -143,6 +143,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         await DeleteExistingGameAsync(connection, transaction, game.GameId, cancellationToken).ConfigureAwait(false);
         await InsertGameAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
+        await SaveGameMetadataAsync(connection, transaction, game.GameId, document, cancellationToken).ConfigureAwait(false);
         await InsertGameSummaryAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertRelayGroupsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertEventsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
