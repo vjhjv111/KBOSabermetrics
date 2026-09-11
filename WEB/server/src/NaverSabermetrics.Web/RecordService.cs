@@ -10,7 +10,7 @@ using NaverRelay.Infrastructure.Sqlite;
 
 namespace NaverSabermetrics.Web;
 
-public sealed class RecordService
+public sealed partial class RecordService
 {
     private readonly DatabaseCacheService _db;
     private readonly DatabaseAnalyticsService _analytics;
