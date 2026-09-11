@@ -16,7 +16,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
-    private const string ParserCacheVersion = "sabermetrics-v2-game-metadata-v3";
+    private const string ParserCacheVersion = "sabermetrics-v2-audit-corrections-v4";
     private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-common-war-v1";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -137,6 +137,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(document);
+        await ApplyKboCorrectionsAsync(game, cancellationToken).ConfigureAwait(false);
         var projection = WarehouseProjectionBuilder.Build(game);
 
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
