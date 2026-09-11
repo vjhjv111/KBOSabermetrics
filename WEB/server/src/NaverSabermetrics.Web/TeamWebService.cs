@@ -79,6 +79,8 @@ public sealed class TeamWebService(DatabaseCacheService db,SiteOptions options)
             if(best is not null)leaders.Add(new{metric,code=S(best,"Code"),name=S(best,"Name"),value=best[metric],role=pitching?"pitcher":"batter"});
         }
         var field=new List<object>();
+        var mainPitcher=pitchers.FirstOrDefault(x=>N(x,"Outs")>0);
+        if(mainPitcher is not null)field.Add(new{position="P",code=S(mainPitcher,"Code"),name=S(mainPitcher,"Name"),volume=N(mainPitcher,"Outs")/3,innings=S(mainPitcher,"IP")});
         foreach(var (pos,column) in new[]{("C","CatcherInnings"),("1B","FirstBaseInnings"),("2B","SecondBaseInnings"),("3B","ThirdBaseInnings"),("SS","ShortstopInnings"),("LF","LeftFieldInnings"),("CF","CenterFieldInnings"),("RF","RightFieldInnings"),("DH","DhPa")})
         {
             var rows=await Sql($"SELECT s.Pcode Code,MAX(s.Name) Name,SUM(s.{column}) Volume FROM BatterGameStats s JOIN Games g ON g.GameId=s.GameId WHERE s.TeamCode=$team AND g.SeasonYear=$year AND {Round(r.Competition)} AND UPPER(g.StatusCode)='RESULT' GROUP BY s.Pcode HAVING SUM(s.{column})>0 ORDER BY Volume DESC,s.Pcode LIMIT 1",r,ct);
