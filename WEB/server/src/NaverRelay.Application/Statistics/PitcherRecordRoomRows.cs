@@ -12,6 +12,8 @@ public sealed class PitcherBasicRecordRow
     [DisplayName("G")] public int Games { get; init; }
     [DisplayName("GS")] public int GamesStarted { get; init; }
     [DisplayName("GR")] public int ReliefGames { get; init; }
+    [DisplayName("CG")] public int CompleteGames { get; init; }
+    [DisplayName("SHO")] public int Shutouts { get; init; }
     [DisplayName("IP")] public double? InningsPitched { get; init; }
     [DisplayName("ER")] public int EarnedRuns { get; init; }
     [DisplayName("R")] public int RunsAllowed { get; init; }
@@ -41,6 +43,8 @@ public sealed class PitcherAdvancedRecordRow
     [DisplayName("Name")] public string? Name { get; init; }
     [DisplayName("Team")] public string? TeamCode { get; init; }
     [DisplayName("G")] public int Games { get; init; }
+    [DisplayName("CG")] public int CompleteGames { get; init; }
+    [DisplayName("SHO")] public int Shutouts { get; init; }
     [DisplayName("IP")] public double? InningsPitched { get; init; }
     [DisplayName("K/9")] public double? StrikeoutsPerNine { get; init; }
     [DisplayName("BB/9")] public double? WalksPerNine { get; init; }
@@ -413,6 +417,8 @@ public static class PitcherRecordRoomRowFactory
                     Games = valueRow?.Games ?? row.Games,
                     GamesStarted = valueRow?.GamesStarted ?? 0,
                     ReliefGames = valueRow?.ReliefGames ?? 0,
+                    CompleteGames = valueRow?.CompleteGames ?? 0,
+                    Shutouts = valueRow?.Shutouts ?? 0,
                     InningsPitched = innings,
                     EarnedRuns = valueRow?.EarnedRuns ?? 0,
                     RunsAllowed = valueRow?.RunsAllowed ?? 0,
@@ -473,6 +479,8 @@ public static class PitcherRecordRoomRowFactory
                     Name = row.Name,
                     TeamCode = row.TeamCode,
                     Games = valueRow?.Games ?? row.Games,
+                    CompleteGames = valueRow?.CompleteGames ?? 0,
+                    Shutouts = valueRow?.Shutouts ?? 0,
                     InningsPitched = innings,
                     StrikeoutsPerNine = row.StrikeoutsPerNine,
                     WalksPerNine = row.WalksPerNine,

@@ -98,6 +98,8 @@ public sealed class PitcherValueGridRow
     [DisplayName("G")] public int Games { get; init; }
     [DisplayName("GS")] public int GamesStarted { get; init; }
     [DisplayName("구원 G")] public int ReliefGames { get; init; }
+    [Browsable(false)] public int CompleteGames { get; init; }
+    [Browsable(false)] public int Shutouts { get; init; }
     [DisplayName("IP")] public double? InningsPitched { get; init; }
     [DisplayName("선발 IP")] public double? StarterInnings { get; init; }
     [DisplayName("구원 IP")] public double? ReliefInnings { get; init; }

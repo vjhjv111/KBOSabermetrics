@@ -293,7 +293,7 @@ public sealed class RecordService
         if(!q.HasSituationFilters) return false;
         var n=p.Name;
         if(n.Contains("War",StringComparison.OrdinalIgnoreCase)) return true;
-        if(role=="pitcher") return n is "InningsPitched" or "EarnedRuns" or "ERA" or "RA9" or "WHIP" or "Fip" or "Xfip" or "FipMinus" or "XfipMinus" or "EraMinusFip" or "LobRate" or "RunsAllowed" or "WildPitches" or "StrikeoutsPerNine" or "WalksPerNine" or "HomeRunsPerNine" or "PitchesPerInning";
+        if(role=="pitcher") return n is "InningsPitched" or "EarnedRuns" or "ERA" or "RA9" or "WHIP" or "CompleteGames" or "Shutouts" or "Fip" or "Xfip" or "FipMinus" or "XfipMinus" or "EraMinusFip" or "LobRate" or "RunsAllowed" or "WildPitches" or "StrikeoutsPerNine" or "WalksPerNine" or "HomeRunsPerNine" or "PitchesPerInning";
         return n is "PrimaryPosition" or "Runs" or "RunsBattedIn" or "StolenBases" or "CaughtStealing" or "RunningRuns" or "PositionRuns" or "RunsAboveReplacement" or "DoublePlays";
     }
     private static bool Compare(object? x, double y, string op)

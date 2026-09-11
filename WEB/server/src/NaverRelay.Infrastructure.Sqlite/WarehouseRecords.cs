@@ -261,6 +261,8 @@ internal sealed class PitcherAggregateRecord
     public int FinalGames { get; init; }
     public int GamesStarted { get; init; }
     public int ReliefGames { get; init; }
+    public int CompleteGames { get; init; }
+    public int Shutouts { get; init; }
     public int InningsOuts { get; init; }
     public int StarterInningsOuts { get; init; }
     public int ReliefInningsOuts { get; init; }

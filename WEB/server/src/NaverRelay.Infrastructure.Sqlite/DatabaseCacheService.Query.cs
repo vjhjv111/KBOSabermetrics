@@ -374,6 +374,12 @@ public sealed partial class DatabaseCacheService
 
         command.CommandText = $"""
             {filter.Cte},
+            TeamGameOuts AS (
+                SELECT pg.GameId, pg.TeamCode, SUM(pg.InningsOuts) AS TeamOuts
+                FROM PitcherGameStats pg
+                INNER JOIN FilteredGames tfg ON tfg.GameId=pg.GameId
+                GROUP BY pg.GameId, pg.TeamCode
+            ),
             OppPaStats AS (
                 SELECT pa.GameId,
                        COALESCE(NULLIF(pa.PitcherPcode,''),'') AS Pcode,
@@ -400,7 +406,10 @@ public sealed partial class DatabaseCacheService
                    SUM(p.CSW), SUM(p.InZone), SUM(p.OutZone), SUM(p.ZoneSwings), SUM(p.ChaseSwings),
                    SUM(p.ZoneContacts), SUM(p.OutZoneContacts), SUM(p.FirstPitches), SUM(p.FirstPitchSwings),
                    SUM(p.SpeedSum), SUM(p.SpeedCount), SUM(CASE WHEN p.HasFinalLine=1 THEN 1 ELSE 0 END),
-                   SUM(p.IsStarter), SUM(p.IsReliever), SUM(p.InningsOuts),
+                   SUM(p.IsStarter), SUM(p.IsReliever),
+                   SUM(CASE WHEN p.IsStarter=1 AND tgo.TeamOuts>0 AND p.InningsOuts=tgo.TeamOuts THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN p.IsStarter=1 AND tgo.TeamOuts>0 AND p.InningsOuts=tgo.TeamOuts AND p.RunsAllowed=0 THEN 1 ELSE 0 END),
+                   SUM(p.InningsOuts),
                    SUM(CASE WHEN p.IsStarter=1 THEN p.InningsOuts ELSE 0 END),
                    SUM(CASE WHEN p.IsReliever=1 THEN p.InningsOuts ELSE 0 END),
                    SUM(p.HitsAllowed), SUM(p.HomeRunsAllowed), SUM(p.FinalBB), SUM(p.FinalHBP),
@@ -408,6 +417,7 @@ public sealed partial class DatabaseCacheService
                    SUM(p.FinalPitchCount), SUM(p.EntryAbsoluteWpaSum), SUM(p.EntryWpaCount)
             FROM PitcherGameStats p
             INNER JOIN FilteredGames g ON g.GameId=p.GameId
+            LEFT JOIN TeamGameOuts tgo ON tgo.GameId=p.GameId AND tgo.TeamCode=p.TeamCode
             LEFT JOIN OppPaStats opa
               ON opa.GameId=p.GameId AND opa.Pcode=p.Pcode AND opa.TeamCode=p.TeamCode
             {identity.Item2}
@@ -434,7 +444,9 @@ public sealed partial class DatabaseCacheService
                 ZoneSwings = ReadInt32(reader, i++), ChaseSwings = ReadInt32(reader, i++), ZoneContacts = ReadInt32(reader, i++),
                 OutZoneContacts = ReadInt32(reader, i++), FirstPitches = ReadInt32(reader, i++), FirstPitchSwings = ReadInt32(reader, i++),
                 SpeedSum = ReadDouble(reader, i++), SpeedCount = ReadInt32(reader, i++), FinalGames = ReadInt32(reader, i++),
-                GamesStarted = ReadInt32(reader, i++), ReliefGames = ReadInt32(reader, i++), InningsOuts = ReadInt32(reader, i++),
+                GamesStarted = ReadInt32(reader, i++), ReliefGames = ReadInt32(reader, i++),
+                CompleteGames = ReadInt32(reader, i++), Shutouts = ReadInt32(reader, i++),
+                InningsOuts = ReadInt32(reader, i++),
                 StarterInningsOuts = ReadInt32(reader, i++), ReliefInningsOuts = ReadInt32(reader, i++), HitsAllowed = ReadInt32(reader, i++),
                 HomeRunsAllowed = ReadInt32(reader, i++), FinalWalks = ReadInt32(reader, i++), FinalHitBatters = ReadInt32(reader, i++),
                 FinalStrikeouts = ReadInt32(reader, i++), RunsAllowed = ReadInt32(reader, i++), EarnedRuns = ReadInt32(reader, i++),

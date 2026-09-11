@@ -420,6 +420,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         {
             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode),
             Games = row.FinalGames, GamesStarted = row.GamesStarted, ReliefGames = row.ReliefGames,
+            CompleteGames = row.CompleteGames, Shutouts = row.Shutouts,
             InningsPitched = innings, StarterInnings = starterInnings, ReliefInnings = reliefInnings,
             RunsAllowed = row.RunsAllowed, EarnedRuns = row.EarnedRuns,
             HomeRuns = row.HomeRunsAllowed, Walks = row.FinalWalks,
