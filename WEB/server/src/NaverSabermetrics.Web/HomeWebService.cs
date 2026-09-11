@@ -100,11 +100,14 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
         r.Validate();var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{r.Year}|{r.Section}";
         await mutex.WaitAsync(ct);try{
             if(cache.TryGetValue(key,out var hit))return hit;
-            var teams=new Dictionary<string,ForecastTeam>();var matches=new Dictionary<(string,string),int>();string? last=null;
+            var teams=new Dictionary<string,ForecastTeam>();var monthly=new Dictionary<string,ForecastTeam>();string? month=null;var matches=new Dictionary<(string,string),int>();string? last=null;
             await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);
             await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;cmd.CommandText="SELECT HomeTeamCode,AwayTeamCode,HomeScore,AwayScore,GameDate FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode)='RESULT' AND HomeScore IS NOT NULL AND AwayScore IS NOT NULL AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') ORDER BY GameDate,GameId";cmd.Parameters.AddWithValue("$year",r.Year);using var cancel=ct.Register(cmd.Cancel);
             await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct)){
                 var a=reader.GetString(0);var b=reader.GetString(1);var ra=reader.GetInt32(2);var rb=reader.GetInt32(3);if(ra<0||rb<0)continue;last=reader.IsDBNull(4)?last:reader.GetString(4);
+                var gameMonth=reader.IsDBNull(4)?null:reader.GetString(4)[..7];
+                if(gameMonth!=month){monthly.Clear();month=gameMonth;}
+                if(gameMonth is not null)foreach(var (t,rf,runs) in new[]{(a,ra,rb),(b,rb,ra)}){var old=monthly.GetValueOrDefault(t)??new ForecastTeam(t,0,0,0,0,0);monthly[t]=old with{W=old.W+(rf>runs?1:0),D=old.D+(rf==runs?1:0),L=old.L+(rf<runs?1:0)};}
                 foreach(var (t,rf,runs) in new[]{(a,ra,rb),(b,rb,ra)}){var old=teams.GetValueOrDefault(t)??new ForecastTeam(t,0,0,0,0,0);teams[t]=old with{W=old.W+(rf>runs?1:0),D=old.D+(rf==runs?1:0),L=old.L+(rf<runs?1:0),RF=old.RF+rf,RA=old.RA+runs};}
                 var pair=string.CompareOrdinal(a,b)<0?(a,b):(b,a);matches[pair]=matches.GetValueOrDefault(pair)+1;
             }
@@ -119,7 +122,8 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 var leader=list.OrderByDescending(x=>x.Pct??-1).ThenByDescending(x=>x.W).FirstOrDefault();
                 var rows=list.Select((t,i)=>new{team=t.Code,g=t.G,w=t.W,d=t.D,l=t.L,pct=t.Pct,rf=t.RF,ra=t.RA,rank=1+list.Count(x=>(x.Pct??-1)>(t.Pct??-1)),gb=leader is null?0:((leader.W-t.W)+(t.L-leader.L))/2.0,pyth=t.Pyth,pythWins=t.Pyth*(t.W+t.L),winDifference=t.W-t.Pyth*(t.W+t.L),remaining=Math.Max(0,144-t.G),playoff=odds?[i]}).OrderBy(x=>x.rank).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
                 var latestGames=await LatestResults(c,r.Year,last,ct);
-                result=new{rows,latestGames,asOf=last,forecastAvailable=odds is not null,reason,simulations=PlayoffModel.Trials,exponent=1.83,note="피타고리안 승률 = 득점^1.83 / (득점^1.83 + 실점^1.83). 예상승은 무승부 제외 경기수 기준. 진출확률은 현재 전적을 유지하고 상대별 16경기에서 적재된 종료 경기를 뺀 남은 대진을 10,000회 계산한 상위 5위 비율입니다. 상대 승률은 Log5로 보정합니다. 남은 경기 무승부·홈 이점·부상·선발투수 변화는 반영하지 않고, 최종 승률 동률은 남은 진출 자리를 균등 배분합니다. 지수 1.83은 KBO에 맞춰 별도 보정하지 않은 기본 가정입니다. 공식 확률이 아닌 자체 모델 추정이며, DB 누락은 남은 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                var monthlyRows=teams.Keys.Select(code=>monthly.GetValueOrDefault(code)??new ForecastTeam(code,0,0,0,0,0)).Select(t=>new{team=t.Code,w=t.W,d=t.D,l=t.L,pct=t.Pct,rank=t.Pct is null?(int?)null:1+monthly.Values.Count(x=>(x.Pct??-1)>t.Pct.Value)}).OrderBy(x=>x.rank??int.MaxValue).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
+                result=new{rows,latestGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,reason,simulations=PlayoffModel.Trials,exponent=1.83,note="피타고리안 승률 = 득점^1.83 / (득점^1.83 + 실점^1.83). 예상승은 무승부 제외 경기수 기준. 진출확률은 현재 전적을 유지하고 상대별 16경기에서 적재된 종료 경기를 뺀 남은 대진을 10,000회 계산한 상위 5위 비율입니다. 상대 승률은 Log5로 보정합니다. 남은 경기 무승부·홈 이점·부상·선발투수 변화는 반영하지 않고, 최종 승률 동률은 남은 진출 자리를 균등 배분합니다. 지수 1.83은 KBO에 맞춰 별도 보정하지 않은 기본 가정입니다. 공식 확률이 아닌 자체 모델 추정이며, DB 누락은 남은 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}

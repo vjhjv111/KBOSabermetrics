@@ -42,6 +42,10 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options)
         var innings=await Read("SELECT Inning,BattingTeamCode Team,MIN(CASE WHEN BattingTeamCode=g.HomeTeamCode THEN BeforeHomeScore ELSE BeforeAwayScore END) Start,MAX(CASE WHEN BattingTeamCode=g.HomeTeamCode THEN AfterHomeScore ELSE AfterAwayScore END) Finish FROM RelayGroups p JOIN Games g ON g.GameId=p.GameId WHERE p.GameId=$id AND Inning BETWEEN 1 AND 30 AND BattingTeamCode IN (g.HomeTeamCode,g.AwayTeamCode) GROUP BY Inning,BattingTeamCode ORDER BY Inning",r,ct);
         await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);var decisions=await Decisions(c,r.Id,ct);
         object? original=null;var exists=await Read("SELECT name FROM sqlite_master WHERE type='table' AND name='GameMetadata'",r,ct);if(exists.Count>0){var meta=await Read("SELECT HomeInnings,AwayInnings FROM GameMetadata WHERE GameId=$id",r,ct);if(meta.Count>0)original=new{home=meta[0]["HomeInnings"] is string h?JsonSerializer.Deserialize<string[]>(h):null,away=meta[0]["AwayInnings"] is string a?JsonSerializer.Deserialize<string[]>(a):null};}
-        return new{game=games[0],batters,pitchers,probability,innings,original,decisions};
+        var plays=await Read("SELECT r.RelayGroupId Id,r.ChronologicalIndex Seq,r.Inning,r.BattingTeamCode Team,r.Title,r.BeforeHomeScore BH,r.BeforeAwayScore BA,r.AfterHomeScore AH,r.AfterAwayScore AA,r.HomeWinRateAfter Home,r.AwayWinRateAfter Away,r.WpaByPlate WPA FROM RelayGroups r WHERE r.GameId=$id ORDER BY r.ChronologicalIndex",r,ct);
+        var events=await Read("SELECT RelayGroupId GroupId,RawText Text FROM NormalizedEvents WHERE GameId=$id AND RawText IS NOT NULL AND TRIM(RawText)<>'' ORDER BY ChronologicalIndex",r,ct);
+        var grouped=events.ToLookup(e=>Convert.ToString(e["GroupId"]));
+        foreach(var play in plays)play["events"]=grouped[Convert.ToString(play["Id"])].Select(e=>e["Text"]).ToArray();
+        return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays};
     }
 }
