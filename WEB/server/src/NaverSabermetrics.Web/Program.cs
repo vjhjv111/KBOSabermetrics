@@ -61,6 +61,7 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
+builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddAntiforgery(o=>
 {
     o.HeaderName="X-CSRF-TOKEN";o.Cookie.Name="saber.csrf";o.Cookie.HttpOnly=true;
@@ -206,6 +207,13 @@ app.MapPost("/api/player", async (PlayerWebRequest input, HttpContext c, PlayerW
     input.Validate(settings);
     quotas.Consume(Ip(c), input.Section == "years" ? 6 : input.PageSize);
     return Results.Ok(await gate.RunAsync(t => players.QueryAsync(input, t), c.RequestAborted));
+});
+app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebService teams, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    input.Validate();
+    quotas.Consume(Ip(c),100);
+    return Results.Ok(await gate.RunAsync(t=>teams.QueryAsync(input,t),c.RequestAborted));
 });
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});

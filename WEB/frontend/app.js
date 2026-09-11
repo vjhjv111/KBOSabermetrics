@@ -26,6 +26,7 @@ async function bootstrap(){
     state.session=await api('/api/session');
     await loadCatalog();
     await playerRoute();
+    await teamRoute();
   }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
 }
 
@@ -50,7 +51,7 @@ async function loadCatalog(){
   $('quota-info').textContent=`서버 기본 제한: IP별 하루 ${c.limits.dailyQueries}회 · 응답 요청 ${c.limits.dailyRows.toLocaleString('ko-KR')}행. 한 페이지 ${c.limits.maxPageSize}행, 한 조회 결과는 최대 ${c.limits.maxAccessibleRows.toLocaleString('ko-KR')}행입니다. 관리자가 설정을 변경할 수 있습니다.`;
   $('connection').textContent='● 서버 연결됨 · 읽기 전용 SQLite';
   $('demo-badge').hidden=!c.demo;
-  if(new URLSearchParams(location.hash.slice(1)).has('player'))navigation();else await changeView();
+  if(['player','team'].some(k=>new URLSearchParams(location.hash.slice(1)).has(k)))navigation();else await changeView();
 }
 function navigation(){
   document.querySelectorAll('.room').forEach(b=>{const yes=b.dataset.room===state.room;b.classList.toggle('active',yes);b.setAttribute('aria-current',yes?'page':'false');});
@@ -198,7 +199,9 @@ function renderTable(result){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
       if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
-      if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
+      if(state.room==='team'&&['Name','TeamCode'].includes(col.key)&&row.entityCode){
+        const a=text('a',value,'player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
+      }else if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
         const b=text('a',value,'player-link');b.title='선수 개인 페이지';b.href=`#player=${encodeURIComponent(row.entityCode)}&role=${state.role}`;
         td.replaceChildren(b);
       }
@@ -278,7 +281,7 @@ async function playerRoute(keep=false){
   const params=new URLSearchParams(location.hash.slice(1)),code=params.get('player');
   playerState.profileController?.abort();playerState.controller?.abort();++playerState.sequence;
   const seq=++playerState.profileSequence;
-  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=false;document.title='KBO Sabermetrics';if(previous&&!state.schema.length)await changeView();return;}
+  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='KBO Sabermetrics';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
   abortQuery();$('workspace').hidden=true;$('player-page').hidden=false;playerState.code=code;
   if(!keep){playerState.section='summary';playerState.view='basic';playerState.role=params.get('role')==='pitcher'?'pitcher':'batter';$('pp-competition').value='정규시즌';$('pp-opponent').value='';$('pp-start').value=$('pp-end').value='';}
   playerState.page=1;$('player-content').replaceChildren();$('player-pagination').hidden=true;$('player-status').textContent='선수 정보를 불러오는 중…';$('player-title').textContent='선수 불러오는 중…';$('player-bio').textContent=$('player-history').textContent='';
@@ -391,4 +394,55 @@ function renderPlayerTrend(data){
   const coords=points.map((r,i)=>[55+i*770/Math.max(1,points.length-1),205-(Number(r[key])-lo)/(hi-lo)*180]);svg.append(svgNode('polyline',{points:coords.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#ef6a35','stroke-width':3}));
   coords.forEach(([x,y],i)=>{const g=svgNode('g');g.append(svgNode('title',{},`${points[i].Year}: ${playerDisplay(points[i][key],key)}`),svgNode('circle',{cx:x,cy:y,r:5,fill:'#ef6a35'}),svgNode('text',{x,y:235,'text-anchor':'middle',class:'pct-axis'},points[i].Year));svg.append(g);});card.append(svg);
 }
-initPlayerPage();navigation();bootstrap();
+const teamState={team:null,section:'overview',page:1,seq:0,controller:null};
+function initTeamPage(){
+  const entry=text('button','팀 정보','button outline');entry.id='open-teams';entry.onclick=()=>{const t=$('team').value||state.catalog?.teams?.[0]||'HH';location.hash=`team=${encodeURIComponent(t)}&year=${$('year').value||Math.max(...(state.catalog?.years??[new Date().getFullYear()]))}`;};$('open-search').parentElement.prepend(entry);
+  const main=text('main','','player-page team-page');main.id='team-page';main.hidden=true;
+  main.innerHTML='<div class="player-breadcrumb"><a href="#">← 기록실</a><span>TEAM / 팀 정보</span></div><div class="player-hero"><div class="player-monogram" id="tp-mark"></div><div><div class="player-eyebrow">KBO TEAM PROFILE</div><h1 id="tp-title">팀 정보</h1><p id="tp-record"></p></div></div><nav id="tp-tabs" class="player-tabs" aria-label="팀 정보 탭"></nav><form id="tp-controls" class="player-controls"><label>팀<select id="tp-team"></select></label><label>시즌<select id="tp-year"></select></label><label>경기<select id="tp-competition"><option>정규시즌</option><option>포스트시즌</option><option>시범경기</option><option>전체</option></select></label><label id="tp-role-label" hidden>선수<select id="tp-role"><option value="batter">타자</option><option value="pitcher">투수</option></select></label><button class="button primary">조회</button></form><p id="tp-status" role="status"></p><div id="tp-content"></div><div id="tp-pages" class="player-pagination" hidden><button id="tp-prev" class="button outline">← 이전</button><span id="tp-page"></span><button id="tp-next" class="button outline">다음 →</button></div><p class="player-source">자체 DB에 적재된 기록 기준 · 수상·연봉·코칭스태프 정보는 현재 제공하지 않습니다.</p>';
+  $('workspace').after(main);
+  for(const [key,label] of [['overview','종합'],['schedule','경기 일정'],['roster','선수 기록'],['scores','득실점 분석']]){const b=text('button',label);b.dataset.section=key;b.onclick=()=>{teamState.section=key;teamState.page=1;loadTeam();};$('tp-tabs').append(b);}
+  $('tp-controls').onsubmit=e=>{e.preventDefault();teamState.page=1;if($('tp-team').value!==teamState.team)location.hash=`team=${encodeURIComponent($('tp-team').value)}&year=${$('tp-year').value}`;else loadTeam();};
+  $('tp-prev').onclick=()=>{teamState.page--;loadTeam();};$('tp-next').onclick=()=>{teamState.page++;loadTeam();};
+  window.addEventListener('hashchange',teamRoute);
+  for(const b of document.querySelectorAll('.room,.role'))b.addEventListener('click',()=>{if(teamState.team)location.hash='';});
+}
+async function teamRoute(){
+  if(!state.catalog)return;const p=new URLSearchParams(location.hash.slice(1)),team=p.get('team');teamState.controller?.abort();++teamState.seq;
+  if(!team){const old=teamState.team;teamState.team=null;$('team-page').hidden=true;if(!p.has('player')){$('workspace').hidden=false;if(old&&!state.schema.length)await changeView();}return;}
+  abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=false;teamState.team=team;teamState.page=1;teamState.section='overview';
+  $('tp-team').replaceChildren(...state.catalog.teams.map(t=>new Option(teamNames[t]??t,t)));$('tp-team').value=team;
+  $('tp-year').replaceChildren(...[...state.catalog.years].sort((a,b)=>b-a).map(y=>new Option(y,y)));if(p.get('year'))$('tp-year').value=p.get('year');if(!$('tp-year').value)$('tp-year').selectedIndex=0;
+  await loadTeam();
+}
+function teamLink(code,name,role='batter'){const a=text('a',name,'player-link');a.href=`#player=${encodeURIComponent(code)}&role=${role}`;return a;}
+function teamValue(v,key=''){if(v===null||v===undefined)return '—';if(typeof v==='number'&&['PCT','AVG','OBP','SLG','OPS','ERA','WHIP'].includes(key))return v.toFixed(key==='ERA'||key==='WHIP'?2:3);return String(v);}
+function teamTable(columns,rows){
+  const names={Name:'선수',Date:'날짜',Time:'시각',Opponent:'상대',Venue:'홈/원정',Stadium:'구장',Result:'결과',RF:'득점',RA:'실점',G:'경기',W:'승',D:'무',L:'패',PCT:'승률',Team:'팀',Rank:'순위'};
+  const wrap=text('div','','player-table-wrap'),t=document.createElement('table'),h=document.createElement('thead'),hr=document.createElement('tr');for(const k of columns)hr.append(text('th',names[k]??k));h.append(hr);t.append(h);const body=document.createElement('tbody');
+  for(const r of rows){const tr=document.createElement('tr');for(const k of columns){const td=text('td',teamValue(r[k],k));if(k==='Name'&&r.Code)td.replaceChildren(teamLink(r.Code,r.Name,$('tp-role').value));if(['Team','Opponent'].includes(k)&&r[k]){const a=text('a',teamNames[r[k]]??r[k],'player-link');a.href=`#team=${encodeURIComponent(r[k])}&year=${$('tp-year').value}`;td.replaceChildren(a);}if(k==='Result')td.classList.add(r[k]==='승'?'team-win':r[k]==='패'?'team-loss':'');tr.append(td);}body.append(tr);}t.append(body);wrap.append(t);if(!rows.length)wrap.append(text('p','해당 조건에 저장된 기록이 없습니다.','player-empty'));return wrap;
+}
+function teamCard(title,columns,rows){const c=playerCard(title);c.append(teamTable(columns,rows));return c;}
+async function loadTeam(){
+  $('tp-record').textContent='';
+  teamState.controller?.abort();const controller=new AbortController();teamState.controller=controller;const seq=++teamState.seq;
+  const section=teamState.section;for(const b of $('tp-tabs').children){b.classList.toggle('active',b.dataset.section===section);b.setAttribute('aria-current',b.dataset.section===section?'page':'false');}$('tp-role-label').hidden=section!=='roster';$('tp-content').replaceChildren();$('tp-pages').hidden=true;$('tp-status').textContent='팀 기록을 불러오는 중…';
+  const year=Number($('tp-year').value);$('tp-title').textContent=`${year} ${teamNames[teamState.team]??teamState.team}`;$('tp-mark').textContent=teamState.team;document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
+  try{const data=await api('/api/team',{team:teamState.team,year,competition:$('tp-competition').value,section,role:$('tp-role').value,page:teamState.page},controller.signal);if(seq!==teamState.seq)return;$('tp-status').textContent='';
+    if(section==='overview')renderTeamOverview(data);else if(section==='scores')renderTeamScores(data);else{$('tp-content').append(teamCard(section==='roster'?'팀 소속 선수 기록':'경기 일정 · 결과',data.columns,data.rows));$('tp-pages').hidden=false;$('tp-page').textContent=teamState.page;$('tp-prev').disabled=teamState.page===1;$('tp-next').disabled=!data.hasMore;}
+  }catch(e){if(e.name!=='AbortError'&&seq===teamState.seq)$('tp-status').textContent=e.message;}
+}
+function renderTeamOverview(d){
+  const root=$('tp-content'),grid=text('div','','team-grid'),left=text('div'),right=text('div');grid.append(left,right);root.append(grid);
+  const standing=d.standings.find(t=>t.Team===teamState.team);$('tp-record').textContent=`${standing?.Rank?standing.Rank+'위 · ':''}${d.record.W}승 ${d.record.D}무 ${d.record.L}패 · 승률 ${teamValue(d.record.PCT,'PCT')}`;
+  const calendar=playerCard('최근 경기'),days=text('div','','team-calendar');for(const g of d.recent){const card=text('div','','team-game');card.append(text('small',g.Date?.slice(0,10)??'날짜 미상'),text('strong',`${g.Venue==='원정'?'@ ':''}${teamNames[g.Opponent]??g.Opponent}`),text('span',`${g.Result} ${g.RF??'—'}:${g.RA??'—'}`,g.Result==='승'?'team-win':g.Result==='패'?'team-loss':''));days.append(card);}calendar.append(days);if(!d.recent.length)calendar.append(text('p','저장된 경기가 없습니다.','player-empty'));left.append(calendar);
+  const last=playerCard('이전 경기 결과');if(d.latest){last.append(text('p',`${d.latest.Date?.slice(0,10)} · ${teamNames[d.latest.Opponent]??d.latest.Opponent} · ${d.latest.Result} ${d.latest.RF}:${d.latest.RA}`));const innings=[...new Set(d.line.map(x=>x.Inning))].sort((a,b)=>a-b),rows=[d.latest.Opponent,teamState.team].map(t=>{const row={Team:t,R:t===teamState.team?d.latest.RF:d.latest.RA};for(const i of innings){const line=d.line.find(x=>x.Team===t&&x.Inning===i);row[i]=line&&line.StartScore!==null&&line.EndScore!==null?Math.max(0,line.EndScore-line.StartScore):null;}return row;});last.append(teamTable(['Team',...innings,'R'],rows),text('p','이닝 점수는 저장된 중계에서 복원합니다. 미수집 이닝은 — 표시.','player-note'));}else last.append(text('p','종료된 경기가 없습니다.'));left.append(last);
+  const next=playerCard('다음 경기 일정');next.append(text('p',d.next?`${d.next.Date} · ${d.next.Time??''} · ${d.next.Venue} vs ${teamNames[d.next.Opponent]??d.next.Opponent} · ${d.next.Stadium??''}`:'DB에 저장된 향후 일정이 없습니다.'));left.append(next);
+  const field=playerCard('포지션별 주요 선수'),diamond=text('div','','team-field');const positions={CF:[50,12],LF:[18,25],RF:[82,25],SS:[34,44],'2B':[66,44],'3B':[17,65],'1B':[83,65],C:[50,87],DH:[86,89]};
+  for(const p of d.field){const [x,y]=positions[p.position]??[50,50],tile=text('div','','team-fielder');tile.style.left=x+'%';tile.style.top=y+'%';tile.append(text('small',p.position),teamLink(p.code,p.name),text('small',`${p.volume.toFixed(1)} ${p.position==='DH'?'PA':'이닝'}`));diamond.append(tile);}field.append(diamond,text('p','포지션별 최다 출장 이닝 · DH는 타석 기준','player-note'));left.append(field);
+  const titles=playerCard('주요 타이틀'),list=text('div','','team-leaders');for(const l of d.leaders){const row=text('div','','team-leader');row.append(text('span',l.metric),teamLink(l.code,l.name,l.role),text('strong',teamValue(l.value,l.metric)));list.append(row);}titles.append(list,text('p','비율 지표는 규정 기준 충족 선수만 표시합니다. 해당 선수가 없으면 생략됩니다.','player-note'));right.append(titles);
+  right.append(teamCard('팀별 대결 기록',['Team','G','W','D','L','PCT'],d.opponents.map(o=>({Team:o.team,...o.record}))));
+  right.append(teamCard('리그 순위',['Rank','Team','G','W','D','L','PCT','RF','RA'],d.standings));
+  const analysis=playerCard('팀 득실점 분석'),kpis=text('div','','player-kpis');for(const [label,v] of [['득점',d.record.RF],['실점',d.record.RA],['득실차',d.record.RF-d.record.RA]]){const k=text('div','','player-kpi');k.append(text('span',label),text('strong',v));kpis.append(k);}analysis.append(kpis);right.append(analysis);root.append(text('p',d.note,'player-note'));
+}
+function renderTeamScores(d){const root=$('tp-content'),grid=text('div','','team-grid');root.append(grid);for(const [key,title] of [['scored','득점 분포 및 승률'],['allowed','실점 분포 및 승률']])grid.append(teamCard(title,['점수','G','W','D','L','PCT'],d[key].map(x=>({'점수':x.score,...x.record}))));for(const side of ['득점','실점'])grid.append(teamCard(`이닝별 ${side}`,['이닝','경기','점수','평균'],d.innings.filter(x=>x.side===side).map(x=>({'이닝':x.inning,'경기':x.games,'점수':x.runs,'평균':x.average}))));for(const side of ['득점','실점'])grid.append(teamCard('이닝별 '+side+' 빈도',['이닝','0점','1점','2점','3점','4점','5점 이상'],d.inningDistribution.filter(x=>x.side===side).map(x=>({'이닝':x.inning,'0점':x.bins[0],'1점':x.bins[1],'2점':x.bins[2],'3점':x.bins[3],'4점':x.bins[4],'5점 이상':x.bins[5]}))));root.append(teamCard('이닝 시작 상황에 따른 경기 승률',['이닝','상황','G','W','D','L','PCT'],d.states.map(x=>({'이닝':x.inning,'상황':x.state,...x.record}))),text('p',d.note,'player-note'));}
+initPlayerPage();initTeamPage();navigation();bootstrap();
