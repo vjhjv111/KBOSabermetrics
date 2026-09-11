@@ -489,14 +489,15 @@ function renderHomeResults(d,year){
   const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
   const list=text('div','','home-results-list');
   for(const g of d.latestGames??[]){
-    const game=text('article','','home-game');game.append(text('p',`${g.Stadium??'구장 정보 없음'} · 경기 종료`,'home-game-venue'));
-    const table=homeTable(['팀','득점','안타','실책'],['Away','Home'].map(side=>{
+    const game=text('article','','home-game');game.title=`${g.Stadium??'구장 정보 없음'} · 경기 종료`;
+    const scoreline=text('div','','home-scoreline');
+    for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
-      const link=text('a',`${teamNames[code]??code} (${side==='Away'?'원정':'홈'})`,'player-link');link.href=`#team=${encodeURIComponent(code)}&year=${year}`;
-      const result=text('strong',`${score} ${score>other?'승':score<other?'패':'무'}`,score>other?'team-win':score<other?'team-loss':'');
-      return [link,result,g[side+'Hits'],g[side+'Errors']];
-    }));game.append(table);
-    const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const row=text('div');row.append(text('span',p.label,'home-decision-label'),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
+      const link=text('a',teamNames[code]??code,'player-link');link.href=`#team=${encodeURIComponent(code)}&year=${year}`;link.title=side==='Away'?'원정':'홈';
+      const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
+      if(side==='Away')scoreline.append(link,result,text('span',d.asOf?.slice(5,10).replace('-','.')??'','home-game-date'));else scoreline.append(result,link);
+    }game.append(scoreline);
+    const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';const row=text('div');row.title=p.label;row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
   }
   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
   card.append(text('p','선택 시즌의 마지막 종료 경기일 기준 · 승리·패전·홀드·세이브는 수집된 중계에 기록된 경우 표시합니다.','player-note'));
