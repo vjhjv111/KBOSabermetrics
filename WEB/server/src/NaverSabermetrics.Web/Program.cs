@@ -60,6 +60,7 @@ builder.WebHost.ConfigureKestrel(o=>{o.Limits.MaxRequestBodySize=16*1024;o.AddSe
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
+builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddAntiforgery(o=>
 {
     o.HeaderName="X-CSRF-TOKEN";o.Cookie.Name="saber.csrf";o.Cookie.HttpOnly=true;
@@ -199,7 +200,14 @@ app.MapPost("/api/players/search",async(PlayerSearchRequest input,HttpContext c,
     quotas.Consume(Ip(c),limit);
     return Results.Ok(await gate.RunAsync(t=>db.SearchPlayersAsync(input.Query,limit,t),c.RequestAborted));
 });
-// No raw-event endpoint, no upload, no DB download, no unconstrained export, no legacy /api/stats endpoint.
+app.MapPost("/api/player", async (PlayerWebRequest input, HttpContext c, PlayerWebService players, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.", 503, "DB_NOT_READY");
+    input.Validate(settings);
+    quotas.Consume(Ip(c), input.Section == "years" ? 6 : input.PageSize);
+    return Results.Ok(await gate.RunAsync(t => players.QueryAsync(input, t), c.RequestAborted));
+});
+// Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});
 app.Run();
 
