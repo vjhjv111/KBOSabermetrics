@@ -5,7 +5,7 @@ const state = { room: 'season', role: 'batter', view: 'basic', session: null, ca
   schema: [], applied: null, result: null, playerCode: null, sequence: 0, controller: null, schemaSequence: 0 };
 const roomNames = { season: '시즌', career: '통산', team: '팀', constants: '연도별 상수' };
 const descriptions = { season: '선택 시즌의 선수별 기록', career: '적재된 전체 기간의 선수 기록', team: '팀별 누적 기록과 세부 성적', constants: '적재된 전체 정규시즌 기준 · 화면 연도와 독립' };
-const teamNames = { HH: '한화', HT: 'KIA', LG: 'LG', LT: '롯데', SS: '삼성', SK: 'SSG/SK', WO: '히어로즈', KT: 'KT', NC: 'NC', OB: '두산' };
+const teamNames = { HH: '한화', HT: 'KIA', LG: 'LG', LT: '롯데', SS: '삼성', SK: 'SSG', WO: '키움', KT: 'KT', NC: 'NC', OB: '두산' };
 const text = (tag, value, className) => { const e=document.createElement(tag); e.textContent=value; if(className)e.className=className; return e; };
 function showError(message){ $('error-box').textContent=message; $('error-box').hidden=false; }
 function clearError(){ $('error-box').hidden=true; $('error-box').textContent=''; }
