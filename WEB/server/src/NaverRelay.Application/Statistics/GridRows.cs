@@ -191,6 +191,9 @@ public sealed class PitcherSummaryGridRow
     [DisplayName("HR")] public int HomeRuns { get; init; }
     [DisplayName("BB")] public int Walks { get; init; }
     [DisplayName("HBP")] public int HitBatters { get; init; }
+    [Browsable(false)] public int OpponentAtBats { get; init; }
+    [Browsable(false)] public int TotalBasesAllowed { get; init; }
+    [Browsable(false)] public int SacrificeFlies { get; init; }
     [DisplayName("SO")] public int Strikeouts { get; init; }
     [DisplayName("Swing")] public int Swings { get; init; }
     [DisplayName("Whiff")] public int Whiffs { get; init; }

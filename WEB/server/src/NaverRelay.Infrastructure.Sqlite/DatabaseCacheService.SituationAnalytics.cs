@@ -311,6 +311,13 @@ public sealed partial class DatabaseCacheService
                    SUM(CASE WHEN pa.ResultType=10 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=17 THEN 1 ELSE 0 END),
                    SUM(pa.RunsScored),
+                   SUM(CASE WHEN pa.CountsAsAtBat=1 THEN 1 ELSE 0 END),
+                   SUM(CASE
+                       WHEN pa.ResultType IN (1,2,3) THEN 1
+                       WHEN pa.ResultType=4 THEN 2
+                       WHEN pa.ResultType=5 THEN 3
+                       WHEN pa.ResultType=6 THEN 4
+                       ELSE 0 END),
                    SUM(CASE WHEN pa.BattedBallType IN (2,4) THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.BattedBallType=4 OR pa.ResultType IN (3,16,18) THEN 1 ELSE 0 END)
             FROM PlateAppearances pa
@@ -341,7 +348,9 @@ public sealed partial class DatabaseCacheService
                 HitsFromPlateAppearances = ReadInt32(reader2, i++), HomeRunsFromPlateAppearances = ReadInt32(reader2, i++),
                 WalksFromPlateAppearances = ReadInt32(reader2, i++), HitBattersFromPlateAppearances = ReadInt32(reader2, i++),
                 StrikeoutsFromPlateAppearances = ReadInt32(reader2, i++), SacrificeFlies = ReadInt32(reader2, i++),
-                RunsFromPlateAppearances = ReadInt32(reader2, i++), FlyBalls = ReadInt32(reader2, i++), InfieldFlies = ReadInt32(reader2, i++),
+                RunsFromPlateAppearances = ReadInt32(reader2, i++),
+                OpponentAtBats = ReadInt32(reader2, i++), TotalBasesAllowed = ReadInt32(reader2, i++),
+                FlyBalls = ReadInt32(reader2, i++), InfieldFlies = ReadInt32(reader2, i++),
                 Pitches = ps.Pitches, Swings = ps.Swings, Contacts = ps.Contacts, Whiffs = ps.Whiffs,
                 CalledStrikes = ps.CalledStrikes, Csw = ps.Csw, InZone = ps.InZone, OutZone = ps.OutZone,
                 ZoneSwings = ps.ZoneSwings, ChaseSwings = ps.ChaseSwings, ZoneContacts = ps.ZoneContacts,

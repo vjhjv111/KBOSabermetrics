@@ -237,6 +237,8 @@ internal sealed class PitcherAggregateRecord
     public int StrikeoutsFromPlateAppearances { get; init; }
     public int SacrificeFlies { get; init; }
     public int RunsFromPlateAppearances { get; init; }
+    public int OpponentAtBats { get; init; }
+    public int TotalBasesAllowed { get; init; }
     public int FlyBalls { get; init; }
     public int InfieldFlies { get; init; }
     public int Pitches { get; init; }

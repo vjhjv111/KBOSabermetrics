@@ -187,6 +187,8 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         BattersFaced = row.BattersFaced, PitchCount = row.Pitches,
         Hits = row.HitsFromPlateAppearances, HomeRuns = row.HomeRunsFromPlateAppearances,
         Walks = row.WalksFromPlateAppearances, HitBatters = row.HitBattersFromPlateAppearances,
+        OpponentAtBats = row.OpponentAtBats, TotalBasesAllowed = row.TotalBasesAllowed,
+        SacrificeFlies = row.SacrificeFlies,
         Strikeouts = row.StrikeoutsFromPlateAppearances, Swings = row.Swings, Whiffs = row.Whiffs,
         CswCount = row.Csw, AverageSpeed = row.SpeedCount > 0 ? row.SpeedSum / row.SpeedCount : null,
         StrikeoutRate = Divide(row.StrikeoutsFromPlateAppearances, row.BattersFaced),

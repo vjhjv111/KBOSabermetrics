@@ -27,6 +27,8 @@ public sealed class PitcherBasicRecordRow
     [DisplayName("RA9")] public double? RA9 { get; init; }
     [DisplayName("FIP")] public double? Fip { get; init; }
     [DisplayName("WHIP")] public double? WHIP { get; init; }
+    [DisplayName("피OBP")] public double? OpponentOBP { get; init; }
+    [DisplayName("피OPS")] public double? OpponentOPS { get; init; }
     [DisplayName("KBO fWAR")] public double? War { get; init; }
     [DisplayName("KBO RA9-WAR*")] public double? Ra9War { get; init; }
     [DisplayName("Blend WAR*")] public double? BlendWar { get; init; }
@@ -393,6 +395,16 @@ public static class PitcherRecordRoomRowFactory
                 double? whip = innings.HasValue && innings.Value > 0
                     ? (row.Hits + row.Walks) / innings.Value
                     : null;
+                var obpDenominator = row.OpponentAtBats + row.Walks + row.HitBatters + row.SacrificeFlies;
+                double? opponentObp = obpDenominator > 0
+                    ? (row.Hits + row.Walks + row.HitBatters) / (double)obpDenominator
+                    : null;
+                double? opponentSlg = row.OpponentAtBats > 0
+                    ? row.TotalBasesAllowed / (double)row.OpponentAtBats
+                    : null;
+                double? opponentOps = opponentObp.HasValue && opponentSlg.HasValue
+                    ? opponentObp.Value + opponentSlg.Value
+                    : null;
                 return new PitcherBasicRecordRow
                 {
                     Pcode = row.Pcode,
@@ -416,6 +428,8 @@ public static class PitcherRecordRoomRowFactory
                     RA9 = ra9,
                     Fip = saberRow?.Fip,
                     WHIP = whip,
+                    OpponentOBP = opponentObp,
+                    OpponentOPS = opponentOps,
                     War = valueRow?.War,
                     Ra9War = valueRow?.Ra9War,
                     BlendWar = valueRow?.BlendWar,

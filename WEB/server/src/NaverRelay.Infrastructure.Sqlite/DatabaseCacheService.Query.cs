@@ -373,10 +373,29 @@ public sealed partial class DatabaseCacheService
         };
 
         command.CommandText = $"""
-            {filter.Cte}
+            {filter.Cte},
+            OppPaStats AS (
+                SELECT pa.GameId,
+                       COALESCE(NULLIF(pa.PitcherPcode,''),'') AS Pcode,
+                       COALESCE(pa.FieldingTeamCode,'') AS TeamCode,
+                       SUM(CASE WHEN pa.CountsAsAtBat=1 THEN 1 ELSE 0 END) AS OppAB,
+                       SUM(CASE
+                           WHEN pa.ResultType IN (1,2,3) THEN 1
+                           WHEN pa.ResultType=4 THEN 2
+                           WHEN pa.ResultType=5 THEN 3
+                           WHEN pa.ResultType=6 THEN 4
+                           ELSE 0 END) AS OppTB
+                FROM PlateAppearances pa
+                INNER JOIN FilteredGames fg ON fg.GameId=pa.GameId
+                WHERE pa.IsOfficial=1
+                  AND COALESCE(NULLIF(pa.PitcherPcode,''),'')<>''
+                GROUP BY pa.GameId, COALESCE(NULLIF(pa.PitcherPcode,''),''), COALESCE(pa.FieldingTeamCode,'')
+            )
             SELECT {identity.Item1}, COUNT(DISTINCT p.GameId),
                    SUM(p.TBF), SUM(p.PaOuts), SUM(p.PaHits), SUM(p.PaHR), SUM(p.PaBB), SUM(p.PaHBP),
-                   SUM(p.PaSO), SUM(p.SF), SUM(p.PaRuns), SUM(p.FlyBalls), SUM(p.IFFB),
+                   SUM(p.PaSO), SUM(p.SF), SUM(p.PaRuns),
+                   SUM(COALESCE(opa.OppAB,0)), SUM(COALESCE(opa.OppTB,0)),
+                   SUM(p.FlyBalls), SUM(p.IFFB),
                    SUM(p.Pitches), SUM(p.Swings), SUM(p.Contacts), SUM(p.Whiffs), SUM(p.CalledStrikes),
                    SUM(p.CSW), SUM(p.InZone), SUM(p.OutZone), SUM(p.ZoneSwings), SUM(p.ChaseSwings),
                    SUM(p.ZoneContacts), SUM(p.OutZoneContacts), SUM(p.FirstPitches), SUM(p.FirstPitchSwings),
@@ -389,6 +408,8 @@ public sealed partial class DatabaseCacheService
                    SUM(p.FinalPitchCount), SUM(p.EntryAbsoluteWpaSum), SUM(p.EntryWpaCount)
             FROM PitcherGameStats p
             INNER JOIN FilteredGames g ON g.GameId=p.GameId
+            LEFT JOIN OppPaStats opa
+              ON opa.GameId=p.GameId AND opa.Pcode=p.Pcode AND opa.TeamCode=p.TeamCode
             {identity.Item2}
             WHERE ($resultTeam='' OR p.TeamCode=$resultTeam)
             GROUP BY {identity.Item3};
@@ -405,8 +426,9 @@ public sealed partial class DatabaseCacheService
                 BattersFaced = ReadInt32(reader, i++), PlateAppearanceOuts = ReadInt32(reader, i++), HitsFromPlateAppearances = ReadInt32(reader, i++),
                 HomeRunsFromPlateAppearances = ReadInt32(reader, i++), WalksFromPlateAppearances = ReadInt32(reader, i++),
                 HitBattersFromPlateAppearances = ReadInt32(reader, i++), StrikeoutsFromPlateAppearances = ReadInt32(reader, i++),
-                SacrificeFlies = ReadInt32(reader, i++), RunsFromPlateAppearances = ReadInt32(reader, i++), FlyBalls = ReadInt32(reader, i++),
-                InfieldFlies = ReadInt32(reader, i++), Pitches = ReadInt32(reader, i++), Swings = ReadInt32(reader, i++),
+                SacrificeFlies = ReadInt32(reader, i++), RunsFromPlateAppearances = ReadInt32(reader, i++),
+                OpponentAtBats = ReadInt32(reader, i++), TotalBasesAllowed = ReadInt32(reader, i++),
+                FlyBalls = ReadInt32(reader, i++), InfieldFlies = ReadInt32(reader, i++), Pitches = ReadInt32(reader, i++), Swings = ReadInt32(reader, i++),
                 Contacts = ReadInt32(reader, i++), Whiffs = ReadInt32(reader, i++), CalledStrikes = ReadInt32(reader, i++),
                 Csw = ReadInt32(reader, i++), InZone = ReadInt32(reader, i++), OutZone = ReadInt32(reader, i++),
                 ZoneSwings = ReadInt32(reader, i++), ChaseSwings = ReadInt32(reader, i++), ZoneContacts = ReadInt32(reader, i++),
