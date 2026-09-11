@@ -134,7 +134,20 @@ app.Use(async(c,next)=>
     await next(c);
 });
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        // DefaultFiles rewrites / to index.html before static files are served.
+        // Keep the HTML entry point and tooltip script fresh across deployments.
+        if (context.File.Name is "index.html" or "app.js")
+        {
+            context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+            context.Context.Response.Headers.Pragma = "no-cache";
+            context.Context.Response.Headers.Expires = "0";
+        }
+    }
+});
 app.UseRouting();app.UseRateLimiter();
 app.Use(async(c,next)=>
 {
