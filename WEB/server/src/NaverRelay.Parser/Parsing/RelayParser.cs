@@ -44,7 +44,7 @@ namespace NaverRelay.Parsing
             ExtractFinalLines(normalized, relayData, context);
 
             var sourcePlays = relayData.TextRelays ?? new List<TextRelayPlay>();
-            var chronologicalPlays = OrderChronologically(sourcePlays);
+            var chronologicalPlays = RemoveReissuedSegments(OrderChronologically(sourcePlays), normalized);
             var seqNoCounts = CountSourceSeqNos(chronologicalPlays);
             var duplicateSeqNos = seqNoCounts.Where(pair => pair.Value > 1).ToDictionary(pair => pair.Key, pair => pair.Value);
 
@@ -264,6 +264,15 @@ namespace NaverRelay.Parsing
                 relayData.CurrentGameState,
                 ParserUtilities.ParseBattingSide(relayData.HomeOrAway));
             AddDuplicateSeqNoDiagnostics(normalized, duplicateSeqNos);
+            for(int i=1;i<normalized.PlateAppearances.Count;i++)
+            {
+                var pa=normalized.PlateAppearances[i];var prior=normalized.PlateAppearances[i-1];
+                if(pa.Outcome.IsStrikeout&&prior.Status==PlateAppearanceStatus.IncompleteUnknown&&prior.StateAfter?.Strikes==2&&prior.Inning==pa.Inning&&prior.BattingTeamCode==pa.BattingTeamCode&&prior.BatOrder==pa.BatOrder&&prior.BatterPcode!=pa.BatterPcode)
+                {
+                    normalized.Diagnostics.Add(new ParserDiagnostic{GameId=normalized.GameId,Severity=DiagnosticSeverity.Info,Code="TWO_STRIKE_SUBSTITUTION",Message=$"삼진 귀속: {pa.BatterName} → {prior.BatterName} (2스트라이크 교체)"});
+                    pa.BatterPcode=prior.BatterPcode;pa.BatterName=prior.BatterName;
+                }
+            }
             GameConsistencyValidator.Validate(normalized, relayData);
             FinalizeSummary(normalized, chronologicalPlays, seqNoCounts);
             return normalized;
@@ -585,6 +594,43 @@ namespace NaverRelay.Parsing
                 .Where(p => !string.IsNullOrWhiteSpace(p.PitchId))
                 .GroupBy(p => p.PitchId!, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        }
+
+        private static List<TextRelayPlay> RemoveReissuedSegments(List<TextRelayPlay> plays, NormalizedGame game)
+        {
+            // A rewind is only accepted when the replacement repeats at least three
+            // complete plate appearances with identical pitch text and starting state.
+            static string? Key(TextRelayPlay p)
+            {
+                var start=p.TextOptions?.FirstOrDefault(o=>o.BatterRecord?.Pcode!=null);
+                if(start?.CurrentGameState is null || p.TextOptions?.Any(o=>o.Type==13)!=true)return null;
+                var raw=System.Text.Json.JsonSerializer.SerializeToElement(start.CurrentGameState);
+                string State(string name)=>raw.TryGetProperty(name,out var v)?v.ToString():"";
+                return string.Join("|",p.Inn,p.HomeOrAway,start.BatterRecord!.Pcode,
+                    State("HomeScore"),State("AwayScore"),State("Out"),State("Base1"),State("Base2"),State("Base3"),
+                    string.Join(";",p.TextOptions.Where(o=>o.PitchNum.HasValue||o.Type==13).Select(o=>$"{o.PitchNum}:{o.Text}")));
+            }
+            var result=plays.ToList();
+            for(int i=1;i<result.Count;i++)
+            {
+                if(result[i].Inn>=result[i-1].Inn)continue;
+                var key=Key(result[i]);if(key is null)continue;
+                int prior=result.FindLastIndex(i-1,i,p=>Key(p)==key);if(prior<0)continue;
+                var oldKeys=result.Skip(prior).Take(i-prior).Select(Key).Where(k=>k!=null).ToArray();
+                var newKeys=result.Skip(i).Select(Key).Where(k=>k!=null).Take(oldKeys.Length).ToArray();
+                if(oldKeys.Length<3||!oldKeys.SequenceEqual(newKeys))continue;
+                game.Diagnostics.Add(new ParserDiagnostic{GameId=game.GameId,Code="REISSUED_RELAY_SEGMENT",Severity=DiagnosticSeverity.Warning,Message=$"Replaced {i-prior} earlier relay groups with a verified repeated segment."});
+                result.RemoveRange(prior,i-prior);i=prior;
+            }
+            var seen=new HashSet<string>(StringComparer.Ordinal);
+            for(int i=result.Count-1;i>=0;i--)
+            {
+                var key=Key(result[i]);var pitches=result[i].TextOptions?.Where(o=>o.PitchNum.HasValue).ToArray();
+                if(key is null||pitches is not{Length:>0}||pitches.Any(p=>string.IsNullOrEmpty(p.PtsPitchId)))continue;
+                var fingerprint=key+"|"+string.Join(";",pitches.Select(p=>p.PtsPitchId));
+                if(!seen.Add(fingerprint)){game.Diagnostics.Add(new ParserDiagnostic{GameId=game.GameId,Severity=DiagnosticSeverity.Warning,Code="DUPLICATE_TRACKED_PA",Message=$"동일 투구 ID·상태·결과의 중복 타석 제거: relay {result[i].No}"});result.RemoveAt(i);}
+            }
+            return result;
         }
 
         private static List<TextRelayPlay> OrderChronologically(List<TextRelayPlay> sourcePlays)
