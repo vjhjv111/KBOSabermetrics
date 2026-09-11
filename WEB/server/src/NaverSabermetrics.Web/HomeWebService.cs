@@ -89,12 +89,7 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
             var row=new Dictionary<string,object?>();for(int i=0;i<reader.FieldCount;i++)row[reader.GetName(i)]=reader.IsDBNull(i)?null:reader.GetValue(i);games.Add(row);
         }
         foreach(var game in games){
-            await using var events=c.CreateCommand();events.CommandTimeout=options.QuerySeconds;events.CommandText="SELECT DISTINCT RawText FROM NormalizedEvents WHERE GameId=$id AND (RawText LIKE '%승리투수%' OR RawText LIKE '%패전투수%' OR RawText LIKE '%패배투수%' OR RawText LIKE '%홀드%' OR RawText LIKE '%세이브%') ORDER BY RawText";events.Parameters.AddWithValue("$id",game["GameId"]);using var cancelEvents=ct.Register(events.Cancel);
-            var decisions=new List<object>();await using var reader=await events.ExecuteReaderAsync(ct);while(await reader.ReadAsync(ct)){
-                var match=System.Text.RegularExpressions.Regex.Match(reader.GetString(0),@"^\s*(승리투수|패전투수|패배투수|홀드(?:투수)?|세이브(?:투수)?)\s*[:：]\s*(.{1,120})\s*$");
-                if(match.Success)decisions.Add(new{label=match.Groups[1].Value,name=match.Groups[2].Value.Trim()});
-            }
-            game["decisions"]=decisions;
+            game["decisions"]=await GameWebService.Decisions(c,Convert.ToString(game["GameId"])!,ct);
         }
         return games.Cast<object>().ToArray();
     }
