@@ -47,7 +47,7 @@ public sealed record PlayerTable(IReadOnlyList<string> Columns,IReadOnlyList<Dic
 public sealed partial class RecordService
 {
     // Use the same factories and formula/version-aware cache as the record rooms.
-    public async Task<IReadOnlyList<PlayerMetric>> PlayerMetricsAsync(string code,string role,int? year,string competition,string view,HashSet<string>? eligible,CancellationToken ct)
+    public async Task<IReadOnlyList<PlayerMetric>> PlayerMetricsAsync(string code,string role,int? year,string competition,string view,bool calculatePercentiles,CancellationToken ct)
     {
         var def=ViewRegistry.Get(role,view);
         var r=new RecordRequest{Room="season",Role=role,Year=year,Competition=competition,View=view};
@@ -71,8 +71,8 @@ public sealed partial class RecordService
             if(value.HasValue && !double.IsFinite(value.Value))value=null;
             var lower=role=="batter" ? label=="K%" : new[]{"ERA","FIP","WHIP","BB/9","BB%","피OPS"}.Contains(label);
             var population=new List<double>();
-            if(eligible is not null && allowed.Contains(label))
-                foreach(var row in rows.Where(x=>eligible.Contains(Convert.ToString(pc?.GetValue(x))??"")))
+            if(calculatePercentiles && allowed.Contains(label))
+                foreach(var row in rows)
                     if(p.GetValue(row) is object v){var n=Convert.ToDouble(v,CultureInfo.InvariantCulture);if(double.IsFinite(n))population.Add(n);}
             double? pct=value.HasValue && population.Count>=2
                 ? 100.0*(population.Count(x=>lower?x>value.Value:x<value.Value)+0.5*population.Count(x=>Math.Abs(x-value.Value)<1e-10))/population.Count : null;
@@ -118,7 +118,7 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         }
         if(r.Section=="career")
         {
-            var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,null,r.Competition,r.View,null,ct);
+            var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,null,r.Competition,r.View,false,ct);
             return new{metrics};
         }
         if(r.Section=="arsenal")
@@ -129,13 +129,11 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         }
         if(r.Section=="summary")
         {
-            var statTable=r.Role=="batter"?"BatterGameStats":"PitcherGameStats";
-            var volume=r.Role=="batter"?"SUM(s.PA)":"SUM(CASE WHEN s.HasFinalLine=1 THEN s.InningsOuts ELSE 0 END)/3.0";
-            var factor=r.Role=="batter"?"3.1":"1.0";
-            var eligibleRows=await Sql($"WITH team_games AS (SELECT Team,COUNT(*) G FROM (SELECT HomeTeamCode Team FROM Games g WHERE {Season(r)} UNION ALL SELECT AwayTeamCode FROM Games g WHERE {Season(r)}) GROUP BY Team) SELECT s.Pcode FROM {statTable} s JOIN Games g ON g.GameId=s.GameId WHERE {Season(r)} GROUP BY s.Pcode HAVING {volume} >= {factor}*(SELECT MAX(G) FROM team_games)",r with{Start=null,End=null},ct);
-            var eligible=eligibleRows.Select(x=>Convert.ToString(x["Pcode"])!).ToHashSet(StringComparer.Ordinal);
-            var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,r.View,eligible,ct);
-            return new{metrics,qualified=eligible.Contains(r.Code),reference="선택 시즌·경기 구분에서 팀 최다 경기수 × 타자 3.1타석 / 투수 1이닝을 충족한 선수. 동률은 중간 순위, 높을수록 우수. 비교군 2명 미만이면 표시하지 않습니다."};
+            var combined=new List<PlayerMetric>();
+            foreach(var view in new[]{"basic","advanced","value"})
+                combined.AddRange(await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,view,true,ct));
+            var metrics=combined.DistinctBy(m=>m.Label).ToArray();
+            return new{metrics,reference="선택 시즌·경기 구분에 기록이 있는 전체 타자 또는 전체 투수 기준입니다. 규정타석·규정이닝 제한 없이 지표별 유효값을 비교합니다. 동률은 중간 순위, 높을수록 우수. 비교군 2명 미만이면 표시하지 않습니다."};
         }
         if(r.Section=="years")
         {
@@ -144,7 +142,7 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
             var rows=new List<Dictionary<string,object?>>();
             foreach(var year in years.Skip((r.Page-1)*5).Take(5))
             {
-                var y=Convert.ToInt32(year["Year"]);var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,y,r.Competition,r.View,null,ct);
+                var y=Convert.ToInt32(year["Year"]);var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,y,r.Competition,r.View,false,ct);
                 if(metrics.Count==0)continue;
                 var row=new Dictionary<string,object?>{{"Year",y}};foreach(var m in metrics)row[m.Label]=m.Display;rows.Add(row);
             }
