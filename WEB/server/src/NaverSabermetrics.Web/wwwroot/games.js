@@ -27,7 +27,23 @@ function renderGame(d){
   const g=d.game,title=`${teamNames[g.Away]??g.Away} ${g.AScore??'—'} : ${g.HS??'—'} ${teamNames[g.Home]??g.Home}`;document.title=title+' · 경기 상세';const back=text('a','← 경기 달력','player-link');back.href='#games';gameRoot.replaceChildren(back,text('h1',title),text('p',`${g.Date?.slice(0,10)} · ${g.Stadium??''} · ${g.Status==='RESULT'?'경기 종료':g.Status??''}`));
   const board=playerCard('이닝별 점수');board.append(gameScoreboard(d));const decisions=text('p');decisions.textContent=d.decisions.map(p=>`${p.label} ${p.name}`).join(' · ');board.append(decisions,text('p',d.original?'원본 이닝 점수 기준':'중계 점수에서 복원 · 미수집 이닝은 — 표시','player-note'));gameRoot.append(board);
   const probability=playerCard('경기 승리확률');probability.append(gameProbability(d));gameRoot.append(probability);
+  gameRoot.append(gameHighlights(d));
   for(const side of ['Away','Home']){const code=g[side];for(const role of ['batter','pitcher']){const rows=(role==='batter'?d.batters:d.pitchers).filter(x=>x.Team===code);const columns=role==='batter'?['BatOrder','Name','Position','PA','AB','H','HR','R','RBI','BB','HBP','SO']:['Name','IP','NP','H','HR','R','ER','BB','HBP','SO'];const labels={BatOrder:'타순',Name:'선수',Position:'위치'};const card=playerCard(`${teamNames[code]??code} · ${role==='batter'?'타자':'투수'} 박스스코어`);card.append(homeTable(columns.map(k=>labels[k]??k),rows.map(r=>columns.map(k=>k==='Name'?teamLink(r.Code,r.Name,role):r[k]))));if(!rows.length)card.append(text('p','수집된 기록이 없습니다.'));gameRoot.append(card);}}
+  gameRoot.append(gamePlayLog(d));
+}
+function gamePlayLabel(p,g){return `${p.Inning??'—'}회${p.Team===g.Away?'초':p.Team===g.Home?'말':''}`;}
+function gameWpa(value){return value==null?'—':`${value>0?'+':''}${Number(value).toFixed(1)}%p`;}
+function rankedGamePlays(plays){return plays.filter(p=>p.WPA!=null&&Number.isFinite(Number(p.WPA))).sort((a,b)=>Math.abs(b.WPA)-Math.abs(a.WPA)||a.Seq-b.Seq).slice(0,5);}
+function gameHighlights(d){
+  const card=playerCard('WPA 변동 TOP 5'),plays=rankedGamePlays(d.plays??[]);card.classList.add('game-highlights');
+  card.append(text('p','공격팀 기준 WPA 절댓값 순위 · +는 공격팀에 유리한 변화, −는 불리한 변화입니다. 원본 WPA가 없는 중계는 제외합니다.','player-note'));
+  card.append(homeTable(['순위','이닝','공격팀','순간','WPA'],plays.map((p,i)=>{const a=text('a',[p.Title,...(p.events??[]).filter(line=>line.includes(' : '))].filter(Boolean).join(' · ')||'중계 보기','player-link');a.href=`#play-${p.Seq}`;a.onclick=e=>{e.preventDefault();const target=document.getElementById(`play-${p.Seq}`);if(target){target.open=true;target.scrollIntoView({behavior:'smooth',block:'center'});target.focus();}};return [1+plays.filter(x=>Math.abs(x.WPA)>Math.abs(p.WPA)).length,gamePlayLabel(p,d.game),teamNames[p.Team]??p.Team,a,gameWpa(p.WPA)];})));
+  if(!plays.length)card.append(text('p','수집된 WPA 데이터가 없습니다.'));return card;
+}
+function gamePlayLog(d){
+  const card=playerCard('플레이로그');card.append(text('p','경기 진행 순서 · 각 중계를 펼치면 투구·주루·교체 등 수집된 상세 내용을 볼 수 있습니다.','player-note'));
+  for(const p of d.plays??[]){const item=document.createElement('details');item.className='game-play';item.id=`play-${p.Seq}`;item.tabIndex=-1;const summary=text('summary',`${gamePlayLabel(p,d.game)} · ${p.Title||'중계'} · ${p.AA??'—'}:${p.AH??'—'} · WPA ${gameWpa(p.WPA)}`);const lines=text('div','','game-play-events');for(const line of p.events??[])lines.append(text('p',line));if(!p.events?.length)lines.append(text('p','상세 중계 내용이 없습니다.'));item.append(summary,lines);card.append(item);}
+  if(!d.plays?.length)card.append(text('p','수집된 플레이로그가 없습니다.'));return card;
 }
 function gameProbability(d){
   const wrap=text('div');if(!d.probability.length){wrap.append(text('p','수집된 승리확률 데이터가 없습니다.'));return wrap;}
