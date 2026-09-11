@@ -135,7 +135,7 @@ public sealed partial class RecordService
         var accessible = Math.Min(total, _options.MaxAccessibleRows);
         var applied = Describe(request, query);
         var display = new List<WebRow>();
-        var codeProperty = definition.RowType.GetProperty("Pcode");
+        var codeProperty = definition.RowType.GetProperty(request.Room=="team"?"TeamCode":"Pcode");
         var skip = (request.Page - 1) * request.PageSize;
         var pageRows = sorted.Take(accessible).Skip(skip).Take(request.PageSize).ToList();
         for (var i = 0; i < pageRows.Count; i++)
