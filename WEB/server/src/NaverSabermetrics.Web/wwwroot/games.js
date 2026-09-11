@@ -31,10 +31,14 @@ function renderGame(d){
 }
 function gameProbability(d){
   const wrap=text('div');if(!d.probability.length){wrap.append(text('p','수집된 승리확률 데이터가 없습니다.'));return wrap;}
-  const chart=svgNode('svg',{viewBox:'0 0 900 300',class:'game-probability',role:'img','aria-label':'경기 진행에 따른 양 팀 승리확률'});const n=d.probability.length;
-  for(const pct of [0,25,50,75,100]){const y=260-pct*2.2;chart.append(svgNode('line',{x1:45,y1:y,x2:880,y2:y,stroke:'#e3e8ef'}));const t=svgNode('text',{x:5,y:y+4,fill:'#758499','font-size':12});t.textContent=pct+'%';chart.append(t);}
-  for(const [key,color] of [['Home','#ef5b2a'],['Away','#3989dc']]){const pts=d.probability.map((p,i)=>`${45+(n===1?0:i/(n-1)*835)},${260-Number(p[key])*2.2}`).join(' ');chart.append(svgNode('polyline',{points:pts,fill:'none',stroke:color,'stroke-width':2}));d.probability.forEach((p,i)=>{const dot=svgNode('circle',{cx:45+(n===1?0:i/(n-1)*835),cy:260-Number(p[key])*2.2,r:3,fill:color});const tip=svgNode('title');tip.textContent=`${p.Inning??''}회 ${p.Title??''} · ${teamNames[d.game[key]]??d.game[key]} ${Number(p[key]).toFixed(1)}%`;dot.append(tip);chart.append(dot);});}
-  wrap.append(chart,text('p',`주황: ${teamNames[d.game.Home]??d.game.Home} · 파랑: ${teamNames[d.game.Away]??d.game.Away} · 가로축: 중계 진행 순서. 점에 마우스를 올리면 상세 수치가 표시됩니다.`,'player-note'),text('p','원본 중계의 경기 승리확률입니다. 홈 화면의 피타고리안 PS 진출확률과는 다른 지표이며 미수집 구간은 복원하지 않습니다.','player-note'));return wrap;
+  const decided=d.game.Status==='RESULT'&&d.game.HS!=null&&d.game.AScore!=null&&d.game.HS!==d.game.AScore;
+  const upper=decided&&d.game.AScore>d.game.HS?'Away':'Home',lower=upper==='Home'?'Away':'Home';
+  const upperName=teamNames[d.game[upper]]??d.game[upper],lowerName=teamNames[d.game[lower]]??d.game[lower];
+  const chart=svgNode('svg',{viewBox:'0 0 900 300',class:'game-probability',role:'img','aria-label':`위 ${upperName} 100%, 가운데 양 팀 50%, 아래 ${lowerName} 100%인 단일 승리확률 그래프`});const n=d.probability.length;
+  for(const pct of [0,25,50,75,100]){const y=260-pct*2.2;chart.append(svgNode('line',{x1:120,y1:y,x2:880,y2:y,stroke:pct===50?'#a8b5c5':'#e3e8ef'}));const t=svgNode('text',{x:5,y:y+4,fill:'#758499','font-size':12});t.textContent=pct===50?'양 팀 50%':`${pct>50?upperName:lowerName} ${pct>50?pct:100-pct}%`;chart.append(t);}
+  const pts=d.probability.map((p,i)=>`${120+(n===1?0:i/(n-1)*760)},${260-Number(p[upper])*2.2}`).join(' ');chart.append(svgNode('polyline',{points:pts,fill:'none',stroke:'#3989dc','stroke-width':2}));
+  d.probability.forEach((p,i)=>{const dot=svgNode('circle',{cx:120+(n===1?0:i/(n-1)*760),cy:260-Number(p[upper])*2.2,r:3,fill:'#3989dc'});const tip=svgNode('title');tip.textContent=`${p.Inning??''}회 ${p.Title??''} · ${upperName} ${Number(p[upper]).toFixed(1)}% / ${lowerName} ${Number(p[lower]).toFixed(1)}%`;dot.append(tip);chart.append(dot);});
+  wrap.append(chart,text('p',`상단: ${upperName}${decided?' (승리팀)':' (홈팀)'} 100% · 하단: ${lowerName}${decided?' (패배팀)':' (원정팀)'} 100%. 가운데는 양 팀 50%입니다. 가로축은 중계 진행 순서이며 점에 마우스를 올리면 양 팀 확률을 볼 수 있습니다.`,'player-note'),text('p','원본 중계의 경기 승리확률입니다. 홈 화면의 피타고리안 PS 진출확률과는 다른 지표이며 미수집 구간은 복원하지 않습니다.','player-note'));return wrap;
 }
 async function renderPitchLocations(req,seq,signal){
   const card=playerCard('구종별 투구 위치');$('player-content').append(card);const status=text('p','투구 위치를 불러오는 중…','player-note');card.append(status);const rows=[];
