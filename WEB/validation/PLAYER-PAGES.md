@@ -9,10 +9,11 @@ Season, competition and role selectors use available database records.
 Applicable tables support date/team filters, sorting and bounded pagination.
 
 Percentile bars show the actual value and an empirical percentile against
-qualified players in the selected season and competition. Ties receive their
+all players with valid metric values in the selected season and competition. Ties receive their
 midrank. Lower-is-better statistics reverse direction. A cohort smaller than
-two has no percentile. Qualification uses the maximum team game count in the
-season, multiplied by 3.1 PA for batters or 1.0 innings for pitchers.
+two has no percentile. There is no PA or innings qualification threshold.
+Basic, advanced and value metrics appear together without duplicate labels
+on the summary page.
 
 Pitch-type outcome splits use the final pitch of each plate appearance;
 pitch usage and average velocity summarize actual pitches over the full season.

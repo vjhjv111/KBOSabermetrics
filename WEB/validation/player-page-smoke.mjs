@@ -18,6 +18,13 @@ const year=Number(profile.seasons[0].Year);
 let checked=0;
 for(const section of ['profile','summary','career','years','trend','games','opponents','situations','plays','pitches','arsenal','direction']){
   const result=await post('/api/player',{code,year,section,pageSize:2});checked++;
+  if(section==='summary'){
+    assert(result.metrics.some(m=>m.label==='HR'&&m.population>0));
+    assert(result.metrics.some(m=>m.label==='BB%'&&m.population>0),'Advanced metrics appear with basic metrics');
+    assert.equal(new Set(result.metrics.map(m=>m.label)).size,result.metrics.length,'No duplicate labels');
+    const alternate=await post('/api/player',{code,year,section,view:'advanced'});
+    assert.deepEqual(result.metrics,alternate.metrics,'Summary is independent of view selection');
+  }
   if(result.rows&& !['years','trend'].includes(section))assert(result.rows.length<=2,'Bounded page');
   for(const m of result.metrics??[]){if(m.percentile!==null)assert(m.percentile>=0&&m.percentile<=100);if(m.population<2)assert.equal(m.percentile,null);}
   for(const r of result.rows??[]){

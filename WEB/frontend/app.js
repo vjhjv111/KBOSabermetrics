@@ -306,7 +306,7 @@ function configurePlayerControls(){
   $('pp-year-label').hidden=['years','trend'].includes(s);
   const detailed=['games','plays','opponents','situations','pitches','direction'].includes(s);
   for(const id of ['pp-opponent-label','pp-start-label','pp-end-label'])$(id).hidden=!detailed;
-  $('pp-view-label').hidden=!['summary','years','situations','trend'].includes(s);
+  $('pp-view-label').hidden=!['years','situations','trend'].includes(s);
   let views=s==='situations'?[['runners','주자'],['inning','이닝'],['outs','아웃'],['score','점수'],['venue','홈/원정']]:s==='trend'?(playerState.role==='batter'?[['OPS','OPS'],['AVG','타율'],['HR','홈런'],['PA','타석']]:[['ERA','ERA'],['WHIP','WHIP'],['SO','탈삼진']]):[['basic','기본'],['advanced','심화'],['value','가치']];
   $('pp-view').replaceChildren(...views.map(([v,l])=>new Option(l,v)));if(views.some(([v])=>v===playerState.view))$('pp-view').value=playerState.view;playerState.view=$('pp-view').value;
 }
@@ -345,9 +345,9 @@ function svgNode(tag,attrs={},content){const e=document.createElementNS('http://
 function renderPlayerOverview(data){
   const content=$('player-content'),grid=text('div','','player-overview-grid');
   const ranking=playerCard(`${playerState.year} KBO Percentile Rankings`);ranking.classList.add('percentile-card');
-  ranking.append(text('p',data.qualified?'규정 기준 충족 선수':'규정 미달 · 규정 충족 선수군과 비교한 참고 위치','muted'));
+  ranking.append(text('p','전체 선수 기준 · 기본·심화·가치 지표 통합','muted'));
   const metrics=data.metrics.filter(m=>m.population>0);
-  if(!metrics.length)ranking.append(text('p','이 기록 탭에서 제공되는 퍼센타일이 없습니다. 기본 또는 심화 탭을 선택하세요.','player-empty'));
+  if(!metrics.length)ranking.append(text('p','선택한 시즌에 비교할 수 있는 퍼센타일 기록이 없습니다.','player-empty'));
   const chart=svgNode('svg',{viewBox:`0 0 470 ${60+metrics.length*35}`,role:'img','aria-label':'선수 스탯 퍼센타일. 왼쪽 낮음, 가운데 평균, 오른쪽 우수.'});
   for(const [x,label] of [[122,'낮음'],[260,'평균'],[398,'우수']])chart.append(svgNode('text',{x,y:18,'text-anchor':'middle',class:'pct-axis'},label));
   for(const x of [122,260,398])chart.append(svgNode('line',{x1:x,x2:x,y1:27,y2:42+metrics.length*35,stroke:'#dae3e6','stroke-dasharray':'3 3'}));
