@@ -78,6 +78,26 @@ public static class PlayoffModel
 }
 public sealed class HomeWebService(DatabaseCacheService db,RecordService records,SiteOptions options)
 {
+    async Task<object[]> LatestResults(SqliteConnection c,int year,string? date,CancellationToken ct)
+    {
+        if(string.IsNullOrEmpty(date))return [];
+        await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;
+        cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors FROM Games WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode)='RESULT' AND AwayScore IS NOT NULL AND HomeScore IS NOT NULL AND UPPER(AwayTeamCode) NOT IN ('EA','WE') AND UPPER(HomeTeamCode) NOT IN ('EA','WE') ORDER BY GameDateTime,GameId";
+        cmd.Parameters.AddWithValue("$year",year);cmd.Parameters.AddWithValue("$date",date[..Math.Min(10,date.Length)]);using var cancel=ct.Register(cmd.Cancel);
+        var games=new List<Dictionary<string,object?>>();
+        await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct)){
+            var row=new Dictionary<string,object?>();for(int i=0;i<reader.FieldCount;i++)row[reader.GetName(i)]=reader.IsDBNull(i)?null:reader.GetValue(i);games.Add(row);
+        }
+        foreach(var game in games){
+            await using var events=c.CreateCommand();events.CommandTimeout=options.QuerySeconds;events.CommandText="SELECT DISTINCT RawText FROM NormalizedEvents WHERE GameId=$id AND (RawText LIKE '%승리투수%' OR RawText LIKE '%패전투수%' OR RawText LIKE '%패배투수%' OR RawText LIKE '%홀드%' OR RawText LIKE '%세이브%') ORDER BY RawText";events.Parameters.AddWithValue("$id",game["GameId"]);using var cancelEvents=ct.Register(events.Cancel);
+            var decisions=new List<object>();await using var reader=await events.ExecuteReaderAsync(ct);while(await reader.ReadAsync(ct)){
+                var match=System.Text.RegularExpressions.Regex.Match(reader.GetString(0),@"^\s*(승리투수|패전투수|패배투수|홀드(?:투수)?|세이브(?:투수)?)\s*[:：]\s*(.{1,120})\s*$");
+                if(match.Success)decisions.Add(new{label=match.Groups[1].Value,name=match.Groups[2].Value.Trim()});
+            }
+            game["decisions"]=decisions;
+        }
+        return games.Cast<object>().ToArray();
+    }
     readonly Dictionary<string,object> cache=new();
     readonly SemaphoreSlim mutex=new(1,1);
     public async Task<object> QueryAsync(HomeRequest r,CancellationToken ct)
@@ -103,7 +123,8 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 else try{odds=PlayoffModel.Simulate(list,played,ct);}catch(ArgumentException){reason="적재 전적과 상대별 16경기 체제가 일치하지 않아 확률을 계산하지 않습니다.";}
                 var leader=list.OrderByDescending(x=>x.Pct??-1).ThenByDescending(x=>x.W).FirstOrDefault();
                 var rows=list.Select((t,i)=>new{team=t.Code,g=t.G,w=t.W,d=t.D,l=t.L,pct=t.Pct,rf=t.RF,ra=t.RA,rank=1+list.Count(x=>(x.Pct??-1)>(t.Pct??-1)),gb=leader is null?0:((leader.W-t.W)+(t.L-leader.L))/2.0,pyth=t.Pyth,pythWins=t.Pyth*(t.W+t.L),winDifference=t.W-t.Pyth*(t.W+t.L),remaining=Math.Max(0,144-t.G),playoff=odds?[i]}).OrderBy(x=>x.rank).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
-                result=new{rows,asOf=last,forecastAvailable=odds is not null,reason,simulations=PlayoffModel.Trials,exponent=1.83,note="피타고리안 승률 = 득점^1.83 / (득점^1.83 + 실점^1.83). 예상승은 무승부 제외 경기수 기준. 진출확률은 현재 전적을 유지하고 상대별 16경기에서 적재된 종료 경기를 뺀 남은 대진을 10,000회 계산한 상위 5위 비율입니다. 상대 승률은 Log5로 보정합니다. 남은 경기 무승부·홈 이점·부상·선발투수 변화는 반영하지 않고, 최종 승률 동률은 남은 진출 자리를 균등 배분합니다. 지수 1.83은 KBO에 맞춰 별도 보정하지 않은 기본 가정입니다. 공식 확률이 아닌 자체 모델 추정이며, DB 누락은 남은 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                var latestGames=await LatestResults(c,r.Year,last,ct);
+                result=new{rows,latestGames,asOf=last,forecastAvailable=odds is not null,reason,simulations=PlayoffModel.Trials,exponent=1.83,note="피타고리안 승률 = 득점^1.83 / (득점^1.83 + 실점^1.83). 예상승은 무승부 제외 경기수 기준. 진출확률은 현재 전적을 유지하고 상대별 16경기에서 적재된 종료 경기를 뺀 남은 대진을 10,000회 계산한 상위 5위 비율입니다. 상대 승률은 Log5로 보정합니다. 남은 경기 무승부·홈 이점·부상·선발투수 변화는 반영하지 않고, 최종 승률 동률은 남은 진출 자리를 균등 배분합니다. 지수 1.83은 KBO에 맞춰 별도 보정하지 않은 기본 가정입니다. 공식 확률이 아닌 자체 모델 추정이며, DB 누락은 남은 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}
