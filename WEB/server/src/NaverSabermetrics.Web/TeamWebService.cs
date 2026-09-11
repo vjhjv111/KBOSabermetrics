@@ -15,7 +15,7 @@ public sealed record TeamWebRequest
     public int Page { get; init; } = 1;
     public void Validate()
     {
-        if(string.IsNullOrEmpty(Team) || Team.Length>20 || Team.Any(c=>!char.IsAsciiLetterOrDigit(c)))throw new RequestError("팀 코드가 잘못되었습니다.");
+        if(string.IsNullOrEmpty(Team) || Team.Length>20 || Team.Any(c=>!char.IsAsciiLetterOrDigit(c)) || new[]{"EA","WE"}.Contains(Team,StringComparer.OrdinalIgnoreCase))throw new RequestError("팀 코드가 잘못되었습니다.");
         if(Year is <1900 or >2200 || Page is <1 or >20)throw new RequestError("연도 또는 페이지가 잘못되었습니다.");
         if(!new[]{"정규시즌","포스트시즌","시범경기","전체"}.Contains(Competition) || !new[]{"overview","schedule","roster","scores"}.Contains(Section) || Role is not ("batter" or "pitcher"))throw new RequestError("지원하지 않는 팀 조회입니다.");
     }
@@ -26,7 +26,7 @@ public sealed class TeamWebService(DatabaseCacheService db,SiteOptions options)
     static double N(Dictionary<string,object?> r,string k)=>r.GetValueOrDefault(k) is object v?Convert.ToDouble(v,CultureInfo.InvariantCulture):0;
     static string S(Dictionary<string,object?> r,string k)=>Convert.ToString(r.GetValueOrDefault(k),CultureInfo.InvariantCulture)??"";
     static double? Rate(double n,double d)=>d>0?Math.Round(n/d,3):null;
-    static string Round(string c)=>c switch{"정규시즌"=>"LOWER(TRIM(g.RoundCode))='kbo_r'","시범경기"=>$"g.CompetitionType={(int)GameCompetitionType.Preseason}","포스트시즌"=>$"g.CompetitionType={(int)GameCompetitionType.Postseason}",_=>"1=1"};
+    static string Round(string c)=>"UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND "+(c switch{"정규시즌"=>"LOWER(TRIM(g.RoundCode))='kbo_r'","시범경기"=>$"g.CompetitionType={(int)GameCompetitionType.Preseason}","포스트시즌"=>$"g.CompetitionType={(int)GameCompetitionType.Postseason}",_=>"1=1"});
     async Task<List<Dictionary<string,object?>>> Sql(string sql,TeamWebRequest r,CancellationToken ct)
     {
         await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);

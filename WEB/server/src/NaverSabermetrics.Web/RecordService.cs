@@ -107,6 +107,11 @@ public sealed partial class RecordService
         var rows = cached ?? await ComputeAsync(request, query, definition, token).ConfigureAwait(false);
         if (!hit) Store(key, rows);
         IEnumerable<object> filtered = rows;
+        if(request.Room=="team")
+        {
+            var teamProperty=definition.RowType.GetProperty("TeamCode");
+            filtered=filtered.Where(r=>!new[]{"EA","WE"}.Contains(Convert.ToString(teamProperty?.GetValue(r)),StringComparer.OrdinalIgnoreCase));
+        }
         if (!string.IsNullOrWhiteSpace(request.PlayerName))
         {
             var name = definition.RowType.GetProperty("Name");

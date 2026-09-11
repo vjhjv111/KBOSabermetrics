@@ -173,7 +173,7 @@ app.MapGet("/api/catalog",async (HttpContext c,QueryGate gate,QuotaStore quotas)
     var catalog=await gate.RunAsync(t=>db.GetCatalogAsync(t),c.RequestAborted);
     return Results.Ok(new
     {
-        catalog.Years,catalog.Teams,catalog.Stadiums,
+        catalog.Years,Teams=catalog.Teams.Where(t=>!new[]{"EA","WE"}.Contains(t,StringComparer.OrdinalIgnoreCase)),catalog.Stadiums,
         minDate=catalog.MinGameDate?.ToString("yyyy-MM-dd"),maxDate=catalog.MaxGameDate?.ToString("yyyy-MM-dd"),
         games=catalog.GameCount,demo=settings.Demo,formulaVersion=RecordService.FormulaVersion,
         limits=new{maxPageSize=settings.MaxPageSize,maxAccessibleRows=settings.MaxAccessibleRows,dailyQueries=settings.DailyQueries,dailyRows=settings.DailyRows},
@@ -212,7 +212,7 @@ app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebServ
 {
     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
     input.Validate();
-    quotas.Consume(Ip(c),100);
+    quotas.Consume(Ip(c),Math.Min(100,settings.MaxPageSize));
     return Results.Ok(await gate.RunAsync(t=>teams.QueryAsync(input,t),c.RequestAborted));
 });
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
