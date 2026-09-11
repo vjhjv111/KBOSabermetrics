@@ -38,9 +38,10 @@ function options(select, values, selected=''){
 async function loadCatalog(){
   state.catalog=await api('/api/catalog');
   const c=state.catalog;
+  c.teams=c.teams.filter(t=>!['EA','WE'].includes(t.toUpperCase()));
   options($('year'),c.years, String(Math.max(...c.years)));
-  options($('team'),c.teams.map(t=>[t,teamNames[t]?`${t} · ${teamNames[t]}`:t]));
-  options($('opponent'),c.teams.map(t=>[t,teamNames[t]?`${t} · ${teamNames[t]}`:t]));
+  options($('team'),c.teams.map(t=>[t,teamNames[t]??t]));
+  options($('opponent'),c.teams.map(t=>[t,teamNames[t]??t]));
   options($('stadium'),c.stadiums);
   $('start-date').value=c.minDate??''; $('end-date').value=c.maxDate??'';
   $('page-size').replaceChildren(...[25,50,100].filter(n=>n<=c.limits.maxPageSize).map(n=>new Option(String(n),String(n))));
@@ -198,9 +199,10 @@ function renderTable(result){
     for(const col of result.columns){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
+      if(col.key==='TeamCode')td.textContent=teamNames[value]??value;
       if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
       if(state.room==='team'&&['Name','TeamCode'].includes(col.key)&&row.entityCode){
-        const a=text('a',value,'player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
+        const a=text('a',teamNames[row.entityCode]??value,'player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
       }else if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
         const b=text('a',value,'player-link');b.title='선수 개인 페이지';b.href=`#player=${encodeURIComponent(row.entityCode)}&role=${state.role}`;
         td.replaceChildren(b);
@@ -373,7 +375,7 @@ function renderPlayerDirection(data){
   const card=$('pp-direction');card.replaceChildren(text('h2','안타 방향'));const total=data.rows.reduce((n,r)=>n+Number(r.H??0),0);
   for(const r of data.rows){const line=text('div','','direction-row');line.append(text('span',r.Name),text('strong',`${r.H}개 · ${total?Math.round(Number(r.H)/total*100):0}%`));card.append(line);}if(!data.rows.length)card.append(text('p','선택 시즌의 안타 방향 기록이 없습니다.'));card.append(text('p',data.note,'player-note'));
 }
-function playerDisplay(value,key){if(value===null||value===undefined)return '—';if(typeof value!=='number')return String(value);if(['AVG','OBP','SLG','OPS','WPA'].includes(key))return value.toFixed(3);if(['ERA','WHIP'].includes(key))return value.toFixed(2);return String(value);}
+function playerDisplay(value,key){if(value===null||value===undefined)return '—';if(['Team','TeamCode','Opponent'].includes(key))return String(value).split(',').map(t=>teamNames[t.trim()]??t.trim()).join(', ');if(typeof value!=='number')return String(value);if(['AVG','OBP','SLG','OPS','WPA'].includes(key))return value.toFixed(3);if(['ERA','WHIP'].includes(key))return value.toFixed(2);return String(value);}
 function playerTableElement(columns,rows,sortable=false){
   const wrap=text('div','','player-table-wrap');wrap.tabIndex=0;wrap.setAttribute('aria-label','선수 기록 표, 가로 스크롤 가능');const table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');
   for(const c of columns){const th=document.createElement('th');th.scope='col';const canSort=sortable&&(['opponents','pitches','situations'].includes(playerState.section)?['PA','AB','H','HR','BB','SO','OPS','AVG','OBP','SLG','Name'].includes(c):playerState.section==='plays'&&['Date','WPA'].includes(c));if(canSort){const b=text('button',c+(playerState.sort===c?(playerState.descending?' ↓':' ↑'):''));b.type='button';b.onclick=()=>{playerState.descending=playerState.sort===c?!playerState.descending:true;playerState.sort=c;playerState.page=1;loadPlayerSection();};th.append(b);th.setAttribute('aria-sort',playerState.sort===c?(playerState.descending?'descending':'ascending'):'none');}else th.textContent=c;th.title=STAT_HEADER_TITLES[c]??({Date:'경기 날짜',Opponent:'상대 팀',Name:'상대 / 구분',Year:'연도',Venue:'홈 / 원정',Result:'경기 / 타석 결과',Runners:'1루 / 2루 / 3루 주자',BeforeScore:'타석 전 원정:홈',AfterScore:'타석 후 원정:홈'}[c]??c);tr.append(th);}thead.append(tr);table.append(thead);const body=document.createElement('tbody');
@@ -426,7 +428,7 @@ async function loadTeam(){
   $('tp-record').textContent='';
   teamState.controller?.abort();const controller=new AbortController();teamState.controller=controller;const seq=++teamState.seq;
   const section=teamState.section;for(const b of $('tp-tabs').children){b.classList.toggle('active',b.dataset.section===section);b.setAttribute('aria-current',b.dataset.section===section?'page':'false');}$('tp-role-label').hidden=section!=='roster';$('tp-content').replaceChildren();$('tp-pages').hidden=true;$('tp-status').textContent='팀 기록을 불러오는 중…';
-  const year=Number($('tp-year').value);$('tp-title').textContent=`${year} ${teamNames[teamState.team]??teamState.team}`;$('tp-mark').textContent=teamState.team;document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
+  const year=Number($('tp-year').value);$('tp-title').textContent=`${year} ${teamNames[teamState.team]??teamState.team}`;$('tp-mark').textContent=teamNames[teamState.team]??teamState.team;document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
   try{const data=await api('/api/team',{team:teamState.team,year,competition:$('tp-competition').value,section,role:$('tp-role').value,page:teamState.page},controller.signal);if(seq!==teamState.seq)return;$('tp-status').textContent='';
     if(section==='overview')renderTeamOverview(data);else if(section==='scores')renderTeamScores(data);else{$('tp-content').append(teamCard(section==='roster'?'팀 소속 선수 기록':'경기 일정 · 결과',data.columns,data.rows));$('tp-pages').hidden=false;$('tp-page').textContent=teamState.page;$('tp-prev').disabled=teamState.page===1;$('tp-next').disabled=!data.hasMore;}
   }catch(e){if(e.name!=='AbortError'&&seq===teamState.seq)$('tp-status').textContent=e.message;}
