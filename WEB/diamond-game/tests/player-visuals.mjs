@@ -12,21 +12,83 @@ assert.equal(playerAppearance('HH','노시환').number,undefined);
 assert.equal(playerAppearance('HH','노시환','2026:12345').number,undefined);
 assert.equal(playerAppearance('HH','노시환','08').number,'08');
 assert.equal(playerAppearance('unknown','선수').wordmark,'unknown');
-let side='batter',aim=null,calls=[];
-const pointer=(id=1,type='touch',primary=true,button=0,x=.25)=>({pointerId:id,pointerType:type,isPrimary:primary,button,x,preventDefault(){calls.push('prevent')}});
-const controls=scenePointerControls({side:()=>side,aim:e=>{aim=e.x;calls.push('aim')},swing:()=>calls.push('swing:'+aim),chargeStart:()=>calls.push('charge'),chargeEnd:()=>calls.push('release'),focus:()=>{},capture:()=>{},release:()=>{}});
-controls.down(pointer());
-assert.deepEqual(calls,['prevent','aim','swing:0.25'],'Touch location must reach swing before it freezes the aim');
-controls.move(pointer(1,'touch',true,0,.9));controls.down(pointer(2,'touch',false));controls.up(pointer(2,'touch',false));controls.down(pointer(3,'touch',true));
-assert.equal(calls.filter(c=>c.startsWith('swing')).length,1,'Dragging and additional fingers must not swing twice');
-assert.equal(aim,.25,'Dragging after touch-down must not move the frozen swing target');
-controls.up(pointer());controls.down(pointer(3,'touch',true,0,-.8));assert.equal(calls.at(-1),'swing:-0.8');controls.up(pointer(3));
-calls=[];side='pitcher';controls.down(pointer());controls.move(pointer(1,'touch',true,0,.7));controls.up(pointer());
-assert.equal(aim,.7);assert(!calls.includes('charge')&&!calls.includes('release'),'Touch pitching continues to aim; its existing throw button controls release');
-calls=[];controls.down(pointer(1,'mouse'));controls.move(pointer(1,'mouse',true,0,.4));controls.up(pointer(1,'mouse'));
-assert.deepEqual(calls,['aim','charge','aim','release']);
-calls=[];side='batter';controls.down(pointer(1,'mouse',true,2));controls.down(pointer(1,'touch',false));assert.equal(calls.length,0);
-controls.down(pointer(1,'mouse',true,0,-.3));assert.deepEqual(calls,['aim','swing:-0.3']);controls.up(pointer(1,'mouse'));
+function pointerHarness(side='batter'){
+ let aim=null;
+ const calls=[],captures=[];
+ const pointer=(overrides={})=>({pointerId:1,pointerType:'touch',isPrimary:true,button:0,clientX:100,clientY:180,timeStamp:1000,preventDefault(){calls.push('prevent')},...overrides});
+ const controls=scenePointerControls({side:()=>side,aim:e=>{aim=e.clientX;calls.push('aim:'+aim)},swing:()=>calls.push('swing:'+aim),chargeStart:()=>calls.push('charge'),chargeEnd:()=>calls.push('release'),chargeCancel:()=>calls.push('cancel-charge'),focus:()=>{},capture:id=>captures.push(id),release:()=>{}});
+ return {controls,pointer,calls,captures};
+}
+for(const side of ['batter','pitcher']){
+ const {controls,pointer,calls,captures}=pointerHarness(side);
+ controls.down(pointer());
+ assert.deepEqual(calls,[],`${side}: touching the field must leave scrolling available without aiming or swinging`);
+ assert.deepEqual(captures,[],`${side}: touch-down must not explicitly capture a scrolling gesture`);
+ controls.move(pointer({clientX:104,clientY:183,timeStamp:1040}));
+ assert.deepEqual(calls,[],`${side}: small finger movement waits for the tap to finish`);
+ controls.up(pointer({clientX:104,clientY:183,timeStamp:1080}));
+ const expected=side==='batter'?['aim:100','swing:100']:['aim:100'];
+ assert.deepEqual(calls,expected,`${side}: a tap uses its initial target, with aim set before a batter swing`);
+ controls.up(pointer({timeStamp:1080}));
+ assert.deepEqual(calls,expected,`${side}: one tap must perform only one action`);
+}
+for(const side of ['batter','pitcher']){
+ for(const gesture of ['vertical swipe','horizontal swipe','drag back to origin','release displacement','long press']){
+  const {controls,pointer,calls}=pointerHarness(side);
+  controls.down(pointer());
+  if(gesture==='vertical swipe')controls.move(pointer({clientY:300,timeStamp:1040}));
+  if(gesture==='horizontal swipe')controls.move(pointer({clientX:250,timeStamp:1040}));
+  if(gesture==='drag back to origin'){
+   controls.move(pointer({clientY:300,timeStamp:1040}));
+   controls.move(pointer({timeStamp:1060}));
+  }
+  controls.up(pointer({timeStamp:gesture==='long press'?2500:1080,...(gesture==='release displacement'?{clientY:300}:{})}));
+  assert.deepEqual(calls,[],`${side}: ${gesture} must neither change aim nor swing, charge, or prevent scrolling`);
+ }
+ for(const eventType of ['pointercancel','lostpointercapture']){
+  const {controls,pointer,calls}=pointerHarness(side);
+  controls.down(pointer());controls.cancel(pointer({type:eventType,timeStamp:1040}));
+  controls.move(pointer({clientY:300,timeStamp:1060}));controls.up(pointer({timeStamp:1080}));
+  assert.deepEqual(calls,[],`${side}: ${eventType} discards the touch without triggering an action`);
+  controls.down(pointer({pointerId:2,timeStamp:1200}));controls.up(pointer({pointerId:2,timeStamp:1280}));
+  assert.deepEqual(calls,side==='batter'?['aim:100','swing:100']:['aim:100'],`${side}: a new tap works after ${eventType}`);
+ }
+ const {controls,pointer,calls}=pointerHarness(side);
+ controls.down(pointer());controls.down(pointer({pointerId:2,isPrimary:false,timeStamp:1020}));
+ controls.up(pointer({pointerId:2,isPrimary:false,timeStamp:1060}));controls.up(pointer({timeStamp:1080}));
+ assert.deepEqual(calls,[],`${side}: adding a second finger invalidates the initial tap`);
+ controls.down(pointer({pointerId:3,timeStamp:1200}));controls.up(pointer({pointerId:3,timeStamp:1280}));
+ assert.deepEqual(calls,side==='batter'?['aim:100','swing:100']:['aim:100'],`${side}: a fresh tap works after both fingers lift`);
+}
+{
+ const {controls,pointer,calls}=pointerHarness();
+ controls.down(pointer());controls.cancel(pointer({pointerId:99}));controls.up(pointer({pointerId:99}));
+ controls.up(pointer({timeStamp:1080}));
+ assert.deepEqual(calls,['aim:100','swing:100'],'An unrelated pointer cannot cancel or finish the active tap');
+}
+{
+ const {controls,pointer,calls,captures}=pointerHarness('pitcher');
+ controls.move(pointer({pointerType:'mouse',clientX:90}));
+ controls.down(pointer({pointerType:'mouse'}));controls.move(pointer({pointerType:'mouse',clientX:140}));controls.up(pointer({pointerType:'mouse'}));
+ assert.deepEqual(calls,['aim:90','aim:100','charge','aim:140','release'],'Mouse pitching retains hover, drag aiming, and hold/release');
+ assert.deepEqual(captures,[1],'Mouse pitching keeps pointer capture through a drag');
+}
+for(const eventType of ['pointercancel','lostpointercapture']){
+ const {controls,pointer,calls}=pointerHarness('pitcher');
+ controls.down(pointer({pointerType:'mouse'}));controls.cancel(pointer({pointerType:'mouse',type:eventType}));controls.up(pointer({pointerType:'mouse'}));
+ assert.deepEqual(calls,['aim:100','charge','cancel-charge'],`${eventType} stops a mouse charge without pitching`);
+ controls.down(pointer({pointerType:'mouse',pointerId:2}));controls.up(pointer({pointerType:'mouse',pointerId:2}));
+ assert.deepEqual(calls.slice(-3),['aim:100','charge','release'],'A cancelled mouse charge does not block the next pitch');
+}
+{
+ const {controls,pointer,calls}=pointerHarness();
+ controls.down(pointer({pointerType:'mouse',button:2}));controls.down(pointer({isPrimary:false}));
+ assert.deepEqual(calls,[],'Secondary buttons and lone non-primary touches do not act');
+ controls.down(pointer({pointerType:'mouse',clientX:75}));
+ assert.deepEqual(calls,['aim:75','swing:75'],'Mouse batting still swings immediately on pointer-down');
+ controls.up(pointer({pointerType:'mouse',clientX:75}));
+ assert.deepEqual(calls,['aim:75','swing:75'],'Mouse release does not swing twice');
+}
 
 const source=fs.readFileSync('app/action-scene.tsx','utf8');
 const {createPlayer:player,dressPlayer,createBat,createMitt,equipCatcher}=load('lib/player-model.ts');
