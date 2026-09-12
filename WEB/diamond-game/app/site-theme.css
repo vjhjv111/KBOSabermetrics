@@ -28,3 +28,18 @@ html,body{background:var(--background);font-family:-apple-system,BlinkMacSystemF
 .roster-card select:disabled{display:block;opacity:.65;cursor:default}
 .touch-copy,.control-label .touch-copy{display:none}.ai-pitching-note{padding:10px 12px;background:#f3f7fa;border:1px solid #e0e7ef;border-radius:4px}.ai-pitching-note strong,.ai-pitching-note span,.ai-pitching-note small{display:block}.ai-pitching-note strong{color:#425d72}.ai-pitching-note small{color:#8c715a;margin-top:4px}
 @media(any-pointer:coarse){.pointer-copy,.control-label .pointer-copy{display:none}.touch-copy,.control-label .touch-copy{display:block}.control-deck{gap:8px}.play-stage .field-world{user-select:none;-webkit-user-select:none}}
+
+/* Keep pitch choices next to the field, including when the field is fullscreen. */
+.field-play-shell{min-width:0}
+.field-pitch-selection{margin:8px 0 0;padding:12px;border:1px solid #dfe5ec;border-radius:6px;background:#fff}
+.field-pitch-selection h3{margin-bottom:8px;font-weight:650;gap:12px}
+.field-pitch-selection>div{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px}
+.field-pitch-selection button{min-width:0;min-height:48px;padding:7px 10px;touch-action:manipulation}
+.field-pitch-selection button:hover:not(:disabled){background:#fff3eb;border-color:#f18a60}
+.field-pitch-selection button.selected{box-shadow:inset 0 2px 0 #ec5c2b;font-weight:700}
+.field-pitch-selection button>b{font-size:11px;line-height:1.2}
+.field-play-shell:fullscreen{display:flex;flex-direction:column;width:100vw;height:100dvh;padding:0;background:#101b27}
+.field-play-shell:fullscreen .play-stage{flex:1;min-height:0;max-height:none;aspect-ratio:auto;border:0;border-radius:0}
+.field-play-shell:fullscreen .field-pitch-selection{flex-shrink:0;margin:0;border-radius:0;padding:8px max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+@media(max-width:760px){.field-pitch-selection{padding:10px}.field-pitch-selection>div{grid-template-columns:repeat(3,minmax(0,1fr))}.field-pitch-selection button{padding:7px 8px}.field-pitch-selection h3{font-size:11px}}
+@media(orientation:landscape) and (max-height:540px){.field-play-shell:fullscreen .field-pitch-selection>div{grid-template-columns:repeat(auto-fit,minmax(84px,1fr))}.field-play-shell:fullscreen .field-pitch-selection h3{display:none}}
