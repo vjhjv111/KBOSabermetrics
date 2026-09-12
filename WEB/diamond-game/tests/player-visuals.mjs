@@ -105,7 +105,9 @@ function resources(root){
 }
 function inspectPlayer(model,label,maxMeshes=120){
  assert.equal(model.head.position.y,.82);assert.deepEqual(model.left.position.toArray(),[.27,.58,0]);assert.deepEqual(model.right.position.toArray(),[-.27,.58,0]);assert.equal(model.le.position.y,-.34);assert.equal(model.re.position.y,-.34);
- let meshes=0,triangles=0,skinned=0;
+ assert.equal(model.lf.parent,model.lk);assert.equal(model.rf.parent,model.rk);
+ assert.equal(model.lf.position.y,-.43);assert.equal(model.rf.position.y,-.43);
+ let meshes=0,triangles=0,skinned=0,skinnedArms=0,skinnedTrousers=0;
  model.root.updateMatrixWorld(true);
  model.root.traverse(object=>{
   if(!object.isMesh)return;meshes++;const geometry=object.geometry;triangles+=(geometry.index?.count??geometry.attributes.position.count)/3;
@@ -114,7 +116,10 @@ function inspectPlayer(model,label,maxMeshes=120){
   if(object.isSkinnedMesh){
    skinned++;const weights=geometry.getAttribute('skinWeight'),indices=geometry.getAttribute('skinIndex'),positions=geometry.getAttribute('position');
    assert.equal(weights.itemSize,4);assert.equal(indices.itemSize,4);assert.equal(weights.count,positions.count);assert.equal(indices.count,positions.count);
-   assert(object.skeleton.bones.length>=5,`${label}: trousers must follow the hips and both leg joints`);
+   const hinges=[model.le,model.re,model.lk,model.rk].filter(joint=>object.skeleton.bones.some(bone=>bone.parent===joint));
+   const isArm=hinges.some(joint=>joint===model.le||joint===model.re);
+   if(isArm){skinnedArms++;assert.equal(object.skeleton.bones.length,2,`${label}: each continuous arm follows its shoulder and elbow`);assert.equal(hinges.length,1);}
+   else{skinnedTrousers++;assert(object.skeleton.bones.length>=5,`${label}: trousers follow the hips and both leg joints`);assert.equal(hinges.length,2);}
    object.skeleton.update();const original=new THREE.Vector3(),deformed=new THREE.Vector3();
    for(let vertex=0;vertex<positions.count;vertex++){
     let sum=0;
@@ -127,22 +132,23 @@ function inspectPlayer(model,label,maxMeshes=120){
     original.fromBufferAttribute(positions,vertex);object.getVertexPosition(vertex,deformed);
     assert(original.distanceTo(deformed)<1e-5,`${label}: inverse binds must preserve the rest shape`);
    }
-   for(const joint of [model.lk,model.rk]){
+   for(const joint of hinges){
     const boneIndex=object.skeleton.bones.findIndex(bone=>bone.parent===joint);
-    assert(boneIndex>=0,`${label}: both knee pivots drive the clothing skeleton`);
+    assert(boneIndex>=0,`${label}: elbow/knee pivots drive their skinning skeleton`);
     const samples=[];
     for(let vertex=0;vertex<positions.count;vertex++)for(let influence=0;influence<4;influence++){
      if(indices.getComponent(vertex,influence)===boneIndex&&weights.getComponent(vertex,influence)>.5){samples.push([vertex,object.getVertexPosition(vertex,new THREE.Vector3())]);break;}
     }
-    assert(samples.length>0,`${label}: both lower legs have clothing vertices attached`);
+    assert(samples.length>0,`${label}: each forearm or lower leg has vertices attached`);
     const rotation=joint.rotation.x;joint.rotation.x+=.6;model.root.updateMatrixWorld(true);object.skeleton.update();
     let movement=0;for(const [vertex,before] of samples)movement=Math.max(movement,object.getVertexPosition(vertex,deformed).distanceTo(before));
-    assert(movement>.04,`${label}: bending each knee must deform its trouser leg`);
+    assert(movement>.04,`${label}: bending each elbow/knee must deform its forearm/trouser leg`);
     joint.rotation.x=rotation;model.root.updateMatrixWorld(true);object.skeleton.update();
    }
   }
  });
- assert(skinned>0,`${label}: trousers use a continuous skinned mesh`);
+ assert.equal(skinned,3,`${label}: both arms and trousers have continuous skinning`);
+ assert.equal(skinnedArms,2);assert.equal(skinnedTrousers,1);
  assert(meshes<=maxMeshes,`${label} must stay within its mobile draw-call budget: ${meshes}/${maxMeshes}`);
  assert(triangles<=50000,`${label} must stay within its mobile geometry budget: ${triangles}/50000`);
  return {meshes,triangles};

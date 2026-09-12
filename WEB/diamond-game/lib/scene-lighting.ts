@@ -8,24 +8,24 @@ export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scen
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
-  scene.add(new THREE.HemisphereLight("#d9e5f4", "#77604a", 1.05));
+  scene.add(new THREE.HemisphereLight("#d9e5f4", "#77604a", 1.12));
   const key = new THREE.DirectionalLight("#fff0dc", 2.7);
   key.castShadow = true;
   key.shadow.mapSize.setScalar(compact ? 512 : 1024);
-  key.shadow.camera.left = key.shadow.camera.bottom = -3.4;
-  key.shadow.camera.right = key.shadow.camera.top = 3.4;
+  key.shadow.camera.left = key.shadow.camera.bottom = -2.7;
+  key.shadow.camera.right = key.shadow.camera.top = 2.7;
   key.shadow.camera.near = .5;
   key.shadow.camera.far = 22;
   key.shadow.bias = -.00025;
-  key.shadow.normalBias = .018;
+  key.shadow.normalBias = .009;
   key.shadow.radius = 2;
   scene.add(key, key.target);
-  const fill = new THREE.DirectionalLight("#c5dbf4", .65);
+  const fill = new THREE.DirectionalLight("#c5dbf4", .85);
   fill.position.set(7, 5, 7);
-  scene.add(fill);
+  scene.add(fill, fill.target);
   const rim = new THREE.DirectionalLight("#fff6e7", 1.25);
   rim.position.set(3, 7, -24);
-  scene.add(rim);
+  scene.add(rim, rim.target);
 
   // Broad floodlight reflections give helmets and leather their own material response.
   const surroundings = new THREE.Scene();
@@ -38,7 +38,7 @@ export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scen
   const generator = new THREE.PMREMGenerator(renderer);
   const reflection = generator.fromScene(surroundings, .06, .1, 30);
   scene.environment = reflection.texture;
-  scene.environmentIntensity = .32;
+  scene.environmentIntensity = .4;
   generator.dispose();
   for (const card of cards) { card.geometry.dispose(); (card.material as THREE.Material).dispose(); }
 
@@ -51,6 +51,13 @@ export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scen
     const z = side === "pitcher" ? -18.44 : 0;
     key.position.set(-4,9,z+4);
     key.target.position.set(0,.85,z);
+    // The broadcast camera switches sides; fill follows it so the pitcher's back
+    // and the batter's face both retain readable fabric and equipment detail.
+    const facing = side === "pitcher" ? -1 : 1;
+    fill.position.set(4,4,z+facing*7);
+    fill.target.position.set(0,1,z);
+    rim.position.set(-3,6,z-facing*5);
+    rim.target.position.set(0,1,z);
     ground.position.z = z;
   };
   focus("batter");

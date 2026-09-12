@@ -25,17 +25,49 @@ function poseArm(upper:THREE.Object3D,lower:THREE.Object3D,wrist:THREE.Vector3,b
  const localWrist=lower.parent!.worldToLocal(wrist.clone()).sub(lower.position).normalize();lower.quaternion.setFromUnitVectors(V(0,-1,0),localWrist);lower.updateWorldMatrix(false,true);
 }
 function between(m:THREE.Mesh,a:THREE.Vector3,b:THREE.Vector3){const d=b.clone().sub(a);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(V(0,1,0),d.clone().normalize());m.scale.y=d.length();}
+// Solve knees in player-local space so mirrored players keep the same planted-foot mechanics.
+function poseLeg(thigh:THREE.Object3D,knee:THREE.Object3D,foot:THREE.Object3D,target:THREE.Vector3,footPitch=0,footYaw=0){
+ const delta=target.clone().sub(thigh.position),distance=clamp(delta.length(),.025,.859),direction=delta.normalize();
+ const bend=V(0,0,1).addScaledVector(direction,-direction.z).normalize();
+ const elbow=thigh.position.clone().addScaledVector(direction,distance*.5).addScaledVector(bend,Math.sqrt(.43*.43-distance*distance*.25));
+ thigh.quaternion.setFromUnitVectors(V(0,-1,0),elbow.clone().sub(thigh.position).normalize());
+ const shin=target.clone().sub(elbow).normalize().applyQuaternion(thigh.quaternion.clone().invert());
+ knee.quaternion.setFromUnitVectors(V(0,-1,0),shin);
+ // Independent ankles keep a planted shoe level while the knee bends above it.
+ foot.quaternion.copy(thigh.quaternion).multiply(knee.quaternion).invert().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(footPitch,footYaw,0)));
+}
 function poseBatter(batter:ReturnType<typeof player>,mirror:THREE.Group,bat:THREE.Group,pose:ReturnType<typeof swingPose>){
  bat.position.set(...pose.grip);bat.quaternion.setFromUnitVectors(V(0,1,0),V(...pose.axis));bat.updateWorldMatrix(true,true);
- const crouch=pose.crouch+.045*(1-pose.reach);
+ const crouch=Math.max(pose.crouch+.045*(1-pose.reach),.075+Math.abs(pose.bodyShift)*.18);
  batter.root.position.x=-.92+pose.bodyShift;batter.root.rotation.y=Math.PI/2+pose.turn*.25;batter.hips.position.y=.93-crouch;batter.torso.position.y=.95-crouch;batter.hips.rotation.y=pose.turn*.35;batter.torso.rotation.set(.12+pose.reach*.18,pose.turn*.8,-.04);batter.head.rotation.y=Math.PI/2-pose.turn*1.05;
- const kneeBend=Math.acos(clamp(1-crouch/.91,0,1));batter.ll.position.y=batter.rl.position.y=.91-crouch;batter.ll.rotation.x=-kneeBend-pose.load*.16;batter.lk.rotation.x=kneeBend*2+pose.load*.28;batter.rl.rotation.x=-kneeBend;batter.rl.rotation.y=pose.turn*.35;batter.rk.rotation.x=kneeBend*2;
- // Athletic stance: feet planted apart, with a small open front-foot angle.
- batter.ll.rotation.z=.18;batter.rl.rotation.z=-.18;batter.ll.position.z=.035;batter.rl.position.z=-.035;
+ batter.ll.position.set(.115,.91-crouch,.02);batter.rl.position.set(-.115,.91-crouch,-.02);
  mirror.updateWorldMatrix(true,true);
+ // The front foot lifts in the load, then braces. The rear heel turns after contact rather than sliding.
+ const leadLift=Math.max(0,(pose.load-.15)/.85);
+ const front=batter.root.worldToLocal(mirror.localToWorld(V(-.925,.034+leadLift*.055,-.255+leadLift*.035)));
+ const heelPitch=Math.max(0,pose.turn)*.17;
+ const rear=batter.root.worldToLocal(mirror.localToWorld(V(-.925,.034+Math.sin(heelPitch)*.22,.355)));
+ const rootTurn=pose.turn*.25;
+ poseLeg(batter.ll,batter.lk,batter.lf,front,0,-.13-rootTurn);
+ poseLeg(batter.rl,batter.rk,batter.rf,rear,heelPitch,.09+pose.turn*.35-rootTurn);
  const leftWrist=bat.localToWorld(V(0,-.055,0)),rightWrist=bat.localToWorld(V(0,.065,0));
  poseArm(batter.left,batter.le,leftWrist,V(0,-1,-.2));poseArm(batter.right,batter.re,rightWrist,V(0,-1,.3));
  return {leftWrist,rightWrist};
+}
+function posePitcher(pitcher:ReturnType<typeof player>,delivery:ReturnType<typeof pitchingPose>,throwSign:number,underhand:boolean,breath=0){
+ pitcher.root.position.y=0;
+ pitcher.hips.position.set(0,.93-delivery.drop,delivery.forward);pitcher.hips.rotation.y=delivery.hips;
+ pitcher.torso.position.set(0,.95-delivery.drop+breath,delivery.forward);
+ pitcher.torso.rotation.set(delivery.lean,delivery.coil,underhand?.08+delivery.lift*.13+delivery.lean*.4:0);
+ pitcher.head.rotation.set(-delivery.lean*.6,-delivery.coil*.75,0);
+ pitcher.ll.position.set(.115,.91-delivery.drop,delivery.forward);pitcher.rl.position.set(-.115,.91-delivery.drop,delivery.forward);
+ poseLeg(pitcher.ll,pitcher.lk,pitcher.lf,V(...delivery.lead),0,-.08);
+ poseLeg(pitcher.rl,pitcher.rk,pitcher.rf,V(...delivery.trail),delivery.heel,.08+delivery.hips*.5);
+ pitcher.root.updateWorldMatrix(true,true);
+ const releaseHand=pitcher.root.localToWorld(V(...delivery.hand));
+ poseArm(pitcher.right,pitcher.re,releaseHand,V(-throwSign,.1,-.15));
+ poseArm(pitcher.left,pitcher.le,pitcher.root.localToWorld(V(...delivery.glove)),V(throwSign,-.3,.1));
+ return releaseHand;
 }
 function baseball(parent:THREE.Object3D,r=.065){const group=new THREE.Group();mesh(new THREE.SphereGeometry(r,20,16),new THREE.MeshStandardMaterial({color:"#fffbe7",roughness:.55,emissive:"#fffbe0",emissiveIntensity:.22}),group);const red=new THREE.LineBasicMaterial({color:"#bc3324"});for(const sign of [-1,1]){const points=[];for(let i=0;i<=64;i++){const a=i/64*Math.PI*2;points.push(V(Math.cos(a)*r*.82,Math.sin(a)*r*.82,sign*r*.56))}group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),red))}parent.add(group);return group}
 export default function ActionScene(props:Props){
@@ -74,9 +106,7 @@ export default function ActionScene(props:Props){
  if(side!==lastSide){lastSide=side;configureCamera();lighting.focus(side);pitcher.root.visible=true;batter.root.visible=true;catcher.root.visible=side==="pitcher"}
  const bodyScale=(playerProfile(pr.pitcherId,"pitcher")?.heightCm??185)/185;pitcher.root.scale.set(throwSign*bodyScale,bodyScale,bodyScale);batterMirror.scale.x=battingSign;
  const idle=Math.sin(now/750)*.008,relative=p?now-p.releaseAt:-2000,delivery=pitchingPose(relative,underhand);
- pitcher.torso.rotation.set(delivery.lean,delivery.lift*.32,underhand?-.14:0);pitcher.ll.rotation.x=-delivery.lift*1.2;pitcher.lk.rotation.x=delivery.lift*1.3;pitcher.rl.rotation.x=-delivery.lean*.5;pitcher.root.position.y=idle;
- pitcher.root.updateWorldMatrix(true,true);
- const releaseHand=pitcher.root.localToWorld(V(...delivery.hand));poseArm(pitcher.right,pitcher.re,releaseHand,V(-throwSign,.1,-.15));poseArm(pitcher.left,pitcher.le,pitcher.root.localToWorld(V(.08,1.26-delivery.lean*.3,.28)),V(throwSign,-.3,.1));heldBall.visible=!p||p.resolved||relative<0;
+ posePitcher(pitcher,delivery,throwSign,underhand,relative < -900||relative>=640?idle:0);heldBall.visible=!p||p.resolved||relative<0;
  const localSwing=p&&pr.localSwing&&pr.localSwing.code===pr.view?.code&&pr.localSwing.pitchId===p.id?pr.localSwing:null;
  const knownSwing=localSwing??p?.aiBatterSwing??(p?.reaction?.swingAt!=null&&p.reaction.swingAim?{at:p.reaction.swingAt,aim:p.reaction.swingAim}:null);
  const key=pr.view&&p?pr.view.code+":"+p.id+":"+(knownSwing?.at??"take"):"";
@@ -86,7 +116,7 @@ export default function ActionScene(props:Props){
  const swingStart=side==="batter"?pr.swingTime:contactAt!=null?contactAt-SWING_CONTACT_MS:-Infinity;
  if(pr.swingTime!==lastSwingStart){lastSwingStart=pr.swingTime;frozenAim={...pr.aim.current}}
  const swingAge=now-swingStart,swingAim=side==="batter"?localSwing?.aim??frozenAim:knownSwing?.aim??p?.target??{x:0,y:0};
- const pose=swingPose(swingAge,swingAim,battingSign);
+ const pose=swingPose(swingAge,swingAim,battingSign,now);
  poseBatter(batter,batterMirror,bat,pose);
  for(const [i,ghost] of batTrail.entries()){ghost.visible=swingAge>40&&swingAge<240;if(!ghost.visible)continue;const prev=swingPose(swingAge-(i+1)*9,swingAim,battingSign);const a=V(...prev.grip).addScaledVector(V(...prev.axis),.25),b=V(...prev.grip).addScaledVector(V(...prev.axis),.95);between(ghost,a,b)}
  ball.visible=false;for(const t of trail)t.visible=false;
