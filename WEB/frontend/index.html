@@ -6,10 +6,10 @@
   <meta name="color-scheme" content="light">
   <title>KBO Sabermetrics</title>
 
-  <link rel="stylesheet" href="/app.css?v=20260912-diamond-v1">
-  <script defer src="/app.js?v=20260912-diamond-v1"></script>
-  <script src="/games.js?v=20260912-diamond-v1" defer></script>
-  <script src="/diamond.js?v=20260912-diamond-v1" defer></script>
+  <link rel="stylesheet" href="/app.css?v=20260912-visibility-v1">
+  <script defer src="/app.js?v=20260912-visibility-v1"></script>
+  <script src="/games.js?v=20260912-visibility-v1" defer></script>
+  <script src="/diamond.js?v=20260912-visibility-v1" defer></script>
 </head>
 <body>
   <a class="skip" href="#records">기록 표로 이동</a>
@@ -76,7 +76,8 @@
       <div class="result-bar"><div><span id="result-title">조회 결과</span><span id="result-count" class="muted"></span></div><span id="timing" class="muted"></span></div>
       <div id="error-box" class="alert error" role="alert" hidden></div>
       <div id="loading" class="loading" role="status" hidden><span class="spinner"></span> 서버에서 조회 중입니다. 같은 요청을 반복할 필요가 없습니다.</div>
-      <div id="table-scroll" class="table-scroll" tabindex="0" aria-label="기록 표 가로 스크롤"><table id="records"><thead></thead><tbody></tbody></table></div>
+      <p class="scroll-hint" id="table-scroll-hint">↔ 표를 좌우로 밀어 전체 기록을 확인하세요.</p>
+      <div id="table-scroll" class="table-scroll" tabindex="0" aria-label="기록 표 가로 스크롤" aria-describedby="table-scroll-hint"><table id="records"><thead></thead><tbody></tbody></table></div>
       <div id="empty" class="empty"><span class="empty-icon">▥</span><h2>조건에 맞는 기록을 찾아보세요</h2><p>팀·기간·상황 조건으로 조회할 수 있습니다.</p></div>
       <div class="pagination"><span id="page-caption">—</span><div><button id="previous" class="button outline" type="button" disabled>← 이전</button><span id="page-number">1</span><button id="next" class="button outline" type="button" disabled>다음 →</button></div></div>
       <div id="warnings" class="warnings" aria-live="polite"></div>
