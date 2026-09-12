@@ -22,7 +22,7 @@ catch (Exception ex) when (args.Length > 0 && args[0].StartsWith("--", StringCom
 var webRoot=Path.Combine(AppContext.BaseDirectory,"wwwroot");
 if (!Directory.Exists(webRoot))
     throw new DirectoryNotFoundException($"웹 정적 파일 폴더가 없습니다: {webRoot}. 솔루션을 다시 빌드하세요.");
-foreach (var asset in new[] { "index.html", "app.css", "app.js", "games.js", "diamond.js", "diamond/index.html" })
+foreach (var asset in new[] { "index.html", "app.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "diamond/index.html" })
 {
     var assetPath = Path.Combine(webRoot, asset);
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
@@ -63,6 +63,7 @@ builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<Que
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
+builder.Services.AddSingleton<AnalysisWebService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
 builder.Services.AddSingleton(services => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
     roster: services.GetRequiredService<DiamondRosterService>()));
@@ -154,7 +155,7 @@ app.UseStaticFiles(new StaticFileOptions
     {
         // DefaultFiles rewrites / to index.html before static files are served.
         // Keep the HTML entry point and tooltip script fresh across deployments.
-        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js")
+        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css")
         {
             context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
             context.Context.Response.Headers.Pragma = "no-cache";
@@ -232,6 +233,14 @@ app.MapPost("/api/games",async(GameWebRequest input,HttpContext c,QueryGate gate
     if(!databaseReady)throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
     input.Validate();quotas.Consume(Ip(c),Math.Min(50,settings.MaxPageSize));
     return Results.Ok(await gate.RunAsync(t=>new GameWebService(db,settings).QueryAsync(input,t),c.RequestAborted));
+});
+app.MapPost("/api/analysis", async (AnalysisRequest input, HttpContext c, AnalysisWebService analysis, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    input.Validate();
+    // Like /api/catalog, selector metadata consumes a query but no record-page budget.
+    quotas.Consume(Ip(c), input.Section == "catalog" ? 0 : Math.Min(50, settings.MaxPageSize));
+    return Results.Ok(await gate.RunAsync(t => analysis.QueryAsync(input,t),c.RequestAborted));
 });
 app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebService teams, QueryGate gate, QuotaStore quotas) =>
 {
