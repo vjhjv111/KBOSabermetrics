@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 namespace NaverSabermetrics.Web;
 
 /// <summary>Server-authoritative port of action-engine.ts and its collision/flight helpers.</summary>
-public sealed class DiamondEngine(DiamondData data, Func<double>? random = null)
+public sealed partial class DiamondEngine(DiamondData data, Func<double>? random = null)
 {
     public const int SwingContactMs = 95;
     private readonly Func<double> _random = random ?? CryptoRandom;
@@ -43,6 +43,12 @@ public sealed class DiamondEngine(DiamondData data, Func<double>? random = null)
         var control = Clamp(1 - p.Bb / p.Tbf * 4, .4, .92); var scatter = (1 - quality) * .65 + (1 - control) * .3;
         var target = new DiamondVec(Clamp(aim.X + Normal() * scatter, -2, 2), Clamp(aim.Y + Normal() * scatter, -2, 2));
         var velocity = Round((actual.Velocity + (quality - .5) * 3 + (Rand() - .5) * 2) * 10) / 10;
+        return PitchAt(game, type, target, velocity, quality, now);
+    }
+    // Measured AI endpoints already include the pitcher's control error. Only manual pitches add scatter.
+    private DiamondPitch PitchAt(DiamondGame game, string type, DiamondVec target, double velocity, double quality, long now)
+    {
+        var bend = Breaks[type];
         var hand = data.ThrowsLeft(game.Pitcher) ? -1 : 1;
         var under = data.Underhand(game.Pitcher); var scale = (data.Profile(game.Pitcher, "pitcher")?.HeightCm ?? 185) / 185;
         var factor = game.Pace switch { "practice" => 1.85, "real" => 1.15, _ => 1d };
@@ -143,7 +149,10 @@ public sealed class DiamondEngine(DiamondData data, Func<double>? random = null)
     public static DiamondView View(DiamondGame game, string actor, long now) => new(game.Format, game.Code, game.Mode, Side(game, actor),
         game.Batter, game.Pitcher, game.Pace, game.Round, game.Balls, game.Strikes, game.Score, game.PitchCount,
         game.Pitch, game.History, game.Mode == "pvp" && game.Guest == null, game.Round >= 6,
-        game.Round >= 6 ? game.Score >= 4 ? "batter" : "pitcher" : null, now, game.ExpiresAt, game.Roster);
+        game.Round >= 6 ? game.Score >= 4 ? "batter" : "pitcher" : null, now, game.ExpiresAt, game.Roster,
+        game.Mode == "ai" && game.HostRole == "batter" ? new DiamondPitchingSummary(game.PitchingProfile?.Source ?? "default",
+            game.PitchingProfile?.UsablePitchCount ?? 0, game.PitchingProfile?.TotalPitchCount ?? 0,
+            game.PitchingProfile?.SampleNote) : null);
 
     public static double CarryDistance(double speedKph, double angle, double height = 1.05)
     {

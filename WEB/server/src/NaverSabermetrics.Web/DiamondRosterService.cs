@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace NaverSabermetrics.Web;
 
 /// <summary>Small season snapshots built from the same read-only warehouse as the record room.</summary>
-public sealed class DiamondRosterService
+public sealed partial class DiamondRosterService
 {
     private readonly string _path;
     private readonly SemaphoreSlim _gate = new(1, 1);
