@@ -29,6 +29,7 @@ async function bootstrap(){
     await teamRoute();
     await homeRoute();
     if(typeof gameRoute==='function')await gameRoute();
+    if(typeof diamondRoute==='function')diamondRoute();
   }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
 }
 
@@ -56,8 +57,16 @@ async function loadCatalog(){
   $('demo-badge').hidden=!c.demo;
   if(location.hash!=='#records')navigation();else await changeView();
 }
+function syncRoomNavigation(){
+  const hash=location.hash,params=new URLSearchParams(hash.slice(1));
+  const route=hash==='#diamond'?'diamond':hash==='#games'||params.has('game')?'games':!hash||hash==='#'||hash==='#home'?'home':hash==='#records'?'records':null;
+  document.querySelectorAll('.room').forEach(button=>{
+    const selected=route==='records'?button.dataset.room===state.room:!!route&&button.dataset.route===route;
+    button.classList.toggle('active',selected);button.setAttribute('aria-current',selected?'page':'false');
+  });
+}
 function navigation(){
-  document.querySelectorAll('.room').forEach(b=>{const yes=b.dataset.room===state.room;b.classList.toggle('active',yes);b.setAttribute('aria-current',yes?'page':'false');});
+  syncRoomNavigation();
   document.querySelectorAll('.role').forEach(b=>{const yes=b.dataset.role===state.role;b.classList.toggle('active',yes);b.setAttribute('aria-pressed',String(yes));});
   const constants=state.room==='constants';
   document.querySelector('.role-switch').hidden=constants;
@@ -462,7 +471,7 @@ function initHome(){
   const results=text('section','','player-card');results.id='home-results';results.append(text('h2','최근 경기 결과'));home.querySelector('.home-top-grid').prepend(results);
   const monthly=text('section','','player-card');monthly.id='home-monthly';monthly.append(text('h2','월간 승률 순위'));home.querySelector('.home-top-grid').append(monthly);
   $('workspace').before(home);$('home-year').onchange=loadHome;
-  const button=text('button','홈','room');button.onclick=()=>{if(!location.hash)homeRoute();else location.hash='';};document.querySelector('.room-nav').prepend(button);
+  const button=text('button','홈','room');button.dataset.route='home';button.onclick=()=>{if(!location.hash)homeRoute();else location.hash='';};document.querySelector('.room-nav').prepend(button);
   for(const b of document.querySelectorAll('.room[data-room],.role'))b.addEventListener('click',()=>{location.hash='records';});
   window.addEventListener('hashchange',homeRoute);
 }
