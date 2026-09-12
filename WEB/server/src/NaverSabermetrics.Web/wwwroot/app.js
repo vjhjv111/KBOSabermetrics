@@ -7,6 +7,20 @@ const roomNames = { season: '시즌', career: '통산', team: '팀', constants: 
 const descriptions = { season: '선택 시즌의 선수별 기록', career: '적재된 전체 기간의 선수 기록', team: '팀별 누적 기록과 세부 성적', constants: '적재된 전체 정규시즌 기준 · 화면 연도와 독립' };
 const teamNames = { HH: '한화', HT: 'KIA', LG: 'LG', LT: '롯데', SS: '삼성', SK: 'SSG', WO: '키움', KT: 'KT', NC: 'NC', OB: '두산' };
 const text = (tag, value, className) => { const e=document.createElement(tag); e.textContent=value; if(className)e.className=className; return e; };
+// Franchise aliases share one semantic team class; historical display names are preserved.
+const teamAliases={HH:'HH',HANWHA:'HH','한화':'HH','한화이글스':'HH','빙그레':'HH','빙그레이글스':'HH',HT:'HT',KIA:'HT','KIA타이거즈':'HT','기아':'HT','기아타이거즈':'HT','해태':'HT','해태타이거즈':'HT',LG:'LG','LG트윈스':'LG','MBC':'LG','MBC청룡':'LG',LT:'LT',LOTTE:'LT','롯데':'LT','롯데자이언츠':'LT',SS:'SS',SAMSUNG:'SS','삼성':'SS','삼성라이온즈':'SS',SK:'SK',SSG:'SK','SSG/SK':'SK','SSG랜더스':'SK','SK와이번스':'SK',WO:'WO',KIWOOM:'WO','키움':'WO','키움히어로즈':'WO','넥센':'WO','넥센히어로즈':'WO','우리':'WO','우리히어로즈':'WO','서울히어로즈':'WO','히어로즈':'WO',KT:'KT','KT위즈':'KT',NC:'NC','NC다이노스':'NC',OB:'OB',DOOSAN:'OB','두산':'OB','두산베어스':'OB','OB베어스':'OB'};
+function canonicalTeam(value){return teamAliases[String(value??'').trim().replace(/\s+/g,'').toUpperCase()]??'';}
+function markTeamName(element,code){element.classList.add('team-name');element.dataset.team=canonicalTeam(code)||'neutral';return element;}
+function teamNameNode(code,label=null,tag='span'){return markTeamName(text(tag,label??teamNames[code]??code??'—'),code);}
+function teamNamesNode(value,tag='span'){
+  const raw=String(value??'—');if(canonicalTeam(raw))return teamNameNode(raw,teamNames[raw]??raw,tag);
+  const wrap=text(tag,'','team-names');for(const [i,part] of raw.split(',').entries()){if(i)wrap.append(document.createTextNode(', '));wrap.append(teamNameNode(part.trim()));}return wrap;
+}
+function colorTeamSelect(select){
+  for(const option of select.options)if(canonicalTeam(option.value))markTeamName(option,option.value);
+  const update=()=>{if(canonicalTeam(select.value))markTeamName(select,select.value);else{select.classList.remove('team-name');delete select.dataset.team;}};
+  if(!select.dataset.teamColorBound){select.addEventListener('change',update);select.dataset.teamColorBound='true';}update();
+}
 function showError(message){ $('error-box').textContent=message; $('error-box').hidden=false; }
 function clearError(){ $('error-box').hidden=true; $('error-box').textContent=''; }
 async function api(path, body, signal){
@@ -30,6 +44,7 @@ async function bootstrap(){
     await homeRoute();
     if(typeof gameRoute==='function')await gameRoute();
     if(typeof diamondRoute==='function')diamondRoute();
+    if(typeof analysisRoute==='function')await analysisRoute();
   }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
 }
 
@@ -37,6 +52,7 @@ function options(select, values, selected=''){
   select.replaceChildren(new Option('전체',''));
   for(const value of values){ const [v,label]=Array.isArray(value)?value:[String(value),String(value)];select.add(new Option(label,v)); }
   select.value=selected;
+  if(['team','opponent','pp-opponent','tp-team','an-team'].includes(select.id))colorTeamSelect(select);
 }
 async function loadCatalog(){
   state.catalog=await api('/api/catalog');
@@ -59,7 +75,7 @@ async function loadCatalog(){
 }
 function syncRoomNavigation(){
   const hash=location.hash,params=new URLSearchParams(hash.slice(1));
-  const route=hash==='#diamond'?'diamond':hash==='#games'||params.has('game')?'games':!hash||hash==='#'||hash==='#home'?'home':hash==='#records'?'records':null;
+  const route=hash==='#analysis'||params.has('analysis')?'analysis':hash==='#diamond'?'diamond':hash==='#games'||params.has('game')?'games':!hash||hash==='#'||hash==='#home'?'home':hash==='#records'?'records':null;
   document.querySelectorAll('.room').forEach(button=>{
     const selected=route==='records'?button.dataset.room===state.room:!!route&&button.dataset.route===route;
     button.classList.toggle('active',selected);button.setAttribute('aria-current',selected?'page':'false');
@@ -210,10 +226,10 @@ function renderTable(result){
     for(const col of result.columns){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
-      if(col.key==='TeamCode')td.textContent=teamNames[value]??value;
+      if(col.key==='TeamCode')td.replaceChildren(teamNamesNode(value));
       if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
       if(state.room==='team'&&['Name','TeamCode'].includes(col.key)&&row.entityCode){
-        const a=text('a',teamNames[row.entityCode]??value,'player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
+        const a=teamNameNode(row.entityCode,teamNames[row.entityCode]??value,'a');a.classList.add('player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
       }else if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
         const b=text('a',value,'player-link');b.title='선수 개인 페이지';b.href=`#player=${encodeURIComponent(row.entityCode)}&role=${state.role}`;
         td.replaceChildren(b);
@@ -244,7 +260,7 @@ $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('p
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};
 $('reset').onclick=()=>{
   // The button named "reset" shadows the form's reset method.
-  const year=$('year').value;HTMLFormElement.prototype.reset.call($('filters'));$('year').value=year;
+  const year=$('year').value;HTMLFormElement.prototype.reset.call($('filters'));$('year').value=year;for(const id of ['team','opponent'])colorTeamSelect($(id));
   $('start-date').disabled=$('end-date').disabled=true;state.playerCode=null;$('player-chip').hidden=true;navigation();markDirty();
 };
 $('cancel-query').onclick=()=>{abortQuery();$('draft-state').textContent='조회 요청을 취소했습니다.';};
@@ -264,7 +280,7 @@ $('search-form').onsubmit=async e=>{
     for(const p of rows){
       const choice=document.createElement('button');choice.type='button';choice.className='player-choice';
       const title=text('div',p.name);title.append(document.createElement('br'),text('small',`선수 코드 ${p.pcode}`));
-      choice.append(title,text('small',`${p.birthDate} · ${p.latestTeam} · ${p.primaryPosition} · ${p.role}`));
+      const details=text('small',`${p.birthDate} · `);details.append(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.role}`));choice.append(title,details);
       choice.onclick=()=>selectPlayer(p.pcode,p.name);$('search-results').append(choice);
     }
   }catch(err){$('search-status').textContent=err.message;}finally{b.disabled=false;}
@@ -285,7 +301,7 @@ function initPlayerPage(){
   $('player-controls').onsubmit=e=>{e.preventDefault();playerState.year=Number($('pp-year').value)||null;playerState.view=$('pp-view').value;playerState.page=1;playerState.sort='';loadPlayerSection();};
   $('pp-role').onchange=()=>{playerState.role=$('pp-role').value;playerState.page=1;setPlayerYears();configurePlayerControls();loadPlayerSection();};
   $('pp-competition').onchange=()=>playerRoute(true);
-  $('pp-reset').onclick=()=>{$('pp-opponent').value='';$('pp-start').value=$('pp-end').value='';playerState.page=1;loadPlayerSection();};
+  $('pp-reset').onclick=()=>{$('pp-opponent').value='';colorTeamSelect($('pp-opponent'));$('pp-start').value=$('pp-end').value='';playerState.page=1;loadPlayerSection();};
   $('pp-prev').onclick=()=>{playerState.page--;loadPlayerSection();};$('pp-next').onclick=()=>{playerState.page++;loadPlayerSection();};
   window.addEventListener('hashchange',()=>playerRoute());
   for(const b of document.querySelectorAll('.room,.role'))b.addEventListener('click',()=>{if(playerState.code)location.hash='';});
@@ -304,7 +320,7 @@ async function playerRoute(keep=false){
     const data=await api('/api/player',{code,section:'profile',competition:$('pp-competition').value,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25)},controller.signal);
     if(seq!==playerState.profileSequence)return;playerState.profile=data;
     const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | KBO Sabermetrics`;
-    $('player-bio').textContent=`${teamNames[p.latestTeam]??p.latestTeam} · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`;
+    $('player-bio').replaceChildren(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
     $('player-history').textContent=`생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
     if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
     const roles=[...new Set(data.seasons.map(s=>s.Role))];$('pp-role').replaceChildren(...roles.map(role=>new Option(role==='batter'?'타자':'투수',role)));
@@ -403,7 +419,7 @@ function playerDisplay(value,key){if(value===null||value===undefined)return '—
 function playerTableElement(columns,rows,sortable=false){
   const wrap=text('div','','player-table-wrap');wrap.tabIndex=0;wrap.setAttribute('aria-label','선수 기록 표, 가로 스크롤 가능');const table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');
   for(const c of columns){const th=document.createElement('th');th.scope='col';const canSort=sortable&&(['opponents','pitches','situations'].includes(playerState.section)?['PA','AB','H','HR','BB','SO','OPS','AVG','OBP','SLG','Name'].includes(c):playerState.section==='plays'&&['Date','WPA'].includes(c));if(canSort){const b=text('button',c+(playerState.sort===c?(playerState.descending?' ↓':' ↑'):''));b.type='button';b.onclick=()=>{playerState.descending=playerState.sort===c?!playerState.descending:true;playerState.sort=c;playerState.page=1;loadPlayerSection();};th.append(b);th.setAttribute('aria-sort',playerState.sort===c?(playerState.descending?'descending':'ascending'):'none');}else th.textContent=c;th.title=STAT_HEADER_TITLES[c]??({Date:'경기 날짜',Opponent:'상대 팀',Name:'상대 / 구분',Year:'연도',Venue:'홈 / 원정',Result:'경기 / 타석 결과',Runners:'1루 / 2루 / 3루 주자',BeforeScore:'타석 전 원정:홈',AfterScore:'타석 후 원정:홈'}[c]??c);tr.append(th);}thead.append(tr);table.append(thead);const body=document.createElement('tbody');
-  for(const row of rows){const r=document.createElement('tr');for(const c of columns){const cell=text('td',playerDisplay(row[c],c));r.append(cell);}body.append(r);}table.append(body);wrap.append(table);return wrap;
+  for(const row of rows){const r=document.createElement('tr');for(const c of columns){const cell=text('td',playerDisplay(row[c],c));if(['Team','TeamCode','Opponent'].includes(c)&&row[c])cell.replaceChildren(teamNamesNode(row[c]));r.append(cell);}body.append(r);}table.append(body);wrap.append(table);return wrap;
 }
 function renderPlayerTable(data){
   playerState.table=data;const card=playerCard(playerTabs.find(([id])=>id===playerState.section)?.[1]??'기록');
@@ -436,7 +452,7 @@ async function teamRoute(){
   if(!state.catalog)return;const p=new URLSearchParams(location.hash.slice(1)),team=p.get('team');teamState.controller?.abort();++teamState.seq;
   if(!team){const old=teamState.team;teamState.team=null;$('team-page').hidden=true;if(!p.has('player')){$('workspace').hidden=false;if(old&&!state.schema.length)await changeView();}return;}
   abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=false;teamState.team=team;teamState.page=1;teamState.section='overview';
-  $('tp-team').replaceChildren(...state.catalog.teams.map(t=>new Option(teamNames[t]??t,t)));$('tp-team').value=team;
+  $('tp-team').replaceChildren(...state.catalog.teams.map(t=>new Option(teamNames[t]??t,t)));$('tp-team').value=team;colorTeamSelect($('tp-team'));
   $('tp-year').replaceChildren(...[...state.catalog.years].sort((a,b)=>b-a).map(y=>new Option(y,y)));if(p.get('year'))$('tp-year').value=p.get('year');if(!$('tp-year').value)$('tp-year').selectedIndex=0;
   await loadTeam();
 }
@@ -445,14 +461,14 @@ function teamValue(v,key=''){if(v===null||v===undefined)return '—';if(typeof v
 function teamTable(columns,rows){
   const names={Name:'선수',Date:'날짜',Time:'시각',Opponent:'상대',Venue:'홈/원정',Stadium:'구장',Result:'결과',RF:'득점',RA:'실점',G:'경기',W:'승',D:'무',L:'패',PCT:'승률',Team:'팀',Rank:'순위'};
   const wrap=scrollableTable(),t=document.createElement('table'),h=document.createElement('thead'),hr=document.createElement('tr');for(const k of columns)hr.append(text('th',names[k]??k));h.append(hr);t.append(h);const body=document.createElement('tbody');
-  for(const r of rows){const tr=document.createElement('tr');for(const k of columns){const td=text('td',teamValue(r[k],k));if(k==='Name'&&r.Code)td.replaceChildren(teamLink(r.Code,r.Name,$('tp-role').value));if(['Team','Opponent'].includes(k)&&r[k]){const a=text('a',teamNames[r[k]]??r[k],'player-link');a.href=`#team=${encodeURIComponent(r[k])}&year=${$('tp-year').value}`;td.replaceChildren(a);}if(k==='Result')td.classList.add(r[k]==='승'?'team-win':r[k]==='패'?'team-loss':'');tr.append(td);}body.append(tr);}t.append(body);wrap.append(t);if(!rows.length)wrap.append(text('p','해당 조건에 저장된 기록이 없습니다.','player-empty'));return wrap;
+  for(const r of rows){const tr=document.createElement('tr');for(const k of columns){const td=text('td',teamValue(r[k],k));if(k==='Name'&&r.Code)td.replaceChildren(teamLink(r.Code,r.Name,$('tp-role').value));if(['Team','Opponent'].includes(k)&&r[k]){const a=teamNameNode(r[k],null,'a');a.classList.add('player-link');a.href=`#team=${encodeURIComponent(r[k])}&year=${$('tp-year').value}`;td.replaceChildren(a);}if(k==='Result')td.classList.add(r[k]==='승'?'team-win':r[k]==='패'?'team-loss':'');tr.append(td);}body.append(tr);}t.append(body);wrap.append(t);if(!rows.length)wrap.append(text('p','해당 조건에 저장된 기록이 없습니다.','player-empty'));return wrap;
 }
 function teamCard(title,columns,rows){const c=playerCard(title);c.append(teamTable(columns,rows));return c;}
 async function loadTeam(){
   $('tp-record').textContent='';
   teamState.controller?.abort();const controller=new AbortController();teamState.controller=controller;const seq=++teamState.seq;
   const section=teamState.section;for(const b of $('tp-tabs').children){b.classList.toggle('active',b.dataset.section===section);b.setAttribute('aria-current',b.dataset.section===section?'page':'false');}$('tp-role-label').hidden=section!=='roster';$('tp-content').replaceChildren();$('tp-pages').hidden=true;$('tp-status').textContent='팀 기록을 불러오는 중…';
-  const year=Number($('tp-year').value);$('tp-title').textContent=`${year} ${teamNames[teamState.team]??teamState.team}`;$('tp-mark').textContent=teamNames[teamState.team]??teamState.team;document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
+  const year=Number($('tp-year').value);$('tp-title').replaceChildren(document.createTextNode(`${year} `),teamNameNode(teamState.team));$('tp-mark').replaceChildren(teamNameNode(teamState.team));document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
   try{const data=await api('/api/team',{team:teamState.team,year,competition:$('tp-competition').value,section,role:$('tp-role').value,page:teamState.page},controller.signal);if(seq!==teamState.seq)return;$('tp-status').textContent='';
     if(section==='overview')renderTeamOverview(data);else if(section==='scores')renderTeamScores(data);else{$('tp-content').append(teamCard(section==='roster'?'팀 소속 선수 기록':'경기 일정 · 결과',data.columns,data.rows));$('tp-pages').hidden=false;$('tp-page').textContent=teamState.page;$('tp-prev').disabled=teamState.page===1;$('tp-next').disabled=!data.hasMore;}
   }catch(e){if(e.name!=='AbortError'&&seq===teamState.seq)$('tp-status').textContent=e.message;}
@@ -460,9 +476,9 @@ async function loadTeam(){
 function renderTeamOverview(d){
   const root=$('tp-content'),grid=text('div','','team-grid'),left=text('div'),right=text('div');grid.append(left,right);root.append(grid);
   const standing=d.standings.find(t=>t.Team===teamState.team);$('tp-record').textContent=`${standing?.Rank?standing.Rank+'위 · ':''}${d.record.W}승 ${d.record.D}무 ${d.record.L}패 · 승률 ${teamValue(d.record.PCT,'PCT')}`;
-  const calendar=playerCard('최근 경기'),days=text('div','','team-calendar');for(const g of d.recent){const card=text('div','','team-game');card.append(text('small',g.Date?.slice(0,10)??'날짜 미상'),text('strong',`${g.Venue==='원정'?'@ ':''}${teamNames[g.Opponent]??g.Opponent}`),text('span',`${g.Result} ${g.RF??'—'}:${g.RA??'—'}`,g.Result==='승'?'team-win':g.Result==='패'?'team-loss':''));days.append(card);}calendar.append(days);if(!d.recent.length)calendar.append(text('p','저장된 경기가 없습니다.','player-empty'));left.append(calendar);
-  const last=playerCard('이전 경기 결과');if(d.latest){last.append(text('p',`${d.latest.Date?.slice(0,10)} · ${teamNames[d.latest.Opponent]??d.latest.Opponent} · ${d.latest.Result} ${d.latest.RF}:${d.latest.RA}`));const innings=[...new Set(d.line.map(x=>x.Inning))].sort((a,b)=>a-b),rows=[d.latest.Opponent,teamState.team].map(t=>{const row={Team:t,R:t===teamState.team?d.latest.RF:d.latest.RA};for(const i of innings){const line=d.line.find(x=>x.Team===t&&x.Inning===i);row[i]=line&&line.StartScore!==null&&line.EndScore!==null?Math.max(0,line.EndScore-line.StartScore):null;}return row;});last.append(teamTable(['Team',...innings,'R'],rows),text('p','이닝 점수는 저장된 중계에서 복원합니다. 미수집 이닝은 — 표시.','player-note'));}else last.append(text('p','종료된 경기가 없습니다.'));left.append(last);
-  const next=playerCard('다음 경기 일정');next.append(text('p',d.next?`${d.next.Date} · ${d.next.Time??''} · ${d.next.Venue} vs ${teamNames[d.next.Opponent]??d.next.Opponent} · ${d.next.Stadium??''}`:'DB에 저장된 향후 일정이 없습니다.'));left.append(next);
+  const calendar=playerCard('최근 경기'),days=text('div','','team-calendar');for(const g of d.recent){const card=text('div','','team-game');card.append(text('small',g.Date?.slice(0,10)??'날짜 미상'),teamNameNode(g.Opponent,`${g.Venue==='원정'?'@ ':''}${teamNames[g.Opponent]??g.Opponent}`,'strong'),text('span',`${g.Result} ${g.RF??'—'}:${g.RA??'—'}`,g.Result==='승'?'team-win':g.Result==='패'?'team-loss':''));days.append(card);}calendar.append(days);if(!d.recent.length)calendar.append(text('p','저장된 경기가 없습니다.','player-empty'));left.append(calendar);
+  const last=playerCard('이전 경기 결과');if(d.latest){const lastLine=text('p',`${d.latest.Date?.slice(0,10)} · `);lastLine.append(teamNameNode(d.latest.Opponent),document.createTextNode(` · ${d.latest.Result} ${d.latest.RF}:${d.latest.RA}`));last.append(lastLine);const innings=[...new Set(d.line.map(x=>x.Inning))].sort((a,b)=>a-b),rows=[d.latest.Opponent,teamState.team].map(t=>{const row={Team:t,R:t===teamState.team?d.latest.RF:d.latest.RA};for(const i of innings){const line=d.line.find(x=>x.Team===t&&x.Inning===i);row[i]=line&&line.StartScore!==null&&line.EndScore!==null?Math.max(0,line.EndScore-line.StartScore):null;}return row;});last.append(teamTable(['Team',...innings,'R'],rows),text('p','이닝 점수는 저장된 중계에서 복원합니다. 미수집 이닝은 — 표시.','player-note'));}else last.append(text('p','종료된 경기가 없습니다.'));left.append(last);
+  const next=playerCard('다음 경기 일정');const nextLine=text('p',d.next?`${d.next.Date} · ${d.next.Time??''} · ${d.next.Venue} vs `:'DB에 저장된 향후 일정이 없습니다.');if(d.next)nextLine.append(teamNameNode(d.next.Opponent),document.createTextNode(` · ${d.next.Stadium??''}`));next.append(nextLine);left.append(next);
   const field=playerCard('포지션별 주요 선수'),diamond=text('div','','team-field');const positions={CF:[50,22],LF:[22,36],RF:[78,36],SS:[38,51],'2B':[62,51],'3B':[22,68],'1B':[78,68],P:[50,68],C:[50,91],DH:[85,92]};
   const park=svgNode('svg',{viewBox:'0 0 500 520',class:'team-field-art','aria-hidden':'true'});
   park.innerHTML='<defs><pattern id="team-grass" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#47964a"/><rect width="20" height="40" fill="#3e8842"/></pattern></defs><path d="M250 435 L35 220 Q250 -20 465 220 Z" fill="#bc9869" stroke="#d1b48c" stroke-width="7"/><path d="M250 419 L49 220 Q250 1 451 220 Z" fill="url(#team-grass)"/><path d="M250 420 L135 305 Q250 158 365 305 Z" fill="#cfaa76"/><path d="M250 399 L162 311 L250 223 L338 311 Z" fill="#60a459"/><path d="M48 221 L250 420 L452 221 M250 420 L145 315 L250 210 L355 315 Z" fill="none" stroke="#fff9e8" stroke-width="2.5"/><circle cx="250" cy="315" r="19" fill="#cfaa76"/><rect x="242" y="310" width="16" height="5" rx="1" fill="#fff"/><g fill="#fff" stroke="#d6d6c9"><path d="M242 411 H258 V420 L250 427 L242 420 Z"/><path d="M138 315 L145 308 L152 315 L145 322 Z"/><path d="M243 210 L250 203 L257 210 L250 217 Z"/><path d="M348 315 L355 308 L362 315 L355 322 Z"/><rect x="227" y="407" width="10" height="22" fill="none"/><rect x="263" y="407" width="10" height="22" fill="none"/></g>';
@@ -492,7 +508,7 @@ async function homeRoute(){
   if(!$('home-year').options.length)$('home-year').replaceChildren(...[...state.catalog.years].sort((a,b)=>b-a).map(y=>new Option(y,y)));
   await loadHome();
 }
-function homePlayer(p){const wrap=text('div','','home-player');wrap.append(teamLink(p.code,p.name,p.role),text('small',String(p.team).split(',').map(t=>teamNames[t.trim()]??t.trim()).join(', ')),text('strong',p.display));return wrap;}
+function homePlayer(p){const wrap=text('div','','home-player');wrap.append(teamLink(p.code,p.name,p.role),teamNamesNode(p.team,'small'),text('strong',p.display));return wrap;}
 function scrollableTable(){const wrap=text('div','','player-table-wrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','기록 표 · 좌우로 스크롤하여 전체 항목 보기');return wrap;}
 function homeTable(headers,rows){const wrap=scrollableTable(),table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers)tr.append(text('th',h));thead.append(tr);table.append(thead);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of row){const td=document.createElement('td');if(v instanceof Node)td.append(v);else td.textContent=v??'—';r.append(td);}body.append(r);}table.append(body);wrap.append(table);return wrap;}
 async function loadHome(){
@@ -506,9 +522,9 @@ async function loadHome(){
 }
 function renderHomeStandings(d,year){
   renderHomeResults(d,year);
-  const monthly=$('home-monthly');monthly.replaceChildren(text('h2',`${d.month??''} 월간 승률 순위`));monthly.append(homeTable(['순위','팀','승','무','패','승률'],(d.monthlyRows??[]).map(r=>{const a=text('a',teamNames[r.team]??r.team,'player-link');a.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;return [r.rank,a,r.w,r.d,r.l,r.pct==null?'—':r.pct.toFixed(3)];})),text('p',`${d.month??'—'}-01 ~ ${d.asOf?.slice(0,10)??'—'} · 정규시즌 · 승률 = 승 / (승 + 패)`,'player-note'));if(!d.monthlyRows?.length)monthly.append(text('p','수집된 월간 기록이 없습니다.'));
+  const monthly=$('home-monthly');monthly.replaceChildren(text('h2',`${d.month??''} 월간 승률 순위`));monthly.append(homeTable(['순위','팀','승','무','패','승률'],(d.monthlyRows??[]).map(r=>{const a=markTeamName(text('a',teamNames[r.team]??r.team,'player-link'),r.team);a.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;return [r.rank,a,r.w,r.d,r.l,r.pct==null?'—':r.pct.toFixed(3)];})),text('p',`${d.month??'—'}-01 ~ ${d.asOf?.slice(0,10)??'—'} · 정규시즌 · 승률 = 승 / (승 + 패)`,'player-note'));if(!d.monthlyRows?.length)monthly.append(text('p','수집된 월간 기록이 없습니다.'));
   const card=$('home-standings');card.replaceChildren(text('h2',`${year} 팀 순위 · 피타고리안 전망`));const pct=x=>x==null?'—':(x*100).toFixed(1)+'%';
-  const rows=d.rows.map(r=>{const link=text('a',teamNames[r.team]??r.team,'player-link');link.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
+  const rows=d.rows.map(r=>{const link=markTeamName(text('a',teamNames[r.team]??r.team,'player-link'),r.team);link.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
   card.append(text('p','↔ 좌우로 밀어 승률·득실점·시즌 전망을 확인하세요.','scroll-hint'),homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
   card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님':d.reason}`,'player-note'));$('home-model-note').textContent=d.note;
 }
@@ -520,7 +536,7 @@ function renderHomeResults(d,year){
     const scoreline=text('div','','home-scoreline');
     for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
-      const link=text('a',teamNames[code]??code,'player-link');link.href=`#team=${encodeURIComponent(code)}&year=${year}`;link.title=side==='Away'?'원정':'홈';
+      const link=markTeamName(text('a',teamNames[code]??code,'player-link'),code);link.href=`#team=${encodeURIComponent(code)}&year=${year}`;link.title=side==='Away'?'원정':'홈';
       const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
       if(side==='Away')scoreline.append(link,result,text('span',d.asOf?.slice(5,10).replace('-','.')??'','home-game-date'));else scoreline.append(result,link);
     }game.append(scoreline);const detail=text('a','상세','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;scoreline.append(detail);

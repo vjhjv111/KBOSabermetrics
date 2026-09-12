@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / 'server/src/NaverSabermetrics.Web'
-ASSETS = ('index.html', 'app.css', 'app.js')
+ASSETS = ('index.html', 'app.css', 'app.js', 'games.js', 'diamond.js', 'analysis.js', 'analysis.css')
 
 
 def validate(root=ROOT):
