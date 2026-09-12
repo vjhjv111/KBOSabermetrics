@@ -14,10 +14,10 @@ export function swingPose(age: number, aim: { x: number; y: number }, hand: 1 | 
   const impactAxis = unit([1, .08 + aim.y * .55, -.12]);
   const impactGrip = target.map((x, i) => x - impactAxis[i] * BAT_SWEET_SPOT) as Point3;
   const lift = (target[1] - 1.05) * .65;
-  const ready: Key = { t: 0, grip: [-.49, 1.40, .28], axis: [.12, .94, .32], turn: 0, load: 0 };
+  const ready: Key = { t: 0, grip: [-.59, 1.59, .28], axis: [-.55, .75, .38], turn: 0, load: 0 };
   const keys: Key[] = [
     ready,
-    { t: 30, grip: [-.53, 1.43, .35], axis: [-.06, .92, .39], turn: -.16, load: 1 },
+    { t: 30, grip: [-.62, 1.62, .32], axis: [-.59, .73, .35], turn: -.16, load: 1 },
     { t: SWING_CONTACT_MS, grip: impactGrip, axis: impactAxis, turn: .72, load: .15 },
     { t: 185, grip: [-.77, 1.34 + lift * .2, -.22], axis: [.18, .25, -.95], turn: 1.28, load: 0 },
     { t: 350, grip: [-.83, 1.66, -.14], axis: [-.76, .48, -.43], turn: 1.65, load: 0 },
