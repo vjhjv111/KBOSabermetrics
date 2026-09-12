@@ -8,7 +8,7 @@ $ProjectRoot = [IO.Path]::GetFullPath($ProjectRoot)
 $project = Join-Path $ProjectRoot 'server\src\NaverSabermetrics.Web'
 $output = Join-Path $project "bin\$Configuration\net8.0"
 $source = Join-Path $ProjectRoot 'frontend'
-foreach ($asset in @('index.html','app.css','app.js')) {
+foreach ($asset in @('index.html','app.css','app.js','games.js','diamond.js','analysis.js','analysis.css')) {
     $original = Join-Path $source $asset
     if (!(Test-Path -LiteralPath $original -PathType Leaf)) { throw "Missing frontend source: $original" }
     $expected = (Get-FileHash -LiteralPath $original -Algorithm SHA256).Hash
