@@ -109,7 +109,7 @@ public partial class MainForm : Form
         ResetResultViews();
         UpdateDocumentCount();
         UpdateCommandStates();
-        AppendLog("GUI 준비 완료. JSON/ZIP 파일 또는 폴더를 선택하세요.");
+        AppendLog("GUI 준비 완료 (통합 수집 v8.1). JSON/ZIP 파일 또는 폴더를 선택하세요.");
     }
 
 
@@ -953,8 +953,60 @@ public partial class MainForm : Form
             return;
         }
 
-        await _databaseCache.InitializeAsync();
-        var unchangedIds = await _databaseCache.GetUnchangedSourceKeysAsync(selectedDocuments);
+        BeginOperation("파싱 준비: DB 확인 중", trackElapsed: true);
+        progressBar.Value = 0;
+        lblCurrentFile.Text = "파싱 준비: DB 확인 중";
+        lblProgressDetail.Text = "DB 준비 후 선택한 파일의 캐시를 비교합니다. 준비 중에도 취소할 수 있습니다.";
+        AppendLog($"파싱 준비 시작: 선택 {selectedDocuments.Count:N0}개 · DB 확인 중");
+        HashSet<string> unchangedIds;
+        var preparationTimer = Stopwatch.StartNew();
+        var preparationToken = _operationCts!.Token;
+        var cacheComparisonActive = true;
+        try
+        {
+            // SQLite's async calls can complete synchronously. Keep preparation and hashing
+            // off the UI thread so progress, cancellation and duplicate-click protection work.
+            await Task.Run(() => _databaseCache.InitializeAsync(preparationToken), preparationToken);
+            AppendLog($"DB 준비 완료 ({preparationTimer.Elapsed.TotalSeconds:F1}초) · 캐시 비교 시작");
+            IProgress<SourceCacheProgress> cacheProgress = new Progress<SourceCacheProgress>(state =>
+            {
+                if (!cacheComparisonActive || _isClosing || IsDisposed) return;
+                var current = state.IsChecking ? state.Completed + 1 : state.Completed;
+                progressBar.Value = state.Total == 0 ? 0 : Math.Clamp(state.Completed * 100 / state.Total, 0, 100);
+                lblCurrentFile.Text = $"캐시 비교: [{current:N0}/{state.Total:N0}] {state.DocumentName}";
+                lblProgressDetail.Text = $"비교 완료 {state.Completed:N0}/{state.Total:N0} · 본문 확인 {state.ContentReads:N0} · 캐시 일치 {state.Unchanged:N0}";
+                statusLabel.Text = "파싱 준비: 캐시 비교 중";
+                if (!state.IsChecking && (state.Completed % 50 == 0 || state.Completed == state.Total))
+                    AppendLog($"캐시 비교 {state.Completed:N0}/{state.Total:N0} · 본문 확인 {state.ContentReads:N0} · 캐시 일치 {state.Unchanged:N0}");
+            });
+            unchangedIds = await Task.Run(
+                () => _databaseCache.GetUnchangedSourceKeysAsync(selectedDocuments, preparationToken, cacheProgress), preparationToken);
+            preparationToken.ThrowIfCancellationRequested();
+            if (_isClosing || IsDisposed) { EndOperation(); return; }
+            AppendLog($"파싱 준비 완료: {preparationTimer.Elapsed.TotalSeconds:F1}초 · 신규/변경 {selectedDocuments.Count - unchangedIds.Count:N0}개 · 캐시 일치 {unchangedIds.Count:N0}개");
+        }
+        catch (OperationCanceledException)
+        {
+            statusLabel.Text = "파싱 준비 취소";
+            lblProgressDetail.Text = "캐시 비교를 취소했습니다. 경기 파싱은 시작하지 않았습니다.";
+            AppendLog("파싱 준비 취소: 경기 파싱 시작 전");
+            SaveImportLog();
+            EndOperation();
+            return;
+        }
+        catch (Exception ex)
+        {
+            statusLabel.Text = "파싱 준비 실패";
+            lblProgressDetail.Text = ex.Message;
+            AppendLog($"파싱 준비 실패: {ex.Message}");
+            SaveImportLog();
+            EndOperation();
+            return;
+        }
+        finally
+        {
+            cacheComparisonActive = false;
+        }
         var documentsToParse = selectedDocuments.Where(document => !unchangedIds.Contains(document.Id)).ToList();
 
         _failures.Clear();
@@ -968,15 +1020,48 @@ public partial class MainForm : Form
 
         if (documentsToParse.Count == 0)
         {
+            statusLabel.Text = "저장된 최신 시즌 공식 기록 대조 중";
+            try
+            {
+                var latestYears = await _databaseCache.GetRegularSeasonYearsAsync(_operationCts!.Token);
+                if (latestYears.Count > 0)
+                {
+                    try
+                    {
+                        var correction = await _databaseCache.SyncKboCorrectionsAsync(latestYears[0], _operationCts.Token);
+                        AppendLog(correction.Message);
+                        foreach(var detail in correction.Details) AppendLog("KBO 정정 보류 "+detail);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex) { AppendLog("정정 대조 보류: " + ex.Message); }
+                    var officialProgress = new Progress<string>(message =>
+                    {
+                        if (_isClosing) return;
+                        lblProgressDetail.Text = message;
+                        AppendLog(message);
+                    });
+                    try { var rbi = await _databaseCache.SyncOfficialRbiAsync(latestYears[0], officialProgress, _operationCts.Token); AppendLog(rbi.Message); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex) { AppendLog("공식 타점 대조 보류: " + ex.Message); }
+                    var team = await _databaseCache.SyncOfficialTeamPitchingAsync(latestYears[0], officialProgress, _operationCts.Token);
+                    AppendLog(team.Message);
+                }
+                _leagueReference = null;
+                InvalidateActiveAnalytics(); InvalidatePlayerPageService(); InvalidateTeamPageService();
+            }
+            catch (OperationCanceledException) { AppendLog("공식 기록 대조 취소. 완료된 보정은 유지됩니다."); }
+            catch (Exception ex) { AppendLog("공식 기록 대조 보류: " + ex.Message); }
+            finally { EndOperation(); }
             await ReloadDatabaseCatalogAsync(selectLatestYear: _databaseGameCount == 0, resetDates: false);
-            await RefreshCurrentViewAsync(forceAnalytics: false);
-            statusLabel.Text = $"모든 문서가 캐시에 있습니다. {_databaseGameCount:N0}경기 즉시 사용";
+            await RefreshCurrentViewAsync(forceAnalytics: true);
+            statusLabel.Text = $"캐시 문서 {_databaseGameCount:N0}경기 · 공식 대조 결과는 작업 로그 참조";
             lblProgressDetail.Text = $"DB: {_databaseCache.DatabasePath}";
             AppendLog($"증분 파싱: 신규/변경 문서 없음, {selectedDocuments.Count:N0}개 건너뜀");
+            SaveImportLog();
             return;
         }
 
-        BeginOperation("신규/변경 문서 파싱 중", trackElapsed: true);
+        statusLabel.Text = "신규/변경 문서 파싱 중";
         progressBar.Value = 0;
         AppendLog($"증분 파싱 시작: 신규/변경 {documentsToParse.Count:N0}개, 캐시 건너뜀 {unchangedIds.Count:N0}개");
 
@@ -996,6 +1081,10 @@ public partial class MainForm : Form
             _failures.AddRange(result.Failures);
             foreach (var failure in _failures)
                 AppendLog($"실패: {failure.SourceName} - {failure.Error}");
+            foreach (var deferred in result.Deferred)
+                AppendLog($"경기 전 보류: {deferred.SourceName} - {deferred.Error}");
+            foreach (var warning in result.ReviewWarnings)
+                AppendLog($"공식 대조 확인 필요: {warning.SourceName} - {warning.Error}");
 
             // 7경기 샘플처럼 소규모 입력만 메모리에 남으므로 이 경우에만 즉시 검증합니다.
             if (KnownSampleValidationService.IsKnownSample(result.Games))
@@ -1017,25 +1106,29 @@ public partial class MainForm : Form
             var allSummary = await _databaseCache.GetSummaryAsync(
                 new GameQuery { Competition = "전체 경기" }, _operationCts.Token);
             var successMessage = $"완료: DB 전체 {allSummary.Games:N0}경기, 이번 파싱 {result.ParsedGameCount:N0}, " +
-                                 $"캐시 건너뜀 {unchangedIds.Count:N0}, 실패 {_failures.Count:N0}, " +
+                                 $"캐시 건너뜀 {unchangedIds.Count:N0}, 경기 전 보류 {result.Deferred.Count:N0}, " +
+                                 $"파일 실패 {_failures.Count:N0}, 공식 대조 확인 {result.ReviewWarnings.Count:N0}, " +
                                  $"이번 타석 {result.CompletedPlateAppearanceCount:N0}, 이번 투구 {result.PitchCount:N0}";
             statusLabel.Text = successMessage;
             lblProgressDetail.Text = saveAsYouGo
                 ? $"정규화 JSON 저장 위치: {txtOutputPath.Text} | DB: {_databaseCache.DatabasePath}"
                 : $"SQLite DB에 자동 저장됨: {_databaseCache.DatabasePath}";
             AppendLog(successMessage);
+            SaveImportLog();
         }
         catch (OperationCanceledException)
         {
             statusLabel.Text = "파싱 취소";
             lblProgressDetail.Text = "사용자가 작업을 취소했습니다.";
             AppendLog("파싱 작업이 취소되었습니다.");
+            SaveImportLog();
         }
         catch (Exception ex)
         {
             statusLabel.Text = "파싱 실패";
             lblProgressDetail.Text = ex.Message;
             AppendLog($"파싱 작업 실패: {ex}");
+            SaveImportLog();
             MessageBox.Show(this, ex.Message, "파싱 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
@@ -1052,12 +1145,23 @@ public partial class MainForm : Form
             return;
         }
 
+        if (progress.Stage == WorkflowStage.Reconciling)
+        {
+            progressBar.Value = 100;
+            lblCurrentFile.Text = "공식 기록 대조";
+            lblProgressDetail.Text = progress.Message;
+            statusLabel.Text = progress.Message;
+            AppendLog(progress.Message ?? "공식 기록 대조");
+            return;
+        }
+
         var stageFraction = progress.Stage switch
         {
             WorkflowStage.Reading => 0.10,
             WorkflowStage.Parsing => 0.55,
             WorkflowStage.Saving => 0.85,
             WorkflowStage.Completed => 1.00,
+            WorkflowStage.Deferred => 1.00,
             WorkflowStage.Failed => 1.00,
             _ => 0.00,
         };
@@ -1075,6 +1179,7 @@ public partial class MainForm : Form
             WorkflowStage.Parsing => "파싱 중",
             WorkflowStage.Saving => "저장 중",
             WorkflowStage.Completed => "완료",
+            WorkflowStage.Deferred => "경기 전 보류",
             WorkflowStage.Failed => "실패",
             _ => "대기",
         };
@@ -2147,6 +2252,22 @@ public partial class MainForm : Form
         txtLog.AppendText(line);
         txtLog.SelectionStart = txtLog.TextLength;
         txtLog.ScrollToCaret();
+    }
+
+    private void SaveImportLog()
+    {
+        try
+        {
+            var directory = Path.Combine(Path.GetDirectoryName(_databaseCache.DatabasePath)!, "Logs");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, $"import-{DateTime.Now:yyyyMMdd-HHmmss-fff}.log");
+            File.WriteAllText(path, txtLog.Text, System.Text.Encoding.UTF8);
+            AppendLog($"작업 로그 저장: {path}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"작업 로그 저장 실패: {ex.Message}");
+        }
     }
 
     private string CreateDefaultOutputPath(string inputPath)
