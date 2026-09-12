@@ -83,22 +83,18 @@ public sealed class DiamondGameService
                     if (game.Pitch is { Resolved: false }) return DiamondEngine.View(game, actor, Now());
                     if (game.Pitch is { } previous && now < Math.Max(previous.ReleaseAt + previous.FlightMs, previous.Reaction?.At ?? 0) + 900)
                         throw new DiamondInputError("다음 투구를 준비하고 있습니다.", 409);
-                    string type; DiamondVec aim; double quality;
                     if (operation == "ready")
                     {
-                        type = engine.PickAiPitch(game.Pitcher); quality = .65 + engine.Rand() * .3;
-                        var inside = engine.Rand() < (gameData.Discipline(game.Pitcher, "pitcher")?.ZonePitchRate ?? .48);
-                        if (inside) aim = new((engine.Rand() - .5) * 1.65, (engine.Rand() - .5) * 1.65);
-                        else if (engine.Rand() < .5) aim = new((engine.Rand() < .5 ? -1 : 1) * (1.05 + engine.Rand() * .5), (engine.Rand() - .5) * 1.9);
-                        else aim = new((engine.Rand() - .5) * 1.9, (engine.Rand() < .5 ? -1 : 1) * (1.05 + engine.Rand() * .5));
+                        game.Pitch = engine.CreateAiPitch(game, now);
                     }
                     else
                     {
-                        aim = Aim(body, "코스와 릴리스 입력을 확인해 주세요."); quality = Number(body, "quality", "코스와 릴리스 입력을 확인해 주세요.");
+                        var aim = Aim(body, "코스와 릴리스 입력을 확인해 주세요."); var quality = Number(body, "quality", "코스와 릴리스 입력을 확인해 주세요.");
                         if (quality < 0 || quality > 1) throw new DiamondInputError("코스와 릴리스 입력을 확인해 주세요.");
-                        type = Text(body, "type") ?? "";
+                        var type = Text(body, "type") ?? "";
+                        game.Pitch = engine.CreatePitch(game, type, aim, quality, now);
                     }
-                    game.Pitch = engine.CreatePitch(game, type, aim, quality, now); game.PitchCount = game.Pitch.Id;
+                    game.PitchCount = game.Pitch.Id;
                     if (game.Mode == "ai" && game.HostRole == "pitcher")
                     { game.Pitch.AiBatterSwing = engine.AiSwing(game); game.Pitch.AiBatterSwingPrepared = true; }
                 }
@@ -129,6 +125,17 @@ public sealed class DiamondGameService
         var batter = Text(body, "batter") ?? ""; var pitcher = Text(body, "pitcher") ?? "";
         // Resolve only IDs against the server's warehouse. Client-supplied statistics are never trusted.
         var roster = _roster?.Select(Integer(body, "season", "선수 기록 시즌을 선택해 주세요."), batter, pitcher, cancellationToken);
+        DiamondPitchingProfile? pitching = null;
+        if (_roster is not null && roster is not null && mode == "ai" && role == "batter")
+        {
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                pitching = _roster.SelectPitching(roster.Season, pitcher, cancellationToken);
+                if (pitching.Revision == roster.Revision) break;
+                roster = _roster.Select(roster.Season, batter, pitcher, cancellationToken);
+            }
+            if (pitching is null || pitching.Revision != roster.Revision) throw new DiamondInputError("DB 기록이 갱신되었습니다. 대결을 다시 시작해 주세요.", 409);
+        }
         var selected = Data.ForRoster(roster);
         selected.Batter(batter); selected.Pitcher(pitcher); cancellationToken.ThrowIfCancellationRequested(); ConsumeCreationLimit(ip, now);
         for (var attempt = 0; attempt < 5; attempt++)
@@ -136,7 +143,7 @@ public sealed class DiamondGameService
             const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
             var code = "D" + string.Concat(RandomNumberGenerator.GetBytes(7).Select(v => alphabet[v % 32]));
             var game = new DiamondGame { Code = code, Mode = mode, Host = actor, HostRole = role, Batter = batter,
-                Pitcher = pitcher, Roster = roster, Pace = pace, CreatedAt = now, ExpiresAt = now + 86400000 };
+                Pitcher = pitcher, Roster = roster, PitchingProfile = pitching, Pace = pace, CreatedAt = now, ExpiresAt = now + 86400000 };
             using var connection = Open(); using var command = connection.CreateCommand();
             command.CommandText = "INSERT INTO Matches(Code,Owner,State,Version,CreatedAt,ExpiresAt) VALUES($code,$owner,$state,0,$now,$expires) ON CONFLICT(Code) DO NOTHING";
             command.Parameters.AddWithValue("$code", code); command.Parameters.AddWithValue("$owner", actor);

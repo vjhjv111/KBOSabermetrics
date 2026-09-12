@@ -68,6 +68,8 @@ public sealed class DiamondGame
     public string Batter { get; set; } = "";
     public string Pitcher { get; set; } = "";
     public DiamondRosterSelection? Roster { get; set; }
+    // Persist the measured distribution with the match; DiamondView exposes only its small summary.
+    public DiamondPitchingProfile? PitchingProfile { get; set; }
     public string Pace { get; set; } = "practice";
     public int Round { get; set; }
     public int Balls { get; set; }
@@ -84,7 +86,10 @@ public sealed record DiamondView(string Format, string Code, string Mode, string
     string Pitcher, string Pace, int Round, int Balls, int Strikes, int Score, int PitchCount,
     DiamondPitch? Pitch, IReadOnlyList<DiamondResult> History, bool Waiting, bool Done,
     string? Winner, long ServerNow, long ExpiresAt,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiamondRosterSelection? Roster = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiamondRosterSelection? Roster = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiamondPitchingSummary? AiPitching = null);
+
+public sealed record DiamondPitchingSummary(string Source, int SampleCount, int TotalPitchCount, string? Note);
 
 public sealed class DiamondInputError(string message, int status = 400) : Exception(message)
 {
