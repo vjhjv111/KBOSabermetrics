@@ -1,0 +1,3 @@
+# Generated bundles contain upstream shader strings whose whitespace is preserved.
+frontend/diamond/assets/** linguist-generated=true -whitespace
+server/src/NaverSabermetrics.Web/wwwroot/diamond/assets/** linguist-generated=true -whitespace
