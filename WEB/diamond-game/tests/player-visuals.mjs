@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-import * as THREE from 'three';
+import {createRequire} from 'node:module';
 import {load} from './load-ts.mjs';
+const THREE=createRequire(import.meta.url)('three');
 const {playerAppearance}=load('lib/player-appearance.ts'),{scenePointerControls}=load('lib/scene-pointer.ts');
 assert.equal(playerAppearance('한화','노시환').team,'HH');
 assert.equal(playerAppearance('SSG','김광현').team,'SK');
@@ -28,22 +29,121 @@ calls=[];side='batter';controls.down(pointer(1,'mouse',true,2));controls.down(po
 controls.down(pointer(1,'mouse',true,0,-.3));assert.deepEqual(calls,['aim','swing:-0.3']);controls.up(pointer(1,'mouse'));
 
 const source=fs.readFileSync('app/action-scene.tsx','utf8');
-const helpers=ts.transpileModule(source.slice(source.indexOf('const V='),source.indexOf('export default function')),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-const {player,dressPlayer}=new Function('THREE','clamp',helpers+';return {player,dressPlayer};')(THREE,(v,a,b)=>Math.max(a,Math.min(b,v)));
-const model=player('#224466',true);dressPlayer(model,playerAppearance('HH','노시환'),-1);
-assert.equal(model.jersey.color.getHexString(),'f15c22');assert.equal(model.cap.color.getHexString(),'20252c');
-for(const {decal} of model.lettering)assert.equal(decal.scale.x,-1,'Hand mirroring must not reverse uniform lettering');
-assert.equal(model.head.position.y,.82);assert.deepEqual(model.left.position.toArray(),[.27,.58,0]);assert.deepEqual(model.right.position.toArray(),[-.27,.58,0]);assert.equal(model.le.position.y,-.34);assert.equal(model.re.position.y,-.34);
-let meshes=0,triangles=0;model.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;}});
-assert(meshes<=140,`Player must stay within a modest draw-call budget: ${meshes}`);assert(triangles<18000,`Player geometry must remain suitable for mobile: ${triangles}`);
+const {createPlayer:player,dressPlayer,createBat,createMitt,equipCatcher}=load('lib/player-model.ts');
+function resources(root){
+ const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();
+ root.traverse(object=>{
+  if(object.geometry)geometries.add(object.geometry);
+  if(object.isSkinnedMesh)skeletons.add(object.skeleton);
+  if(object.material)for(const material of Array.isArray(object.material)?object.material:[object.material]){
+   materials.add(material);for(const value of Object.values(material))if(value?.isTexture)textures.add(value);
+  }
+ });
+ return {geometries,materials,textures,skeletons};
+}
+function inspectPlayer(model,label,maxMeshes=120){
+ assert.equal(model.head.position.y,.82);assert.deepEqual(model.left.position.toArray(),[.27,.58,0]);assert.deepEqual(model.right.position.toArray(),[-.27,.58,0]);assert.equal(model.le.position.y,-.34);assert.equal(model.re.position.y,-.34);
+ let meshes=0,triangles=0,skinned=0;
+ model.root.updateMatrixWorld(true);
+ model.root.traverse(object=>{
+  if(!object.isMesh)return;meshes++;const geometry=object.geometry;triangles+=(geometry.index?.count??geometry.attributes.position.count)/3;
+  for(const [attributeName,attribute] of Object.entries(geometry.attributes))for(const number of attribute.array)assert(Number.isFinite(number),`${label}: non-finite ${attributeName} on ${geometry.type}`);
+  geometry.computeBoundingSphere();assert(Number.isFinite(geometry.boundingSphere.radius)&&geometry.boundingSphere.radius>0,`${label}: invalid mesh bounds`);
+  if(object.isSkinnedMesh){
+   skinned++;const weights=geometry.getAttribute('skinWeight'),indices=geometry.getAttribute('skinIndex'),positions=geometry.getAttribute('position');
+   assert.equal(weights.itemSize,4);assert.equal(indices.itemSize,4);assert.equal(weights.count,positions.count);assert.equal(indices.count,positions.count);
+   assert(object.skeleton.bones.length>=5,`${label}: trousers must follow the hips and both leg joints`);
+   object.skeleton.update();const original=new THREE.Vector3(),deformed=new THREE.Vector3();
+   for(let vertex=0;vertex<positions.count;vertex++){
+    let sum=0;
+    for(let influence=0;influence<4;influence++){
+     const weight=weights.getComponent(vertex,influence),index=indices.getComponent(vertex,influence);
+     assert(weight>=0&&weight<=1,`${label}: skin weights must be nonnegative and bounded`);
+     assert(Number.isInteger(index)&&index>=0&&index<object.skeleton.bones.length,`${label}: skin indices must identify valid bones`);sum+=weight;
+    }
+    assert(Math.abs(sum-1)<1e-6,`${label}: every vertex needs normalized skin weights`);
+    original.fromBufferAttribute(positions,vertex);object.getVertexPosition(vertex,deformed);
+    assert(original.distanceTo(deformed)<1e-5,`${label}: inverse binds must preserve the rest shape`);
+   }
+   for(const joint of [model.lk,model.rk]){
+    const boneIndex=object.skeleton.bones.findIndex(bone=>bone.parent===joint);
+    assert(boneIndex>=0,`${label}: both knee pivots drive the clothing skeleton`);
+    const samples=[];
+    for(let vertex=0;vertex<positions.count;vertex++)for(let influence=0;influence<4;influence++){
+     if(indices.getComponent(vertex,influence)===boneIndex&&weights.getComponent(vertex,influence)>.5){samples.push([vertex,object.getVertexPosition(vertex,new THREE.Vector3())]);break;}
+    }
+    assert(samples.length>0,`${label}: both lower legs have clothing vertices attached`);
+    const rotation=joint.rotation.x;joint.rotation.x+=.6;model.root.updateMatrixWorld(true);object.skeleton.update();
+    let movement=0;for(const [vertex,before] of samples)movement=Math.max(movement,object.getVertexPosition(vertex,deformed).distanceTo(before));
+    assert(movement>.04,`${label}: bending each knee must deform its trouser leg`);
+    joint.rotation.x=rotation;model.root.updateMatrixWorld(true);object.skeleton.update();
+   }
+  }
+ });
+ assert(skinned>0,`${label}: trousers use a continuous skinned mesh`);
+ assert(meshes<=maxMeshes,`${label} must stay within its mobile draw-call budget: ${meshes}/${maxMeshes}`);
+ assert(triangles<=50000,`${label} must stay within its mobile geometry budget: ${triangles}/50000`);
+ return {meshes,triangles};
+}
+const fallback=player('#224466',true);dressPlayer(fallback,playerAppearance('HH','노시환'),-1);
+assert.equal(resources(fallback.root).textures.size,0,'Server-side construction works without a DOM');
+const budget=inspectPlayer(fallback,'batter');
+const pitcher=player('#224466');inspectPlayer(pitcher,'pitcher');
+const catcher=player('#224466');equipCatcher(catcher);inspectPlayer(catcher,'equipped catcher',170);
 
-let canvases=0,disposedMaps=0,painted=[];
-globalThis.document={createElement(tag){assert.equal(tag,'canvas');canvases++;return {getContext(){return {fillText(text){painted.push(text)},fillRect(){}}}}}};
-dressPlayer(model,playerAppearance('HH','노시환',8));assert.equal(canvases,3);assert(painted.includes('8'));
-model.lettering.forEach(slot=>slot.material.map.addEventListener('dispose',()=>disposedMaps++));
-dressPlayer(model,playerAppearance('HH','노시환',8),-1);assert.equal(canvases,3,'Steady frames and handedness changes reuse existing textures');
-painted=[];dressPlayer(model,playerAppearance('SS','이승현'));
-assert.equal(canvases,6);assert.equal(disposedMaps,3,'Changing players releases the previous uniform maps');assert(!painted.some(text=>/^\d+$/.test(text)),'A missing jersey number stays absent');
+let canvases=0,painted=[];
+globalThis.document={createElement(tag){
+ assert.equal(tag,'canvas');canvases++;
+ const canvas={width:0,height:0,pixels:null,getContext(){return context}};
+ const context={fillText(text){painted.push(text)},strokeText(){},fillRect(){},clearRect(){},beginPath(){},closePath(){},moveTo(){},lineTo(){},arc(){},ellipse(){},stroke(){},fill(){},save(){},restore(){},translate(){},rotate(){},scale(){},setTransform(){},createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)}},putImageData(pixels){canvas.pixels=pixels.data}};
+ return canvas;
+}};
+const model=player('#224466',true);dressPlayer(model,playerAppearance('HH','노시환',8),-1);
+assert.equal(model.jersey.color.getHexString(),'f15c22');assert.equal(model.cap.color.getHexString(),'20252c');
+assert(painted.includes('8'));
+for(const {decal} of model.lettering)assert.equal(decal.scale.x,-1,'Hand mirroring must not reverse uniform lettering');
+const actorMaps=resources(model.root).textures,bumpMaps=[...actorMaps].filter(texture=>texture.image.pixels);
+assert(bumpMaps.length>=3,'Uniform cloth, skin and glove leather have their own material detail');
+for(const texture of bumpMaps){
+ assert.equal(texture.colorSpace,THREE.NoColorSpace,'Surface height maps must not be gamma transformed');
+ assert.equal(texture.wrapS,THREE.RepeatWrapping);assert.equal(texture.wrapT,THREE.RepeatWrapping);
+ assert(texture.image.width<=256&&texture.image.height<=256,'Actor surface details stay within a small mobile texture budget');
+ const pixels=texture.image.pixels,values=new Set();
+ for(let i=0;i<pixels.length;i+=4){assert.equal(pixels[i],pixels[i+1]);assert.equal(pixels[i],pixels[i+2]);assert.equal(pixels[i+3],255);values.add(pixels[i]);}
+ assert(values.size>2,'Each surface contains visible material detail');
+}
+const disposed=new Map();
+for(const texture of actorMaps){disposed.set(texture,0);texture.addEventListener('dispose',()=>disposed.set(texture,disposed.get(texture)+1));}
+const steadyCanvases=canvases;
+for(let frame=0;frame<60;frame++)dressPlayer(model,playerAppearance('HH','노시환',8),frame%2?-1:1);
+assert.equal(canvases,steadyCanvases,'Animation and handedness changes do not regenerate textures');
+assert([...disposed.values()].every(count=>count===0));
+const oldLetters=model.lettering.map(slot=>slot.material.map);painted=[];dressPlayer(model,playerAppearance('SS','이승현'));
+assert.equal(canvases,steadyCanvases+3,'Only the three uniform labels change with a player');
+assert(oldLetters.every(texture=>disposed.get(texture)===1),'Changing players releases every old uniform label');
+assert(bumpMaps.every(texture=>disposed.get(texture)===0),'Player changes retain surface detail maps');
+assert(!painted.some(text=>/^\d+$/.test(text)),'A missing jersey number stays absent');
+
+const second=player('#224466');dressPlayer(second,playerAppearance('HT','김도영'));
+const secondMaps=resources(second.root).textures;assert([...secondMaps].every(texture=>!actorMaps.has(texture)),'Players own independent texture lifetimes');
+const scene=new THREE.Scene();scene.add(model.root);createBat(scene);createMitt(scene);
+const cleanupResources=resources(scene),cleanupDisposals=new Map();
+for(const resource of [...cleanupResources.geometries,...cleanupResources.materials,...cleanupResources.textures]){cleanupDisposals.set(resource,0);resource.addEventListener('dispose',()=>cleanupDisposals.set(resource,cleanupDisposals.get(resource)+1));}
+const skeletonDisposals=new Map(),boneTextureDisposals=new Map();
+for(const skeleton of cleanupResources.skeletons){
+ skeleton.computeBoneTexture();const texture=skeleton.boneTexture;boneTextureDisposals.set(texture,0);texture.addEventListener('dispose',()=>boneTextureDisposals.set(texture,boneTextureDisposals.get(texture)+1));
+ skeletonDisposals.set(skeleton,0);const dispose=skeleton.dispose.bind(skeleton);skeleton.dispose=()=>{skeletonDisposals.set(skeleton,skeletonDisposals.get(skeleton)+1);dispose()};
+}
+const cleanupStart=source.indexOf('const geometries=new Set'),cleanupEnd=source.indexOf('renderer.dispose()',cleanupStart);
+assert(cleanupStart>=0&&cleanupEnd>cleanupStart,'Scene teardown must expose its resource cleanup before renderer disposal');
+const cleanup=ts.transpileModule(source.slice(cleanupStart,cleanupEnd),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+let lightingDisposals=0;
+new Function('scene','THREE','lighting',cleanup)(scene,THREE,{dispose(){lightingDisposals++}});
+assert.equal(lightingDisposals,1,'Scene teardown releases the reflection and shadow render targets');
+assert([...cleanupDisposals.values()].every(count=>count===1),'Scene teardown disposes each geometry, material and diffuse/bump texture exactly once');
+assert(skeletonDisposals.size>0&&[...skeletonDisposals.values()].every(count=>count===1),'Scene teardown disposes each distinct skeleton exactly once');
+assert([...boneTextureDisposals.values()].every(count=>count===1),'Skeleton disposal also releases its GPU bone texture exactly once');
+assert(oldLetters.every(texture=>disposed.get(texture)===1),'Already-replaced uniform labels must not be disposed twice');
 delete globalThis.document;
 
 const {FIELD_CAMERAS,fieldFov}=load('lib/field-camera.ts');
@@ -59,4 +159,4 @@ for(const side of ['batter','pitcher'])for(const [width,height] of [[367,420],[3
   assert(Math.abs(frameProps.current.aim.current.x-x)<1e-10&&Math.abs(frameProps.current.aim.current.y-y)<1e-10,`Portrait/desktop touch must map to the visible field: ${side} ${width}x${height}`);
  }
 }
-console.log(`PASS appearance/real-number handling, reused/disposed uniform textures, mirrored lettering, fixed skeleton, portrait/desktop projected aim, tap-before-swing, drag/multi-touch guards and desktop/pitcher controls; player ${meshes} meshes / ${triangles} triangles`);
+console.log(`PASS athlete geometry and fixed rig, normalized skin weights and rest binds, mobile budgets, material/skeleton resource cleanup, mirrored lettering, real-number handling, portrait/desktop projected aim, tap-before-swing and pointer guards; batter ${budget.meshes} meshes / ${budget.triangles} triangles`);

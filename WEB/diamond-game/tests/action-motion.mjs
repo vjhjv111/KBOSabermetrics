@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import {load} from './load-ts.mjs';
-import * as THREE from 'three';
+import {createRequire} from 'node:module';
+const THREE=createRequire(import.meta.url)('three');
 const motion=load('lib/player-motion.ts'),engine=load('lib/action-engine.ts');
 const profiles=JSON.parse(fs.readFileSync('lib/player-profiles.json','utf8')).players;
 const byName=name=>Object.entries(profiles).find(([,p])=>p.name===name)[0];
@@ -12,8 +13,22 @@ for(const name of ['김주원','레이예스']){assert(engine.batsLeft(byName(na
 assert(engine.isUnderhand(byName('고영표')));assert(!engine.throwsLeft(byName('폰세')));assert(engine.throwsLeft(byName('양현종')));
 const source=fs.readFileSync('app/action-scene.tsx','utf8');
 const helpers=ts.transpileModule(source.slice(source.indexOf('const V='),source.indexOf('export default function')),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-const {player,poseBatter,poseArm}=new Function('THREE','clamp',helpers+';return {player,poseBatter,poseArm};')(THREE,engine.clamp);
-const V=(...n)=>new THREE.Vector3(...n);let worstWrist=0;
+const {createPlayer:player}=load('lib/player-model.ts');
+const {poseBatter,poseArm}=new Function('THREE','clamp',helpers+';return {poseBatter,poseArm};')(THREE,engine.clamp);
+const V=(...n)=>new THREE.Vector3(...n);let worstWrist=0,skinPoseChecks=0;
+function inspectSkinPose(model){
+ model.root.updateWorldMatrix(true,true);model.root.updateMatrixWorld(true);
+ const origin=model.root.getWorldPosition(V()),point=V();
+ model.root.traverse(object=>{
+  if(!object.isSkinnedMesh)return;object.skeleton.update();
+  for(const value of object.skeleton.boneMatrices)assert(Number.isFinite(value),'Animated bone matrices must remain finite');
+  for(let vertex=0;vertex<object.geometry.attributes.position.count;vertex++){
+   object.getVertexPosition(vertex,point).applyMatrix4(object.matrixWorld);
+   assert(point.toArray().every(Number.isFinite)&&point.distanceTo(origin)<3,'Animated trousers must remain finite and attached to the player');
+  }
+ });
+ skinPoseChecks++;
+}
 for(const hand of [1,-1]){
  const b=player('#224466',true),mirror=new THREE.Group(),bat=new THREE.Group();mirror.scale.x=hand;mirror.add(b.root);b.root.position.z=.06;
  for(const x of [-1,-.5,0,.5,1])for(const y of [-1,-.5,0,.5,1])for(let age=0;age<=980;age+=5){
@@ -21,6 +36,7 @@ for(const hand of [1,-1]){
   for(const [arm,target] of [[b.le,wrists.leftWrist],[b.re,wrists.rightWrist]]){const error=arm.localToWorld(V(0,-.34,0)).distanceTo(target);worstWrist=Math.max(worstWrist,error);assert(error<.01,`Detached wrist: ${JSON.stringify({hand,x,y,age,error})}`);}
   assert(Math.abs(Math.hypot(...pose.axis)-1)<1e-10);
   if(age===motion.SWING_CONTACT_MS)assert(V(...pose.barrel).distanceTo(V(x*.5,1.05+y*.55,0))<1e-10);
+  if(Number.isInteger(x)&&Number.isInteger(y)&&[0,motion.SWING_CONTACT_MS,185,350,770].includes(age))inspectSkinPose(b);
  }
 }
 const h=.001,t=motion.SWING_CONTACT_MS,p0=V(...motion.swingPose(t,{x:0,y:0},1).barrel),p1=V(...motion.swingPose(t-h,{x:0,y:0},1).barrel),p2=V(...motion.swingPose(t+h,{x:0,y:0},1).barrel);
@@ -31,5 +47,9 @@ for(const name of ['폰세','고영표','양현종']){
  const target=p.root.localToWorld(V(...pose.hand));poseArm(p.right,p.re,target,V(-hand,.1,-.15));const actual=p.re.localToWorld(V(0,-.34,0));
  const pitch=engine.createPitch({pitcher:id,pitchCount:0,pace:'practice',mode:'ai'},engine.arsenal(id)[0].type,{x:0,y:0},1,0),release=engine.ballPosition(pitch,pitch.releaseAt);
  assert(actual.distanceTo(V(release.x,release.y,release.z))<1e-10);assert.equal(Math.sign(release.x),-hand);
+ for(const time of [-900,-430,-145,0,230,640]){
+  const delivery=motion.pitchingPose(time,underhand);p.torso.rotation.set(delivery.lean,delivery.lift*.32,underhand?-.14:0);
+  p.ll.rotation.x=-delivery.lift*1.2;p.lk.rotation.x=delivery.lift*1.3;p.rl.rotation.x=-delivery.lean*.5;inspectSkinPose(p);
+ }
 }
-console.log(`PASS local DB handedness, switch hitting, both swing directions, contact alignment, continuous impact, wrists (max ${(worstWrist*100).toFixed(3)} cm), scaled and underhand releases`);
+console.log(`PASS local DB handedness, switch hitting, both swing directions, contact alignment, continuous impact, wrists (max ${(worstWrist*100).toFixed(3)} cm), scaled/underhand releases and finite clothing through ${skinPoseChecks} posed frames`);
