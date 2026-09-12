@@ -243,7 +243,8 @@ $('player-name').oninput=()=>{state.playerCode=null;$('player-chip').hidden=true
 $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;markDirty();};
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};
 $('reset').onclick=()=>{
-  const year=$('year').value;$('filters').reset();$('year').value=year;
+  // The button named "reset" shadows the form's reset method.
+  const year=$('year').value;HTMLFormElement.prototype.reset.call($('filters'));$('year').value=year;
   $('start-date').disabled=$('end-date').disabled=true;state.playerCode=null;$('player-chip').hidden=true;navigation();markDirty();
 };
 $('cancel-query').onclick=()=>{abortQuery();$('draft-state').textContent='조회 요청을 취소했습니다.';};
@@ -363,8 +364,8 @@ function playerCard(title){const e=text('section','','player-card');e.append(tex
 function svgNode(tag,attrs={},content){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(content!==undefined)e.textContent=content;return e;}
 function renderPlayerOverview(data){
   const content=$('player-content'),grid=text('div','','player-overview-grid');
-  const ranking=playerCard(`${playerState.year} KBO Percentile Rankings`);ranking.classList.add('percentile-card');
-  ranking.append(text('p','전체 선수 기준 · 기본·심화·가치 지표 통합','muted'));
+  const ranking=playerCard(`${playerState.year} 지표별 백분위`);ranking.classList.add('percentile-card');
+  ranking.append(text('p','전체 선수 기준 · 100에 가까울수록 좋은 기록입니다.','muted'));
   const metrics=data.metrics.filter(m=>m.population>0);
   if(!metrics.length)ranking.append(text('p','선택한 시즌에 비교할 수 있는 퍼센타일 기록이 없습니다.','player-empty'));
   const chart=svgNode('svg',{viewBox:`0 0 470 ${60+metrics.length*35}`,role:'img','aria-label':'선수 스탯 퍼센타일. 왼쪽 낮음, 가운데 평균, 오른쪽 우수.'});
@@ -375,10 +376,19 @@ function renderPlayerOverview(data){
     const row=svgNode('g');row.append(svgNode('title',{},`${m.label}: ${m.display}, 퍼센타일 ${pct===null?'비교군 부족':Math.round(pct)}, 비교군 ${m.population}명${m.lowerIsBetter?', 낮을수록 우수':''}`));
     row.append(svgNode('text',{x:111,y:y+5,'text-anchor':'end',class:'pct-label'},m.label));
     row.append(svgNode('rect',{x:122,y:y-10,width:276,height:22,fill:'#f0f4f5'}));
-    if(pct!==null){const x=122+Math.max(0,Math.min(100,pct))*2.76;row.append(svgNode('rect',{x:122,y:y-10,width:x-122,height:22,fill:color}),svgNode('circle',{cx:x,cy:y+1,r:12,fill:color,stroke:'white','stroke-width':2}),svgNode('text',{x,y:y+5,'text-anchor':'middle',class:'pct-number'},Math.round(pct)));}
+    if(pct!==null){const x=122+Math.max(0,Math.min(100,pct))*2.76;row.append(svgNode('rect',{x:122,y:y-10,width:x-122,height:22,fill:color}),svgNode('circle',{cx:x,cy:y+1,r:14,fill:'#fff',stroke:color,'stroke-width':2}),svgNode('text',{x,y:y+5,'text-anchor':'middle',class:'pct-number'},Math.round(pct)));}
     row.append(svgNode('text',{x:453,y:y+5,'text-anchor':'end',class:'pct-value'},m.display));chart.append(row);
   });
-  ranking.append(chart,text('p',data.reference,'player-note'));grid.append(ranking);
+  const mobileChart=text('div','','percentile-mobile');
+  for(const m of metrics){
+    const pct=m.percentile,row=text('div','','percentile-mobile-row'),heading=text('div','','percentile-mobile-heading');
+    heading.append(text('strong',m.label),text('span',m.display),text('small',pct===null?'비교군 부족':`백분위 ${Math.round(pct)}`));
+    const track=text('div','','percentile-mobile-track'),fill=text('span','');
+    fill.style.width=`${pct===null?0:Math.max(0,Math.min(100,pct))}%`;
+    fill.style.background=pct>=90?'#e71936':pct>=65?'#ed7066':pct>=40?'#9ac6cb':'#598bbc';
+    track.setAttribute('aria-hidden','true');track.append(fill);row.append(heading,track);mobileChart.append(row);
+  }
+  ranking.append(chart,mobileChart,text('p',data.reference,'player-note'));grid.append(ranking);
   const aside=text('div','','player-overview-aside'),stats=playerCard('주요 기록'),kpis=text('div','','player-kpis');
   const labels=playerState.role==='batter'?['WAR','PA','HR','AVG','OPS','wRC+']:['KBO fWAR','KBO fWAR v4','IP','ERA','FIP','WHIP','SO'];
   for(const m of data.metrics.filter(m=>labels.includes(m.label)).slice(0,6)){const k=text('div','','player-kpi');k.append(text('span',m.label),text('strong',m.display));kpis.append(k);}stats.append(kpis);aside.append(stats);
@@ -434,7 +444,7 @@ function teamLink(code,name,role='batter'){const a=text('a',name,'player-link');
 function teamValue(v,key=''){if(v===null||v===undefined)return '—';if(typeof v==='number'&&['PCT','AVG','OBP','SLG','OPS','ERA','WHIP'].includes(key))return v.toFixed(key==='ERA'||key==='WHIP'?2:3);return String(v);}
 function teamTable(columns,rows){
   const names={Name:'선수',Date:'날짜',Time:'시각',Opponent:'상대',Venue:'홈/원정',Stadium:'구장',Result:'결과',RF:'득점',RA:'실점',G:'경기',W:'승',D:'무',L:'패',PCT:'승률',Team:'팀',Rank:'순위'};
-  const wrap=text('div','','player-table-wrap'),t=document.createElement('table'),h=document.createElement('thead'),hr=document.createElement('tr');for(const k of columns)hr.append(text('th',names[k]??k));h.append(hr);t.append(h);const body=document.createElement('tbody');
+  const wrap=scrollableTable(),t=document.createElement('table'),h=document.createElement('thead'),hr=document.createElement('tr');for(const k of columns)hr.append(text('th',names[k]??k));h.append(hr);t.append(h);const body=document.createElement('tbody');
   for(const r of rows){const tr=document.createElement('tr');for(const k of columns){const td=text('td',teamValue(r[k],k));if(k==='Name'&&r.Code)td.replaceChildren(teamLink(r.Code,r.Name,$('tp-role').value));if(['Team','Opponent'].includes(k)&&r[k]){const a=text('a',teamNames[r[k]]??r[k],'player-link');a.href=`#team=${encodeURIComponent(r[k])}&year=${$('tp-year').value}`;td.replaceChildren(a);}if(k==='Result')td.classList.add(r[k]==='승'?'team-win':r[k]==='패'?'team-loss':'');tr.append(td);}body.append(tr);}t.append(body);wrap.append(t);if(!rows.length)wrap.append(text('p','해당 조건에 저장된 기록이 없습니다.','player-empty'));return wrap;
 }
 function teamCard(title,columns,rows){const c=playerCard(title);c.append(teamTable(columns,rows));return c;}
@@ -483,7 +493,8 @@ async function homeRoute(){
   await loadHome();
 }
 function homePlayer(p){const wrap=text('div','','home-player');wrap.append(teamLink(p.code,p.name,p.role),text('small',String(p.team).split(',').map(t=>teamNames[t.trim()]??t.trim()).join(', ')),text('strong',p.display));return wrap;}
-function homeTable(headers,rows){const wrap=text('div','','player-table-wrap'),table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers)tr.append(text('th',h));thead.append(tr);table.append(thead);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of row){const td=document.createElement('td');if(v instanceof Node)td.append(v);else td.textContent=v??'—';r.append(td);}body.append(r);}table.append(body);wrap.append(table);return wrap;}
+function scrollableTable(){const wrap=text('div','','player-table-wrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','기록 표 · 좌우로 스크롤하여 전체 항목 보기');return wrap;}
+function homeTable(headers,rows){const wrap=scrollableTable(),table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers)tr.append(text('th',h));thead.append(tr);table.append(thead);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of row){const td=document.createElement('td');if(v instanceof Node)td.append(v);else td.textContent=v??'—';r.append(td);}body.append(r);}table.append(body);wrap.append(table);return wrap;}
 async function loadHome(){
   $('home-monthly').replaceChildren(text('h2','월간 승률 순위'),text('p','불러오는 중…','muted'));
   $('home-results').replaceChildren(text('h2','최근 경기 결과'),text('p','불러오는 중…','muted'));
@@ -498,7 +509,7 @@ function renderHomeStandings(d,year){
   const monthly=$('home-monthly');monthly.replaceChildren(text('h2',`${d.month??''} 월간 승률 순위`));monthly.append(homeTable(['순위','팀','승','무','패','승률'],(d.monthlyRows??[]).map(r=>{const a=text('a',teamNames[r.team]??r.team,'player-link');a.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;return [r.rank,a,r.w,r.d,r.l,r.pct==null?'—':r.pct.toFixed(3)];})),text('p',`${d.month??'—'}-01 ~ ${d.asOf?.slice(0,10)??'—'} · 정규시즌 · 승률 = 승 / (승 + 패)`,'player-note'));if(!d.monthlyRows?.length)monthly.append(text('p','수집된 월간 기록이 없습니다.'));
   const card=$('home-standings');card.replaceChildren(text('h2',`${year} 팀 순위 · 피타고리안 전망`));const pct=x=>x==null?'—':(x*100).toFixed(1)+'%';
   const rows=d.rows.map(r=>{const link=text('a',teamNames[r.team]??r.team,'player-link');link.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
-  card.append(homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
+  card.append(text('p','↔ 좌우로 밀어 승률·득실점·시즌 전망을 확인하세요.','scroll-hint'),homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
   card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님':d.reason}`,'player-note'));$('home-model-note').textContent=d.note;
 }
 function renderHomeResults(d,year){
