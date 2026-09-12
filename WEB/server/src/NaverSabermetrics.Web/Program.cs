@@ -63,7 +63,9 @@ builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<Que
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
-builder.Services.AddSingleton(_ => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data")));
+builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
+builder.Services.AddSingleton(services => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
+    roster: services.GetRequiredService<DiamondRosterService>()));
 // Opt-in for isolated local UI/API verification where Windows user-profile keys are unavailable.
 if(development && builder.Configuration.GetValue<bool>("Site:UseEphemeralDevelopmentKeys"))
     builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();

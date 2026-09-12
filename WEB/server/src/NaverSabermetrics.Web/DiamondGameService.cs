@@ -13,9 +13,13 @@ public sealed class DiamondGameService
     public DiamondData Data { get; }
     public DiamondEngine Engine { get; }
     private readonly Func<long> _clock;
-    public DiamondGameService(string stateDirectory, string dataDirectory, Func<long>? clock = null, Func<double>? random = null)
+    private readonly Func<double>? _random;
+    private readonly DiamondRosterService? _roster;
+    public DiamondGameService(string stateDirectory, string dataDirectory, Func<long>? clock = null, Func<double>? random = null,
+        DiamondRosterService? roster = null)
     {
         _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        _random = random; _roster = roster;
         Data = new DiamondData(dataDirectory); Engine = new DiamondEngine(Data, random);
         Directory.CreateDirectory(stateDirectory); DatabasePath = Path.Combine(Path.GetFullPath(stateDirectory), "diamond_game.db");
         using var connection = Open(); using var command = connection.CreateCommand();
@@ -48,10 +52,12 @@ public sealed class DiamondGameService
     {
         if (body.ValueKind != JsonValueKind.Object) throw new DiamondInputError("잘못된 요청입니다.");
         var operation = Text(body, "op"); var now = Now();
-        if (operation == "create") return Create(body, actor, ip, now);
+        if (operation == "create") return Create(body, actor, ip, now, cancellationToken);
         for (var attempt = 0; attempt < 5; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested(); var (game, version) = Load(Text(body, "code"));
+            var gameData = Data.ForRoster(game.Roster);
+            var engine = game.Roster is null ? Engine : new DiamondEngine(gameData, _random);
             if (operation == "join")
             {
                 if (game.Mode != "pvp") throw new DiamondInputError("PvP 대결 코드가 아닙니다.");
@@ -65,7 +71,7 @@ public sealed class DiamondGameService
                 if (game.Mode == "pvp" && game.Guest == null) throw new DiamondInputError("상대가 참가할 때까지 기다려 주세요.", 409);
                 if (game.Round >= 6) return DiamondEngine.View(game, actor, Now());
                 var role = DiamondEngine.Side(game, actor);
-                if (Tick(game, now)) { if (Save(game, version)) return DiamondEngine.View(game, actor, Now()); continue; }
+                if (Tick(game, now, engine)) { if (Save(game, version)) return DiamondEngine.View(game, actor, Now()); continue; }
                 if (operation is "pitch" or "ready")
                 {
                     if (operation == "ready" && !(game.Mode == "ai" && role == "batter") || operation == "pitch" && role != "pitcher")
@@ -80,11 +86,11 @@ public sealed class DiamondGameService
                     string type; DiamondVec aim; double quality;
                     if (operation == "ready")
                     {
-                        type = Engine.PickAiPitch(game.Pitcher); quality = .65 + Engine.Rand() * .3;
-                        var inside = Engine.Rand() < (Data.Discipline(game.Pitcher, "pitcher")?.ZonePitchRate ?? .48);
-                        if (inside) aim = new((Engine.Rand() - .5) * 1.65, (Engine.Rand() - .5) * 1.65);
-                        else if (Engine.Rand() < .5) aim = new((Engine.Rand() < .5 ? -1 : 1) * (1.05 + Engine.Rand() * .5), (Engine.Rand() - .5) * 1.9);
-                        else aim = new((Engine.Rand() - .5) * 1.9, (Engine.Rand() < .5 ? -1 : 1) * (1.05 + Engine.Rand() * .5));
+                        type = engine.PickAiPitch(game.Pitcher); quality = .65 + engine.Rand() * .3;
+                        var inside = engine.Rand() < (gameData.Discipline(game.Pitcher, "pitcher")?.ZonePitchRate ?? .48);
+                        if (inside) aim = new((engine.Rand() - .5) * 1.65, (engine.Rand() - .5) * 1.65);
+                        else if (engine.Rand() < .5) aim = new((engine.Rand() < .5 ? -1 : 1) * (1.05 + engine.Rand() * .5), (engine.Rand() - .5) * 1.9);
+                        else aim = new((engine.Rand() - .5) * 1.9, (engine.Rand() < .5 ? -1 : 1) * (1.05 + engine.Rand() * .5));
                     }
                     else
                     {
@@ -92,9 +98,9 @@ public sealed class DiamondGameService
                         if (quality < 0 || quality > 1) throw new DiamondInputError("코스와 릴리스 입력을 확인해 주세요.");
                         type = Text(body, "type") ?? "";
                     }
-                    game.Pitch = Engine.CreatePitch(game, type, aim, quality, now); game.PitchCount = game.Pitch.Id;
+                    game.Pitch = engine.CreatePitch(game, type, aim, quality, now); game.PitchCount = game.Pitch.Id;
                     if (game.Mode == "ai" && game.HostRole == "pitcher")
-                    { game.Pitch.AiBatterSwing = Engine.AiSwing(game); game.Pitch.AiBatterSwingPrepared = true; }
+                    { game.Pitch.AiBatterSwing = engine.AiSwing(game); game.Pitch.AiBatterSwingPrepared = true; }
                 }
                 else if (operation == "swing")
                 {
@@ -107,7 +113,7 @@ public sealed class DiamondGameService
                     var aim = Aim(body, "스윙 입력을 확인해 주세요.");
                     if (pitchId != game.Pitch.Id) throw new DiamondInputError("스윙 입력을 확인해 주세요.");
                     if (inputAt < now - 1500 || inputAt > now + 150) throw new DiamondInputError("연결 지연이 큽니다. 다음 투구에서 다시 시도해 주세요.", 409);
-                    DiamondEngine.FinishPitch(game, Engine.EvaluatePitch(game, new(inputAt + DiamondEngine.SwingContactMs, aim), now));
+                    DiamondEngine.FinishPitch(game, engine.EvaluatePitch(game, new(inputAt + DiamondEngine.SwingContactMs, aim), now));
                 }
                 else throw new DiamondInputError("지원하지 않는 조작입니다.");
             }
@@ -115,19 +121,22 @@ public sealed class DiamondGameService
         }
         throw new DiamondInputError("상대 입력을 반영 중입니다. 다시 시도해 주세요.", 409);
     }
-    private DiamondView Create(JsonElement body, string actor, string ip, long now)
+    private DiamondView Create(JsonElement body, string actor, string ip, long now, CancellationToken cancellationToken)
     {
         var mode = Text(body, "mode"); var role = Text(body, "role"); var pace = Text(body, "pace");
         if (mode is not ("ai" or "pvp") || role is not ("batter" or "pitcher") || pace is not ("practice" or "real" or "full"))
             throw new DiamondInputError("모드와 시점을 선택해 주세요.");
         var batter = Text(body, "batter") ?? ""; var pitcher = Text(body, "pitcher") ?? "";
-        Data.Batter(batter); Data.Pitcher(pitcher); ConsumeCreationLimit(ip, now);
+        // Resolve only IDs against the server's warehouse. Client-supplied statistics are never trusted.
+        var roster = _roster?.Select(Integer(body, "season", "선수 기록 시즌을 선택해 주세요."), batter, pitcher, cancellationToken);
+        var selected = Data.ForRoster(roster);
+        selected.Batter(batter); selected.Pitcher(pitcher); cancellationToken.ThrowIfCancellationRequested(); ConsumeCreationLimit(ip, now);
         for (var attempt = 0; attempt < 5; attempt++)
         {
             const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
             var code = "D" + string.Concat(RandomNumberGenerator.GetBytes(7).Select(v => alphabet[v % 32]));
             var game = new DiamondGame { Code = code, Mode = mode, Host = actor, HostRole = role, Batter = batter,
-                Pitcher = pitcher, Pace = pace, CreatedAt = now, ExpiresAt = now + 86400000 };
+                Pitcher = pitcher, Roster = roster, Pace = pace, CreatedAt = now, ExpiresAt = now + 86400000 };
             using var connection = Open(); using var command = connection.CreateCommand();
             command.CommandText = "INSERT INTO Matches(Code,Owner,State,Version,CreatedAt,ExpiresAt) VALUES($code,$owner,$state,0,$now,$expires) ON CONFLICT(Code) DO NOTHING";
             command.Parameters.AddWithValue("$code", code); command.Parameters.AddWithValue("$owner", actor);
@@ -177,14 +186,15 @@ public sealed class DiamondGameService
     }
     private static void Member(DiamondGame game, string actor)
     { if (game.Host != actor && game.Guest != actor) throw new DiamondInputError("먼저 대결 코드로 참가해 주세요.", 403); }
-    private bool Tick(DiamondGame game, long now)
+    private bool Tick(DiamondGame game, long now, DiamondEngine? engine = null)
     {
         if (game.Pitch == null || game.Pitch.Resolved) return false;
         var arrival = game.Pitch.ReleaseAt + game.Pitch.FlightMs; var aiBatter = game.Mode == "ai" && game.HostRole == "pitcher";
         var deadline = aiBatter ? Math.Max(arrival + 260, (game.Pitch.AiBatterSwing?.At ?? 0) + 60) : arrival + 750;
         if (now <= deadline) return false;
-        var swing = aiBatter ? game.Pitch.AiBatterSwingPrepared ? game.Pitch.AiBatterSwing : Engine.AiSwing(game) : null;
-        DiamondEngine.FinishPitch(game, Engine.EvaluatePitch(game, swing, now)); return true;
+        engine ??= game.Roster is null ? Engine : new DiamondEngine(Data.ForRoster(game.Roster), _random);
+        var swing = aiBatter ? game.Pitch.AiBatterSwingPrepared ? game.Pitch.AiBatterSwing : engine.AiSwing(game) : null;
+        DiamondEngine.FinishPitch(game, engine.EvaluatePitch(game, swing, now)); return true;
     }
     private static string? Text(JsonElement body, string key) => body.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
     private static double Number(JsonElement body, string key, string error)

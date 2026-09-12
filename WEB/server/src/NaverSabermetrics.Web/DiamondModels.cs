@@ -67,6 +67,7 @@ public sealed class DiamondGame
     public string HostRole { get; set; } = "batter";
     public string Batter { get; set; } = "";
     public string Pitcher { get; set; } = "";
+    public DiamondRosterSelection? Roster { get; set; }
     public string Pace { get; set; } = "practice";
     public int Round { get; set; }
     public int Balls { get; set; }
@@ -82,7 +83,8 @@ public sealed class DiamondGame
 public sealed record DiamondView(string Format, string Code, string Mode, string Role, string Batter,
     string Pitcher, string Pace, int Round, int Balls, int Strikes, int Score, int PitchCount,
     DiamondPitch? Pitch, IReadOnlyList<DiamondResult> History, bool Waiting, bool Done,
-    string? Winner, long ServerNow, long ExpiresAt);
+    string? Winner, long ServerNow, long ExpiresAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiamondRosterSelection? Roster = null);
 
 public sealed class DiamondInputError(string message, int status = 400) : Exception(message)
 {

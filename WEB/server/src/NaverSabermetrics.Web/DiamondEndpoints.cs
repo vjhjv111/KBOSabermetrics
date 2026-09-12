@@ -10,6 +10,26 @@ public static class DiamondEndpoints
 {
     public static IEndpointRouteBuilder MapDiamondGame(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/diamond/roster", async (HttpContext context, IServiceProvider services, ILogger<DiamondRosterService> logger) =>
+        {
+            try
+            {
+                var value = context.Request.Query["season"].ToString();
+                int? season = null;
+                if (value.Length > 0)
+                {
+                    if (!int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+                        || parsed is < 1900 or > 2200) throw new DiamondInputError("선수 기록 시즌을 확인해 주세요.");
+                    season = parsed;
+                }
+                var roster = services.GetRequiredService<DiamondRosterService>();
+                var result = await Task.Run(() => roster.Get(season, context.RequestAborted), context.RequestAborted);
+                context.Response.Headers.CacheControl = "no-store";
+                return Results.Json(result, DiamondJson.Options);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { throw; }
+            catch (Exception error) { return Failure(error, logger); }
+        });
         app.MapGet("/api/diamond/action", async (HttpContext context, DiamondGameService games, ILogger<DiamondGameService> logger) =>
         {
             var receivedAt = games.Now();
