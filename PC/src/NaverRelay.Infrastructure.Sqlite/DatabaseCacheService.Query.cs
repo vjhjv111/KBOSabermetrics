@@ -266,6 +266,17 @@ public sealed partial class DatabaseCacheService
         var batters = await ReadBatterAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
         progress?.Report(new DatabaseLoadProgress(2, 4, "투수 경기 집계 테이블 조회 중"));
         var pitchers = await ReadPitcherAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
+        if (query.Grouping == AnalyticsGrouping.Team)
+        {
+            var official = await GetApplicableOfficialTeamPitchingAsync(query, cancellationToken).ConfigureAwait(false);
+            foreach (var pitcher in pitchers)
+            {
+                pitcher.DisplayTeamGames = pitcher.Games;
+                if (official.TryGetValue(pitcher.TeamCode, out var team) && team.Games == pitcher.Games &&
+                    team.InningsOuts == pitcher.InningsOuts && team.Runs == pitcher.RunsAllowed)
+                    pitcher.OfficialTeamEarnedRuns = team.EarnedRuns;
+            }
+        }
         progress?.Report(new DatabaseLoadProgress(3, 4, "구장별 투구이닝 조회 중"));
         await AttachPitcherStadiumOutsAsync(connection, filter, query.TeamCode, query.Grouping, pitchers, cancellationToken).ConfigureAwait(false);
         progress?.Report(new DatabaseLoadProgress(4, 4, "팀 경기 수 조회 중"));

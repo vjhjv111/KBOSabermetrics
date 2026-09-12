@@ -9,7 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-common-war-allocation-v1";
+    private const string AnalyticsCacheVersion = "relational-analytics-official-team-er-v2";
     private const double Wbb = 0.69;
     private const double Whbp = 0.72;
     private const double W1b = 0.88;
@@ -417,9 +417,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         return new PitcherValueGridRow
         {
             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode),
-            Games = row.FinalGames, GamesStarted = row.GamesStarted, ReliefGames = row.ReliefGames,
+            Games = row.DisplayTeamGames ?? row.FinalGames, GamesStarted = row.GamesStarted, ReliefGames = row.ReliefGames,
             InningsPitched = innings, StarterInnings = starterInnings, ReliefInnings = reliefInnings,
-            RunsAllowed = row.RunsAllowed, EarnedRuns = row.EarnedRuns,
+            RunsAllowed = row.RunsAllowed, EarnedRuns = row.OfficialTeamEarnedRuns ?? row.EarnedRuns,
             HomeRuns = row.HomeRunsAllowed, Walks = row.FinalWalks,
             HitBatters = row.FinalHitBatters, Strikeouts = row.FinalStrikeouts,
             InfieldFlies = row.InfieldFlies, WildPitches = row.WildPitches,
