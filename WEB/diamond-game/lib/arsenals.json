@@ -1,0 +1,586 @@
+{
+  "50030": [
+    {
+      "type": "sinker",
+      "velocity": 145.1,
+      "usage": 51
+    },
+    {
+      "type": "cutter",
+      "velocity": 139.1,
+      "usage": 27.3
+    },
+    {
+      "type": "changeup",
+      "velocity": 131.9,
+      "usage": 18
+    },
+    {
+      "type": "curve",
+      "velocity": 123.8,
+      "usage": 3.5000000000000004
+    }
+  ],
+  "51111": [
+    {
+      "type": "fastball",
+      "velocity": 144.8,
+      "usage": 53.2
+    },
+    {
+      "type": "slider",
+      "velocity": 131.6,
+      "usage": 20.8
+    },
+    {
+      "type": "changeup",
+      "velocity": 130.4,
+      "usage": 14.3
+    },
+    {
+      "type": "curve",
+      "velocity": 116.9,
+      "usage": 8.5
+    },
+    {
+      "type": "splitter",
+      "velocity": 128.8,
+      "usage": 3.3000000000000003
+    }
+  ],
+  "53375": [
+    {
+      "type": "fastball",
+      "velocity": 146.8,
+      "usage": 31.6
+    },
+    {
+      "type": "changeup",
+      "velocity": 135.6,
+      "usage": 22.3
+    },
+    {
+      "type": "sinker",
+      "velocity": 146,
+      "usage": 18
+    },
+    {
+      "type": "cutter",
+      "velocity": 139,
+      "usage": 10.7
+    },
+    {
+      "type": "curve",
+      "velocity": 129.4,
+      "usage": 10.7
+    },
+    {
+      "type": "slider",
+      "velocity": 136,
+      "usage": 6.7
+    }
+  ],
+  "54354": [
+    {
+      "type": "fastball",
+      "velocity": 149.5,
+      "usage": 44.1
+    },
+    {
+      "type": "slider",
+      "velocity": 135.9,
+      "usage": 20
+    },
+    {
+      "type": "changeup",
+      "velocity": 139,
+      "usage": 19.9
+    },
+    {
+      "type": "sinker",
+      "velocity": 149.6,
+      "usage": 10.7
+    },
+    {
+      "type": "curve",
+      "velocity": 122.3,
+      "usage": 5.3
+    }
+  ],
+  "54640": [
+    {
+      "type": "sinker",
+      "velocity": 148.3,
+      "usage": 32.1
+    },
+    {
+      "type": "slider",
+      "velocity": 134.5,
+      "usage": 19.5
+    },
+    {
+      "type": "changeup",
+      "velocity": 139.9,
+      "usage": 19.4
+    },
+    {
+      "type": "cutter",
+      "velocity": 142.9,
+      "usage": 9.9
+    },
+    {
+      "type": "fastball",
+      "velocity": 148.7,
+      "usage": 7.3
+    }
+  ],
+  "54755": [
+    {
+      "type": "fastball",
+      "velocity": 151.7,
+      "usage": 46.6
+    },
+    {
+      "type": "slider",
+      "velocity": 135,
+      "usage": 24.7
+    },
+    {
+      "type": "curve",
+      "velocity": 129.1,
+      "usage": 12.4
+    },
+    {
+      "type": "changeup",
+      "velocity": 139.7,
+      "usage": 6.4
+    }
+  ],
+  "54833": [
+    {
+      "type": "fastball",
+      "velocity": 153,
+      "usage": 51.9
+    },
+    {
+      "type": "curve",
+      "velocity": 128.3,
+      "usage": 21
+    },
+    {
+      "type": "changeup",
+      "velocity": 143,
+      "usage": 19.8
+    },
+    {
+      "type": "slider",
+      "velocity": 134.9,
+      "usage": 5.6
+    },
+    {
+      "type": "cutter",
+      "velocity": 142.5,
+      "usage": 1.7000000000000002
+    }
+  ],
+  "55146": [
+    {
+      "type": "sinker",
+      "velocity": 148.6,
+      "usage": 46.1
+    },
+    {
+      "type": "splitter",
+      "velocity": 137.6,
+      "usage": 26.200000000000003
+    },
+    {
+      "type": "slider",
+      "velocity": 136,
+      "usage": 14.000000000000002
+    },
+    {
+      "type": "fastball",
+      "velocity": 149.4,
+      "usage": 3.7000000000000006
+    }
+  ],
+  "55239": [
+    {
+      "type": "fastball",
+      "velocity": 145.3,
+      "usage": 31.7
+    },
+    {
+      "type": "sinker",
+      "velocity": 142.9,
+      "usage": 21.5
+    },
+    {
+      "type": "cutter",
+      "velocity": 139.1,
+      "usage": 13.5
+    },
+    {
+      "type": "changeup",
+      "velocity": 133.1,
+      "usage": 12.3
+    },
+    {
+      "type": "slider",
+      "velocity": 122.9,
+      "usage": 11.4
+    },
+    {
+      "type": "curve",
+      "velocity": 122.6,
+      "usage": 2.3
+    }
+  ],
+  "55257": [
+    {
+      "type": "fastball",
+      "velocity": 146.8,
+      "usage": 37.2
+    },
+    {
+      "type": "sinker",
+      "velocity": 145.6,
+      "usage": 16.6
+    },
+    {
+      "type": "curve",
+      "velocity": 125.4,
+      "usage": 14.800000000000002
+    },
+    {
+      "type": "slider",
+      "velocity": 131.2,
+      "usage": 13
+    },
+    {
+      "type": "changeup",
+      "velocity": 134.4,
+      "usage": 12.3
+    },
+    {
+      "type": "cutter",
+      "velocity": 136.2,
+      "usage": 5.1
+    }
+  ],
+  "55633": [
+    {
+      "type": "fastball",
+      "velocity": 150,
+      "usage": 40.8
+    },
+    {
+      "type": "slider",
+      "velocity": 136,
+      "usage": 26.5
+    },
+    {
+      "type": "changeup",
+      "velocity": 139.8,
+      "usage": 12.4
+    },
+    {
+      "type": "sinker",
+      "velocity": 149.5,
+      "usage": 8.4
+    },
+    {
+      "type": "curve",
+      "velocity": 129,
+      "usage": 6.4
+    }
+  ],
+  "55730": [
+    {
+      "type": "fastball",
+      "velocity": 153.7,
+      "usage": 43.9
+    },
+    {
+      "type": "changeup",
+      "velocity": 141.1,
+      "usage": 17.2
+    },
+    {
+      "type": "curve",
+      "velocity": 131,
+      "usage": 16.8
+    },
+    {
+      "type": "slider",
+      "velocity": 144.2,
+      "usage": 12.3
+    },
+    {
+      "type": "cutter",
+      "velocity": 144.8,
+      "usage": 5.2
+    },
+    {
+      "type": "sinker",
+      "velocity": 153.1,
+      "usage": 3.2
+    },
+    {
+      "type": "splitter",
+      "velocity": 140.7,
+      "usage": 1.5
+    }
+  ],
+  "55903": [
+    {
+      "type": "fastball",
+      "velocity": 149.9,
+      "usage": 46.6
+    },
+    {
+      "type": "slider",
+      "velocity": 136.9,
+      "usage": 24
+    },
+    {
+      "type": "curve",
+      "velocity": 131.7,
+      "usage": 17.1
+    },
+    {
+      "type": "splitter",
+      "velocity": 134.4,
+      "usage": 12.2
+    }
+  ],
+  "55912": [
+    {
+      "type": "fastball",
+      "velocity": 144.9,
+      "usage": 32.1
+    },
+    {
+      "type": "slider",
+      "velocity": 127.2,
+      "usage": 22.7
+    },
+    {
+      "type": "cutter",
+      "velocity": 137.6,
+      "usage": 18
+    },
+    {
+      "type": "changeup",
+      "velocity": 128.3,
+      "usage": 15.9
+    },
+    {
+      "type": "sinker",
+      "velocity": 141.4,
+      "usage": 6.7
+    },
+    {
+      "type": "curve",
+      "velocity": 119.5,
+      "usage": 3.8
+    }
+  ],
+  "61101": [
+    {
+      "type": "fastball",
+      "velocity": 140,
+      "usage": 34.1
+    },
+    {
+      "type": "curve",
+      "velocity": 110.4,
+      "usage": 28.7
+    },
+    {
+      "type": "changeup",
+      "velocity": 126.8,
+      "usage": 26.3
+    },
+    {
+      "type": "slider",
+      "velocity": 131.7,
+      "usage": 10
+    }
+  ],
+  "64001": [
+    {
+      "type": "changeup",
+      "velocity": 116.7,
+      "usage": 46.7
+    },
+    {
+      "type": "sinker",
+      "velocity": 134.9,
+      "usage": 35.5
+    },
+    {
+      "type": "curve",
+      "velocity": 116.6,
+      "usage": 9.6
+    },
+    {
+      "type": "cutter",
+      "velocity": 127.1,
+      "usage": 5.4
+    },
+    {
+      "type": "fastball",
+      "velocity": 134.5,
+      "usage": 2.4
+    }
+  ],
+  "64021": [
+    {
+      "type": "fastball",
+      "velocity": 147,
+      "usage": 40
+    },
+    {
+      "type": "slider",
+      "velocity": 135.2,
+      "usage": 32.3
+    },
+    {
+      "type": "splitter",
+      "velocity": 134.1,
+      "usage": 14.2
+    },
+    {
+      "type": "curve",
+      "velocity": 122.2,
+      "usage": 13.5
+    }
+  ],
+  "64350": [
+    {
+      "type": "fastball",
+      "velocity": 144,
+      "usage": 36.2
+    },
+    {
+      "type": "splitter",
+      "velocity": 132.6,
+      "usage": 24.7
+    },
+    {
+      "type": "slider",
+      "velocity": 128.8,
+      "usage": 15.2
+    },
+    {
+      "type": "cutter",
+      "velocity": 135.8,
+      "usage": 13.100000000000001
+    },
+    {
+      "type": "curve",
+      "velocity": 122.3,
+      "usage": 10.9
+    }
+  ],
+  "67143": [
+    {
+      "type": "fastball",
+      "velocity": 146.5,
+      "usage": 52.400000000000006
+    },
+    {
+      "type": "curve",
+      "velocity": 121.3,
+      "usage": 22.8
+    },
+    {
+      "type": "slider",
+      "velocity": 134.6,
+      "usage": 12.3
+    },
+    {
+      "type": "cutter",
+      "velocity": 136.2,
+      "usage": 5.9
+    },
+    {
+      "type": "splitter",
+      "velocity": 132.9,
+      "usage": 5.8
+    }
+  ],
+  "69446": [
+    {
+      "type": "fastball",
+      "velocity": 146.3,
+      "usage": 42.5
+    },
+    {
+      "type": "slider",
+      "velocity": 134.8,
+      "usage": 26.6
+    },
+    {
+      "type": "changeup",
+      "velocity": 126.3,
+      "usage": 20.2
+    },
+    {
+      "type": "curve",
+      "velocity": 122.8,
+      "usage": 6.6000000000000005
+    },
+    {
+      "type": "cutter",
+      "velocity": 137.2,
+      "usage": 3.9
+    }
+  ],
+  "77637": [
+    {
+      "type": "fastball",
+      "velocity": 140.3,
+      "usage": 48.4
+    },
+    {
+      "type": "changeup",
+      "velocity": 128.4,
+      "usage": 27.699999999999996
+    },
+    {
+      "type": "slider",
+      "velocity": 128.7,
+      "usage": 18.8
+    },
+    {
+      "type": "curve",
+      "velocity": 115.9,
+      "usage": 5.2
+    }
+  ],
+  "77829": [
+    {
+      "type": "slider",
+      "velocity": 134.3,
+      "usage": 37.3
+    },
+    {
+      "type": "fastball",
+      "velocity": 144.1,
+      "usage": 30.2
+    },
+    {
+      "type": "changeup",
+      "velocity": 131.4,
+      "usage": 16.8
+    },
+    {
+      "type": "curve",
+      "velocity": 114.3,
+      "usage": 15.1
+    }
+  ]
+}

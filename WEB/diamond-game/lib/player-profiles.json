@@ -1,0 +1,385 @@
+{
+  "players": {
+    "50030": {
+      "name": "소형준",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-08",
+      "heightCm": 189.0
+    },
+    "77829": {
+      "name": "김광현",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2025-10-14",
+      "heightCm": 188.0
+    },
+    "64001": {
+      "name": "고영표",
+      "delivery": "underhand",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우언우타",
+      "asOf": "2026-09-09",
+      "heightCm": 187.0
+    },
+    "65357": {
+      "name": "송성문",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2025-09-30",
+      "heightCm": 183.0
+    },
+    "54400": {
+      "name": "디아즈",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 188.0
+    },
+    "55903": {
+      "name": "라일리",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-10",
+      "heightCm": 190.0
+    },
+    "54755": {
+      "name": "와이스",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2025-10-30",
+      "heightCm": 193.0
+    },
+    "69737": {
+      "name": "노시환",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-11",
+      "heightCm": 185.0
+    },
+    "65207": {
+      "name": "신민재",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-09",
+      "heightCm": 171.0
+    },
+    "55146": {
+      "name": "치리노스",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-05-27",
+      "heightCm": 188.0
+    },
+    "53123": {
+      "name": "오스틴",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-09",
+      "heightCm": 183.0
+    },
+    "77637": {
+      "name": "양현종",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 183.0
+    },
+    "72443": {
+      "name": "최형우",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 180.0
+    },
+    "67143": {
+      "name": "손주영",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-09-05",
+      "heightCm": 191.0
+    },
+    "62907": {
+      "name": "박민우",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 185.0
+    },
+    "51111": {
+      "name": "송승기",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-08-21",
+      "heightCm": 181.0
+    },
+    "69446": {
+      "name": "원태인",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-09",
+      "heightCm": 183.0
+    },
+    "55257": {
+      "name": "콜어빈",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2025-09-30",
+      "heightCm": 193.0
+    },
+    "62404": {
+      "name": "구자욱",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 189.0
+    },
+    "55633": {
+      "name": "올러",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-10",
+      "heightCm": 193.0
+    },
+    "51907": {
+      "name": "김주원",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "S",
+      "batsThrows": "우투양타",
+      "asOf": "2026-09-11",
+      "heightCm": 185.0
+    },
+    "69102": {
+      "name": "문보경",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-09",
+      "heightCm": 182.0
+    },
+    "55239": {
+      "name": "잭로그",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-09-06",
+      "heightCm": 183.0
+    },
+    "64350": {
+      "name": "하영민",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-08",
+      "heightCm": 183.0
+    },
+    "55208": {
+      "name": "케이브",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2025-09-30",
+      "heightCm": 183.0
+    },
+    "76232": {
+      "name": "양의지",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-10",
+      "heightCm": 180.0
+    },
+    "55912": {
+      "name": "로건",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "R",
+      "batsThrows": "좌투우타",
+      "asOf": "2026-09-11",
+      "heightCm": 186.0
+    },
+    "64021": {
+      "name": "박세웅",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-08",
+      "heightCm": 182.0
+    },
+    "53375": {
+      "name": "후라도",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-06",
+      "heightCm": 188.0
+    },
+    "61101": {
+      "name": "임찬규",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-06",
+      "heightCm": 185.0
+    },
+    "54529": {
+      "name": "레이예스",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "S",
+      "batsThrows": "우투양타",
+      "asOf": "2026-09-11",
+      "heightCm": 196.0
+    },
+    "53764": {
+      "name": "문현빈",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 174.0
+    },
+    "52415": {
+      "name": "이재현",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-11",
+      "heightCm": 180.0
+    },
+    "64646": {
+      "name": "박찬호",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-10",
+      "heightCm": 178.0
+    },
+    "67449": {
+      "name": "김성윤",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 163.0
+    },
+    "54833": {
+      "name": "앤더슨",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2025-10-13",
+      "heightCm": 194.0
+    },
+    "55730": {
+      "name": "폰세",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2025-10-29",
+      "heightCm": 198.0
+    },
+    "54640": {
+      "name": "네일",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-06",
+      "heightCm": 193.0
+    },
+    "67893": {
+      "name": "박성한",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "L",
+      "batsThrows": "우투좌타",
+      "asOf": "2026-09-11",
+      "heightCm": 180.0
+    },
+    "52001": {
+      "name": "안현민",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-11",
+      "heightCm": 183.0
+    },
+    "79365": {
+      "name": "박동원",
+      "delivery": "unspecified",
+      "throws": "R",
+      "bats": "R",
+      "batsThrows": "우투우타",
+      "asOf": "2026-09-08",
+      "heightCm": 178.0
+    },
+    "54354": {
+      "name": "헤이수스",
+      "delivery": "unspecified",
+      "throws": "L",
+      "bats": "L",
+      "batsThrows": "좌투좌타",
+      "asOf": "2025-09-30",
+      "heightCm": 192.0
+    }
+  },
+  "season": 2025,
+  "source": "사용자 제공 sabermetrics_v2.db · Players / GamePlayers / Pitches",
+  "verifiedAt": "2026-09-12T07:07:58.056829+09:00"
+}
