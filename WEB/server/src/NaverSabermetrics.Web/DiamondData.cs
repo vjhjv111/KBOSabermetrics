@@ -5,17 +5,39 @@ namespace NaverSabermetrics.Web;
 public sealed class DiamondBatter
 {
     public string Id { get; set; } = "";
+    public string PlayerId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Team { get; set; } = "";
     public double Pa { get; set; }
+    public double Ab { get; set; }
+    public double H { get; set; }
+    public double Hr { get; set; }
     public double So { get; set; }
     public double Slg { get; set; }
     public double Avg { get; set; }
+    public double Ops { get; set; }
+    public DiamondProfile? Profile { get; set; }
+    public DiamondDiscipline? Discipline { get; set; }
+    public string? SampleNote { get; set; }
 }
 public sealed class DiamondPitcher
 {
     public string Id { get; set; } = "";
+    public string PlayerId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Team { get; set; } = "";
     public double Tbf { get; set; }
     public double Bb { get; set; }
     public double So { get; set; }
+    public double Outs { get; set; }
+    public double Er { get; set; }
+    public double? Era { get; set; }
+    public double? Whip { get; set; }
+    public DiamondProfile? Profile { get; set; }
+    public DiamondDiscipline? Discipline { get; set; }
+    public IReadOnlyList<DiamondArsenal> Arsenal { get; set; } = [];
+    public string ArsenalSource { get; set; } = "default";
+    public string? SampleNote { get; set; }
 }
 public sealed class DiamondProfile
 {
@@ -39,7 +61,7 @@ public sealed class DiamondSourcePlayer
     public DiamondDiscipline? Discipline { get; set; }
 }
 
-/// <summary>Only the game ZIP's public player snapshots; never opens the record warehouse.</summary>
+/// <summary>Match-scoped player data. Bundled data supports existing matches and regression fixtures.</summary>
 public sealed class DiamondData
 {
     private readonly Dictionary<string, DiamondBatter> _batters;
@@ -70,6 +92,17 @@ public sealed class DiamondData
             || !_colliders.ContainsKey("left") || !_colliders.ContainsKey("right"))
             throw new InvalidDataException("게임 선수 자료를 확인하세요.");
     }
+    private DiamondData(DiamondData legacy, DiamondRosterSelection roster)
+    {
+        _batters = new() { [roster.Batter.Id] = roster.Batter };
+        _pitchers = new() { [roster.Pitcher.Id] = roster.Pitcher };
+        _profiles = [];
+        _batterSource = new() { [roster.Batter.Id] = new() { Profile = roster.Batter.Profile, Discipline = roster.Batter.Discipline } };
+        _pitcherSource = new() { [roster.Pitcher.Id] = new() { Profile = roster.Pitcher.Profile, Discipline = roster.Pitcher.Discipline } };
+        _arsenals = new() { [roster.Pitcher.Id] = roster.Pitcher.Arsenal.ToList() };
+        _colliders = legacy._colliders;
+    }
+    public DiamondData ForRoster(DiamondRosterSelection? roster) => roster is null ? this : new(this, roster);
     private static JsonDocument Read(string path, string file) => JsonDocument.Parse(File.ReadAllText(Path.Combine(path, file)));
     public DiamondBatter Batter(string id) => _batters.GetValueOrDefault(id) ?? throw new DiamondInputError("타자를 선택해 주세요.");
     public DiamondPitcher Pitcher(string id) => _pitchers.GetValueOrDefault(id) ?? throw new DiamondInputError("투수를 선택해 주세요.");

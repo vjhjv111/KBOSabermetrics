@@ -143,7 +143,7 @@ public sealed class DiamondEngine(DiamondData data, Func<double>? random = null)
     public static DiamondView View(DiamondGame game, string actor, long now) => new(game.Format, game.Code, game.Mode, Side(game, actor),
         game.Batter, game.Pitcher, game.Pace, game.Round, game.Balls, game.Strikes, game.Score, game.PitchCount,
         game.Pitch, game.History, game.Mode == "pvp" && game.Guest == null, game.Round >= 6,
-        game.Round >= 6 ? game.Score >= 4 ? "batter" : "pitcher" : null, now, game.ExpiresAt);
+        game.Round >= 6 ? game.Score >= 4 ? "batter" : "pitcher" : null, now, game.ExpiresAt, game.Roster);
 
     public static double CarryDistance(double speedKph, double angle, double height = 1.05)
     {

@@ -3,6 +3,7 @@ import arsenalData from "./arsenals.json";
 import sourceData from "./action-data.json";
 import localProfiles from "./player-profiles.json";
 import readyBody from "./batter-colliders.json";
+import {rosterBatter,rosterPitcher,MatchRoster,PlayerProfile} from "./roster";
 import {BodyHit,BodyCapsule,sweepBody} from "./pitch-feedback";
 import {SWING_CONTACT_MS} from "./player-motion";
 import {Contact,Trajectory,carryDistance} from "./batted-ball";
@@ -15,22 +16,22 @@ export const PITCH_NAMES:Record<PitchType,string>={fastball:"포심",slider:"슬
 export type PitchRecord={type:PitchType;velocity:number;usage:number};
 export interface Pitch {id:number;type:PitchType;velocity:number;releaseAt:number;flightMs:number;releaseX?:number;releaseY?:number;releaseZ?:number;target:Vec;breakX:number;breakY:number;quality:number;resolved:boolean;reaction?:PitchResult;aiBatterSwing?:{at:number;aim:Vec}|null;bodyHit?:BodyHit|null}
 export interface PitchResult {id:number;label:string;kind:"strike"|"ball"|"foul"|"hit"|"out"|"walk"|"hbp";outcome:string;timing:number|null;aimError:number|null;quality:number;distance:number;exitSpeed:number;launchAngle:number;direction:number;points:number;plateEnded:boolean;at:number;swingAt:number|null;swingAim?:Vec;plateLocation?:Vec;bodyHit?:BodyHit;contact?:Contact;trajectory?:Trajectory}
-export interface ActionGame {format:"action-v2";code:string;mode:"ai"|"pvp";host:string;guest:string|null;hostRole:Side;batter:string;pitcher:string;pace:Pace;round:number;balls:number;strikes:number;score:number;pitchCount:number;pitch:Pitch|null;history:PitchResult[];createdAt:number;expiresAt:number}
-export interface ActionView {format:"action-v2";code:string;mode:"ai"|"pvp";role:Side;batter:string;pitcher:string;pace:Pace;round:number;balls:number;strikes:number;score:number;pitchCount:number;pitch:Pitch|null;history:PitchResult[];waiting:boolean;done:boolean;winner:Side|null;serverNow:number;serverReceivedAt?:number;serverSentAt?:number;expiresAt:number}
+export interface ActionGame {format:"action-v2";code:string;mode:"ai"|"pvp";host:string;guest:string|null;hostRole:Side;batter:string;pitcher:string;pace:Pace;round:number;balls:number;strikes:number;score:number;pitchCount:number;pitch:Pitch|null;history:PitchResult[];createdAt:number;expiresAt:number;roster?:MatchRoster}
+export interface ActionView {format:"action-v2";code:string;mode:"ai"|"pvp";role:Side;batter:string;pitcher:string;pace:Pace;round:number;balls:number;strikes:number;score:number;pitchCount:number;pitch:Pitch|null;history:PitchResult[];waiting:boolean;done:boolean;winner:Side|null;serverNow:number;serverReceivedAt?:number;serverSentAt?:number;expiresAt:number;roster?:MatchRoster}
 export const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 export function rand(){return crypto.getRandomValues(new Uint32Array(1))[0]/4294967296}
 function normal(){return Math.sqrt(-2*Math.log(Math.max(1e-8,rand())))*Math.cos(2*Math.PI*rand())}
-export function batterStats(id:string){const b=players.batters.find(p=>p.id===id);if(!b)throw new Error("타자를 선택해 주세요.");return b}
-export function pitcherStats(id:string){const p=players.pitchers.find(p=>p.id===id);if(!p)throw new Error("투수를 선택해 주세요.");return p}
-type PlayerProfile={batsThrows:string;heightCm?:number;throws?:string;bats?:string;delivery?:string};
-export function playerProfile(id:string,side:Side):PlayerProfile|undefined{const local=(localProfiles.players as Record<string,PlayerProfile>)[id];if(local)return local;const table=side==="batter"?sourceData.batters:sourceData.pitchers;return (table as Record<string,{profile?:PlayerProfile}>)[id]?.profile}
+export function batterStats(id:string){const live=rosterBatter(id);if(live)return {id:live.id,name:live.name,team:live.team,PA:live.pa,AB:live.ab,H:live.h,HR:live.hr,SO:live.so,AVG:live.avg,SLG:live.slg,OPS:live.ops};const b=players.batters.find(p=>p.id===id);if(!b)throw new Error("타자를 선택해 주세요.");return b}
+export function pitcherStats(id:string){const live=rosterPitcher(id);if(live)return {id:live.id,name:live.name,team:live.team,TBF:live.tbf,BB:live.bb,SO:live.so,IP:Math.floor(live.outs/3)+"."+(live.outs%3),ERA:live.era,WHIP:live.whip};const p=players.pitchers.find(p=>p.id===id);if(!p)throw new Error("투수를 선택해 주세요.");return p}
+
+export function playerProfile(id:string,side:Side):PlayerProfile|undefined{const live=side==="batter"?rosterBatter(id):rosterPitcher(id);if(live)return live.profile;const local=(localProfiles.players as Record<string,PlayerProfile>)[id];if(local)return local;const table=side==="batter"?sourceData.batters:sourceData.pitchers;return (table as Record<string,{profile?:PlayerProfile}>)[id]?.profile}
 export function throwsLeft(id:string){const p=playerProfile(id,"pitcher");return p?.throws?p.throws==="L":p?.batsThrows.startsWith("좌")??false}
 export function isUnderhand(id:string){const p=playerProfile(id,"pitcher");return p?.delivery==="underhand"||!!p?.batsThrows.includes("언")}
 export function isSwitchHitter(id:string){const p=playerProfile(id,"batter");return p?.bats==="S"||!!p?.batsThrows.endsWith("양타")}
 export function batsLeft(bid:string,pid:string){const p=playerProfile(bid,"batter");return isSwitchHitter(bid)?!throwsLeft(pid):p?.bats?p.bats==="L":!!p?.batsThrows.endsWith("좌타")}
-export function batterHandLabel(bid:string,pid:string){return (isSwitchHitter(bid)?"양타 · 현재 ":"")+(batsLeft(bid,pid)?"좌타":"우타")}
-export function pitcherHandLabel(pid:string){return (throwsLeft(pid)?"좌투":"우투")+(isUnderhand(pid)?" · 언더핸드":"")}
-export function arsenal(id:string):PitchRecord[]{const list=(arsenalData as Record<string,PitchRecord[]>)[id];return list?.length?list:[{type:"fastball",velocity:145,usage:55},{type:"slider",velocity:133,usage:30},{type:"curve",velocity:122,usage:15}]}
+export function batterHandLabel(bid:string,pid:string){const profile=playerProfile(bid,"batter");if(bid.includes(":")&&!["L","R","S"].includes(profile?.bats??"")&&!/(좌|우|양)타$/.test(profile?.batsThrows??""))return "타석 정보 없음";return (isSwitchHitter(bid)?"양타 · 현재 ":"")+(batsLeft(bid,pid)?"좌타":"우타")}
+export function pitcherHandLabel(pid:string){const profile=playerProfile(pid,"pitcher");if(pid.includes(":")&&!["L","R"].includes(profile?.throws??"")&&!/^[좌우]/.test(profile?.batsThrows??""))return "투구손 정보 없음";return (throwsLeft(pid)?"좌투":"우투")+(isUnderhand(pid)?" · 언더핸드":"")}
+export function arsenal(id:string):PitchRecord[]{const live=rosterPitcher(id);if(live)return live.arsenal;if(id.includes(":"))throw new Error("투수 구종 자료를 확인해 주세요.");const list=(arsenalData as Record<string,PitchRecord[]>)[id];return list?.length?list:[{type:"fastball",velocity:145,usage:55},{type:"slider",velocity:133,usage:30},{type:"curve",velocity:122,usage:15}]}
 export function attributes(bid:string,pid:string){const b=batterStats(bid),p=pitcherStats(pid);return {contact:Math.round(clamp(100-b.SO/b.PA*170,25,95)),power:Math.round(clamp((b.SLG-b.AVG)*200+28,20,95)),control:Math.round(clamp(100-p.BB/p.TBF*400,30,95)),strikeout:Math.round(clamp(p.SO/p.TBF*240,20,95))}}
 export function pickAiPitch(pid:string):PitchType{const a=arsenal(pid);let r=rand()*a.reduce((s,p)=>s+p.usage,0);for(const p of a){r-=p.usage;if(r<=0)return p.type}return a[0].type}
 export function createPitch(g:ActionGame,type:PitchType,aim:Vec,quality:number,now:number):Pitch{
@@ -94,7 +95,8 @@ export function evaluatePitch(g:Pick<ActionGame,"batter"|"pitcher"|"pitch"|"pace
 }
 export function aiSwing(g:ActionGame):{at:number;aim:Vec}|null{
  const p=g.pitch!,b=batterStats(g.batter),inside=Math.abs(p.target.x)<=1&&Math.abs(p.target.y)<=1;
- const discipline=(sourceData.batters as Record<string,{discipline:{ZoneSwingRate:number;ChaseRate:number;ZoneContactRate:number;OutZoneContactRate:number}}>)[g.batter]?.discipline;
+ const current=rosterBatter(g.batter)?.discipline,legacy=(sourceData.batters as Record<string,{discipline:{ZoneSwingRate:number;ChaseRate:number;ZoneContactRate:number;OutZoneContactRate:number}}>)[g.batter]?.discipline;
+ const discipline=current?{ZoneSwingRate:current.zoneSwingRate,ChaseRate:current.chaseRate,ZoneContactRate:current.zoneContactRate,OutZoneContactRate:current.outZoneContactRate}:legacy;
  if(rand()>(inside?(discipline?.ZoneSwingRate??.65):(discipline?.ChaseRate??.3)))return null;
  const timingStd=(g.pace==="practice"?80:60)*(0.7+b.SO/b.PA*2);
  const contact=inside?(discipline?.ZoneContactRate??.85):(discipline?.OutZoneContactRate??.65);
@@ -108,4 +110,4 @@ export function finishPitch(g:ActionGame,result:PitchResult){if(!g.pitch||g.pitc
  if(result.plateEnded){g.round++;g.balls=0;g.strikes=0}
  g.score+=result.points;g.pitch.reaction=result;g.history.push(result);
 }
-export function actionView(g:ActionGame,id:string,now=Date.now()):ActionView{const role=g.host===id?g.hostRole:g.hostRole==="batter"?"pitcher":"batter";return {format:g.format,code:g.code,mode:g.mode,role,batter:g.batter,pitcher:g.pitcher,pace:g.pace,round:g.round,balls:g.balls,strikes:g.strikes,score:g.score,pitchCount:g.pitchCount,pitch:g.pitch,history:g.history,waiting:g.mode==="pvp"&&!g.guest,done:g.round>=6,winner:g.round>=6?(g.score>=4?"batter":"pitcher"):null,serverNow:now,expiresAt:g.expiresAt}}
+export function actionView(g:ActionGame,id:string,now=Date.now()):ActionView{const role=g.host===id?g.hostRole:g.hostRole==="batter"?"pitcher":"batter";return {format:g.format,code:g.code,mode:g.mode,role,batter:g.batter,pitcher:g.pitcher,pace:g.pace,round:g.round,balls:g.balls,strikes:g.strikes,score:g.score,pitchCount:g.pitchCount,pitch:g.pitch,history:g.history,waiting:g.mode==="pvp"&&!g.guest,done:g.round>=6,winner:g.round>=6?(g.score>=4?"batter":"pitcher"):null,serverNow:now,expiresAt:g.expiresAt,...(g.roster?{roster:g.roster}:{})}}
