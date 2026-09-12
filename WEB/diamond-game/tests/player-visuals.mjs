@@ -24,13 +24,36 @@ for(const side of ['batter','pitcher']){
  controls.down(pointer());
  assert.deepEqual(calls,[],`${side}: touching the field must leave scrolling available without aiming or swinging`);
  assert.deepEqual(captures,[],`${side}: touch-down must not explicitly capture a scrolling gesture`);
- controls.move(pointer({clientX:104,clientY:183,timeStamp:1040}));
+ controls.move(pointer({clientX:116,clientY:188,timeStamp:1040}));
  assert.deepEqual(calls,[],`${side}: small finger movement waits for the tap to finish`);
  controls.up(pointer({clientX:104,clientY:183,timeStamp:1080}));
  const expected=side==='batter'?['aim:100','swing:100']:['aim:100'];
  assert.deepEqual(calls,expected,`${side}: a tap uses its initial target, with aim set before a batter swing`);
  controls.up(pointer({timeStamp:1080}));
  assert.deepEqual(calls,expected,`${side}: one tap must perform only one action`);
+}
+for(const side of ['batter','pitcher']){
+ for(const [duration,dx,dy] of [[450,0,0],[650,16,8],[700,12,16]]){
+  const {controls,pointer,calls}=pointerHarness(side);
+  controls.down(pointer());
+  controls.move(pointer({clientX:100+dx,clientY:180+dy,timeStamp:1000+duration/2}));
+  assert.deepEqual(calls,[],`${side}: a deliberate first tap still waits for release`);
+  controls.up(pointer({clientX:100+dx,clientY:180+dy,timeStamp:1000+duration}));
+  assert.deepEqual(calls,side==='batter'?['aim:100','swing:100']:['aim:100'],`${side}: a ${duration}ms first tap with normal finger drift acts exactly once`);
+ }
+ for(const gesture of ['701ms hold','21px release drift','21px out and back','diagonal swipe']){
+  const {controls,pointer,calls}=pointerHarness(side);
+  controls.down(pointer());
+  if(gesture==='21px out and back'){
+   controls.move(pointer({clientX:121,timeStamp:1050}));controls.move(pointer({timeStamp:1100}));
+  }
+  controls.up(pointer({timeStamp:gesture==='701ms hold'?1701:1150,...(gesture==='21px release drift'?{clientX:121}:gesture==='diagonal swipe'?{clientX:116,clientY:196}:{})}));
+  assert.deepEqual(calls,[],`${side}: ${gesture} is not accepted as a tap`);
+ }
+ const {controls,pointer,calls}=pointerHarness(side);
+ controls.down(pointer());controls.up(pointer({timeStamp:1450}));
+ controls.down(pointer({pointerId:2,clientX:140,timeStamp:1530}));controls.up(pointer({pointerId:2,clientX:140,timeStamp:1650}));
+ assert.deepEqual(calls,side==='batter'?['aim:100','swing:100','aim:140','swing:140']:['aim:100','aim:140'],`${side}: each deliberate tap works independently without requiring a second tap`);
 }
 for(const side of ['batter','pitcher']){
  for(const gesture of ['vertical swipe','horizontal swipe','drag back to origin','release displacement','long press']){
