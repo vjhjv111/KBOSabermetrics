@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "node tests/game-clock.mjs && node tests/action-motion.mjs && node tests/pitch-feedback.mjs && node tests/roster.mjs && node tests/player-visuals.mjs"
+    "test": "node tests/game-clock.mjs && node tests/action-motion.mjs && node tests/pitch-feedback.mjs && node tests/roster.mjs && node tests/player-visuals.mjs && node tests/swing-input.mjs"
   },
   "dependencies": {
     "lucide-react": "1.31.0",

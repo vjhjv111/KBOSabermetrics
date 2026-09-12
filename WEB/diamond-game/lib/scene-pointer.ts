@@ -2,7 +2,8 @@ type ScenePointer={pointerId:number;pointerType:string;button:number;isPrimary:b
 type Callbacks={side:()=>"batter"|"pitcher";aim:(event:ScenePointer)=>void;swing:()=>void;chargeStart:()=>void;chargeEnd:()=>void;chargeCancel:()=>void;focus:()=>void;capture:(id:number)=>void;release:(id:number)=>void};
 export function scenePointerControls(callbacks:Callbacks){
  let active:{id:number;touch:boolean;side:"batter"|"pitcher";start:ScenePointer;moved:boolean}|null=null;
- const isTap=(start:ScenePointer,event:ScenePointer)=>Math.hypot(event.clientX-start.clientX,event.clientY-start.clientY)<=12&&event.timeStamp-start.timeStamp>=0&&event.timeStamp-start.timeStamp<=350;
+ const movedFromStart=(start:ScenePointer,event:ScenePointer)=>Math.hypot(event.clientX-start.clientX,event.clientY-start.clientY)>20;
+ const isTap=(start:ScenePointer,event:ScenePointer)=>!movedFromStart(start,event)&&event.timeStamp-start.timeStamp>=0&&event.timeStamp-start.timeStamp<=700;
  function cancel(event:ScenePointer){
   if(!active||active.id!==event.pointerId)return;
   const previous=active;active=null;
@@ -23,7 +24,7 @@ export function scenePointerControls(callbacks:Callbacks){
   move(event:ScenePointer){
    if(!event.isPrimary||active&&active.id!==event.pointerId)return;
    if(event.pointerType==="touch"){
-    if(active&&!isTap(active.start,event))active.moved=true;
+    if(active&&movedFromStart(active.start,event))active.moved=true;
     return;
    }
    callbacks.aim(event);
