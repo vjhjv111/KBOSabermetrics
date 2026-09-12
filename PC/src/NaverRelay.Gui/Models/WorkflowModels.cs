@@ -9,6 +9,8 @@ internal enum WorkflowStage
     Parsing,
     Saving,
     Completed,
+    Deferred,
+    Reconciling,
     Failed,
 }
 
@@ -47,6 +49,8 @@ internal sealed class ParsingWorkflowResult
     public List<NormalizedGame> Games { get; } = new();
     public List<LightweightParsedGameSummary> Summaries { get; } = new();
     public List<ParsingFailure> Failures { get; } = new();
+    public List<ParsingFailure> Deferred { get; } = new();
+    public List<ParsingFailure> ReviewWarnings { get; } = new();
     public string? OutputDirectory { get; set; }
     public int ParsedGameCount { get; set; }
     public long CompletedPlateAppearanceCount { get; set; }
