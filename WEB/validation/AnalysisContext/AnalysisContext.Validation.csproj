@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj" />
+    <Compile Include="../../server/src/NaverSabermetrics.Web/AnalysisWebService*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="../../server/src/NaverSabermetrics.Web/SiteOptions.cs" Link="SiteOptions.cs" />
+  </ItemGroup>
+</Project>
