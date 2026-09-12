@@ -1,6 +1,6 @@
 const gameState={seq:0,controller:null,month:null};
 const gameRoot=text('main','','game-page');gameRoot.id='game-page';gameRoot.hidden=true;$('workspace').before(gameRoot);
-const gameNav=text('button','경기기록','room');gameNav.onclick=()=>{location.hash='games';};document.querySelector('.room-nav').append(gameNav);
+const gameNav=text('button','경기기록','room');gameNav.dataset.route='games';gameNav.onclick=()=>{location.hash='games';};document.querySelector('.room-nav').append(gameNav);
 window.addEventListener('hashchange',gameRoute);
 async function gameRoute(){
   if(!state.catalog)return;const params=new URLSearchParams(location.hash.slice(1));const active=location.hash==='#games'||params.has('game');gameState.controller?.abort();const seq=++gameState.seq;gameRoot.hidden=!active;if(!active)return;

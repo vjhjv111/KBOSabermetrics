@@ -1,5 +1,11 @@
 # KBO Sabermetrics Web — WAR v3 기준
 
+## DIAMOND 야구게임 통합 (2026-09-12)
+
+상단 **야구게임** 탭에서 타자·투수 시점의 AI/2인 대결을 실행합니다. 기존 ASP.NET Core 서버에 게임 판정과 API를 통합했으며 별도 Node 서버는 필요하지 않습니다. 2025 시즌 타자 20명·투수 22명의 기존 자료를 유지하고, 게임 상태는 기록실 DB와 분리한 `diamond_game.db`에 저장합니다.
+
+운영·배포 방법은 [DIAMOND 게임 운영](docs/DIAMOND-GAME.md), 소스 수정과 번들 재생성은 [게임 README](diamond-game/README.md)를 참고하세요. 일반 .NET 배포에는 저장소에 포함된 게임 번들을 사용합니다.
+
 ## wwwroot 시작 오류 수정 (2026-09-10)
 
 서버 시작 시 소스 경로의 `wwwroot`를 찾지 못하는 문제를 수정했습니다.

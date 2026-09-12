@@ -12,12 +12,16 @@
     <!-- Explicit physical items prevent an absent project wwwroot in the SDK manifest.
          Only these public files are packaged. frontend/ remains the editable source. -->
     <Content Remove="wwwroot/**" />
-    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/app.js;wwwroot/games.js"
+    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/index.html" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/games.js" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond.js" />
+    <DiamondAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond/**/*" />
+    <Content Include="../../../diamond-game/lib/players.json;../../../diamond-game/lib/arsenals.json;../../../diamond-game/lib/action-data.json;../../../diamond-game/lib/player-profiles.json;../../../diamond-game/lib/batter-colliders.json"
+             Link="diamond-data/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Remove="appsettings.Local.json" />
     <None Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')" />
@@ -31,5 +35,14 @@
     <Copy SourceFiles="@(FrontendAsset)"
           DestinationFiles="@(FrontendAsset->'$(MSBuildProjectDirectory)/wwwroot/%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../../frontend/diamond/index.html')"
+           Text="야구게임 번들이 없습니다. WEB/diamond-game에서 npm ci와 npm run build를 실행하세요." />
+    <Copy SourceFiles="@(DiamondAsset)"
+          DestinationFiles="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <Content Include="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
   </Target>
 </Project>

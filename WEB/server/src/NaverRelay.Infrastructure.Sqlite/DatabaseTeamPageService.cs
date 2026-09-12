@@ -107,11 +107,21 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         var battingRaw = await ReadTeamBattingRawAsync(normalizedTeamCode, cancellationToken).ConfigureAwait(false);
         var pitchingRaw = await ReadTeamPitchingRawAsync(normalizedTeamCode, cancellationToken).ConfigureAwait(false);
         var gameSeasons = BuildGameSeasonRecords(games);
+        var officialPitching = new Dictionary<int, OfficialTeamPitchingRow>();
+        foreach (var year in years)
+        {
+            var official = await _database.GetApplicableOfficialTeamPitchingAsync(new GameQuery
+            {
+                SeasonYear = year, Competition = "정규시즌", TeamCode = normalizedTeamCode,
+                Grouping = AnalyticsGrouping.Team,
+            }, cancellationToken).ConfigureAwait(false);
+            if (official.TryGetValue(normalizedTeamCode, out var row)) officialPitching[year] = row;
+        }
 
         var battingSeasons = BuildBattingSeasons(
             normalizedTeamCode, gameSeasons, battingRaw, snapshots, league);
         var pitchingSeasons = BuildPitchingSeasons(
-            normalizedTeamCode, gameSeasons, pitchingRaw, snapshots, league);
+            normalizedTeamCode, gameSeasons, pitchingRaw, snapshots, league, officialPitching);
         var values = BuildValueSeasons(normalizedTeamCode, gameSeasons, snapshots);
         var playerBatting = BuildPlayerBattingRows(normalizedTeamCode, snapshots);
         var playerPitching = BuildPlayerPitchingRows(normalizedTeamCode, snapshots);
@@ -415,7 +425,8 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         IReadOnlyDictionary<int, TeamGameSeasonRecord> gameSeasons,
         IReadOnlyDictionary<int, TeamPitchingRaw> pitchingRaw,
         IReadOnlyDictionary<int, AnalyticsSnapshot> snapshots,
-        LeagueReference league)
+        LeagueReference league,
+        IReadOnlyDictionary<int, OfficialTeamPitchingRow> officialPitching)
     {
         var result = new List<TeamPitchingSeasonRow>();
         var parkByStadium = league.ParkFactors
@@ -468,6 +479,9 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
             var pitcherWar = teamPitchers?.Sum(row => row.War ?? 0.0);
             var pitcherRa9War = teamPitchers?.Sum(row => row.Ra9War ?? 0.0);
             var pitcherBlendWar = teamPitchers?.Sum(row => row.BlendWar ?? 0.0);
+            var earnedRuns = officialPitching.TryGetValue(year, out var official) &&
+                official.Games == game?.Games && official.InningsOuts == raw.InningsOuts &&
+                official.Runs == raw.RunsAllowed ? official.EarnedRuns : raw.EarnedRuns;
 
             result.Add(new TeamPitchingSeasonRow
             {
@@ -475,11 +489,11 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
                 Games = game?.Games ?? raw.Games, Wins = game?.Wins ?? 0,
                 Losses = game?.Losses ?? 0, Ties = game?.Ties ?? 0,
                 InningsPitched = innings, RunsAllowed = raw.RunsAllowed,
-                EarnedRuns = raw.EarnedRuns, HitsAllowed = raw.HitsAllowed,
+                EarnedRuns = earnedRuns, HitsAllowed = raw.HitsAllowed,
                 HomeRunsAllowed = raw.HomeRuns, Walks = raw.Walks,
                 HitBatters = raw.HitBatters, Strikeouts = raw.Strikeouts,
                 InfieldFlies = raw.InfieldFlies,
-                ERA = RatePerNine(raw.EarnedRuns, innings),
+                ERA = RatePerNine(earnedRuns, innings),
                 WHIP = innings > 0 ? (raw.HitsAllowed + raw.Walks) / innings : null,
                 StrikeoutsPerNine = RatePerNine(raw.Strikeouts, innings),
                 WalksPerNine = RatePerNine(raw.Walks, innings),

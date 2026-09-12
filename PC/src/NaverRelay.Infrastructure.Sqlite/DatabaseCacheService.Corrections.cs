@@ -7,7 +7,10 @@ using NaverRelay.Parsing;
 namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed record KboCorrection(string Id,int Year,string Date,string Match,string Inning,string Order,string Players,string Before,string After,string Content,string Published);
-public sealed record CorrectionSyncResult(int Notices,int Reimported,int Pending,string Message);
+public sealed record CorrectionSyncResult(int Notices,int Reimported,int Pending,string Message)
+{
+    public IReadOnlyList<string> Details { get; init; } = Array.Empty<string>();
+}
 
 public sealed partial class DatabaseCacheService
 {
@@ -47,16 +50,34 @@ public sealed partial class DatabaseCacheService
             foreach(var n in notices){cmd.CommandText="INSERT INTO OfficialCorrections VALUES($id,$year,$json,$time) ON CONFLICT(Id) DO UPDATE SET Json=excluded.Json,CheckedUtc=excluded.CheckedUtc";cmd.Parameters.Clear();cmd.Parameters.AddWithValue("$id",n.Id);cmd.Parameters.AddWithValue("$year",year);cmd.Parameters.AddWithValue("$json",JsonSerializer.Serialize(n));cmd.Parameters.AddWithValue("$time",DateTime.UtcNow.ToString("O"));await cmd.ExecuteNonQueryAsync(ct);}await tx.CommitAsync(ct);
         }
         var sources=new List<(string Id,string Source)>();
-        await using(var c=await OpenAsync(ct)){await using var cmd=c.CreateCommand();cmd.CommandText="SELECT g.GameId,(SELECT p.SourceDisplay FROM ParsedSources p WHERE p.GameId=g.GameId ORDER BY p.ParsedUtc DESC LIMIT 1) FROM Games g WHERE g.SeasonYear=$year AND LOWER(g.RoundCode)='kbo_r' AND EXISTS(SELECT 1 FROM ParsedSources p WHERE p.GameId=g.GameId)";cmd.Parameters.AddWithValue("$year",year);await using var r=await cmd.ExecuteReaderAsync(ct);while(await r.ReadAsync(ct))if(notices.Any(n=>r.GetString(0).StartsWith(n.Date.Replace("-",""))))sources.Add((r.GetString(0),r.GetString(1)));}
+        await using(var c=await OpenAsync(ct))
+        {
+            await using var cmd=c.CreateCommand();
+            cmd.CommandText="SELECT g.GameId,(SELECT p.SourceDisplay FROM ParsedSources p WHERE p.GameId=g.GameId ORDER BY p.ParsedUtc DESC LIMIT 1),g.GameDate,g.AwayTeamCode,g.HomeTeamCode FROM Games g WHERE g.SeasonYear=$year AND LOWER(g.RoundCode)='kbo_r' AND EXISTS(SELECT 1 FROM ParsedSources p WHERE p.GameId=g.GameId)";
+            cmd.Parameters.AddWithValue("$year",year);
+            await using var r=await cmd.ExecuteReaderAsync(ct);
+            while(await r.ReadAsync(ct))
+            {
+                if(notices.Any(n =>
+                {
+                    var teams=n.Match.Split(':');
+                    return n.Date==r.GetString(2) && teams.Length==2 &&
+                        KboTeams.GetValueOrDefault(teams[0])==r.GetString(3) && KboTeams.GetValueOrDefault(teams[1])==r.GetString(4);
+                })) sources.Add((r.GetString(0),r.GetString(1)));
+            }
+        }
         int imported=0,pending=0;
+        var details=new List<string>();
         foreach(var source in sources){ct.ThrowIfCancellationRequested();try{
             var parts=source.Source.Split("  >  ",2,StringSplitOptions.None);var input=new InputDocument{Id=source.Id,Kind=parts.Length==1?InputDocumentKind.JsonFile:InputDocumentKind.ZipEntry,ContainerPath=parts[0],EntryName=parts.Length==2?parts[1]:null,Length=File.Exists(parts[0])?new FileInfo(parts[0]).Length:0};
             var game=RelayParser.ParseJson(await input.ReadJsonAsync(ct));if(!notices.Any(n=>Matches(n,game)))continue;
-            await SaveGameAndSourceAsync(game,input,ct);imported++;if(game.Diagnostics.Any(x=>x.Code.StartsWith("KBO_CORRECTION_PENDING")))pending++;
-        }catch(OperationCanceledException){throw;}catch{pending++;}}
-        return new(notices.Count,imported,pending,$"KBO 정정 {notices.Count}건 대조 · {imported}경기 재집계 · 검토/원본 확인 필요 {pending}경기");
+            await SaveGameAndSourceAsync(game,input,ct);imported++;
+            var warnings=game.Diagnostics.Where(x=>x.Code.StartsWith("KBO_CORRECTION_PENDING")).Select(x=>x.Message).Distinct().ToArray();
+            if(warnings.Length>0){pending++;details.Add($"{game.GameId}: {string.Join(" / ",warnings)}");}
+        }catch(OperationCanceledException){throw;}catch(Exception ex){pending++;details.Add($"{source.Id}: {ex.Message} (원본: {source.Source})");}}
+        return new(notices.Count,imported,pending,$"KBO 정정 {notices.Count}건 대조 · {imported}경기 재집계 · 검토/원본 확인 필요 {pending}경기") { Details=details };
     }
-    async Task ApplyKboCorrectionsAsync(NormalizedGame game,CancellationToken ct)
+    async Task ApplyKboCorrectionsAsync(NormalizedGame game,CancellationToken ct,DateTimeOffset? afterSource=null)
     {
         if(!game.IsRegularSeason)return;
         await using var c=await OpenAsync(ct);await using var cmd=c.CreateCommand();cmd.CommandText="SELECT COUNT(*) FROM sqlite_master WHERE name='OfficialCorrections'";if(Convert.ToInt32(await cmd.ExecuteScalarAsync(ct))==0)return;
@@ -65,6 +86,8 @@ public sealed partial class DatabaseCacheService
         // Apply old notices first; each field is guarded by its published before/after values.
         foreach(var n in notices.OrderBy(n=>n.Published,StringComparer.Ordinal).ThenBy(n=>int.Parse(n.Id.Split(':')[2])))
         {
+            if(afterSource.HasValue && DateOnly.TryParse(n.Published,out var published) &&
+                published < DateOnly.FromDateTime(afterSource.Value.ToOffset(TimeSpan.FromHours(9)).DateTime))continue;
             cmd.CommandText="SELECT COUNT(*) FROM Games WHERE GameDate=$date AND HomeTeamCode=$home AND AwayTeamCode=$away AND GameId<>$id";cmd.Parameters.Clear();cmd.Parameters.AddWithValue("$date",game.GameDate!);cmd.Parameters.AddWithValue("$home",game.HomeTeam.TeamCode!);cmd.Parameters.AddWithValue("$away",game.AwayTeam.TeamCode!);cmd.Parameters.AddWithValue("$id",game.GameId);
             if(Convert.ToInt32(await cmd.ExecuteScalarAsync(ct))>0){game.Diagnostics.Add(new ParserDiagnostic{GameId=game.GameId,Severity=DiagnosticSeverity.Warning,Code="KBO_CORRECTION_PENDING",Message=$"{n.Id}: 같은 날짜·대진 복수 경기, 경기 식별 검토 필요"});continue;}
             ApplyCorrection(game,n);
@@ -80,7 +103,7 @@ public sealed partial class DatabaseCacheService
         var candidates=game.PlateAppearances.Where(p=>p.Inning==int.Parse(inningMatch.Groups[1].Value)&&p.BattingTeamCode==battingTeam&&p.BatOrder?.ToString()==n.Order&&p.BatterName!=null&&n.Players.Split('\n').Contains(p.BatterName)).ToArray();
         if(candidates.Length!=1){Note("타석을 유일하게 식별할 수 없음");return;}
         var pa=candidates[0];var outcome=pa.Outcome;
-        var currentCategory=outcome.IsHit?"안타":outcome.ResultType==BattingResultType.ReachedOnError?"실책":outcome.ResultType==BattingResultType.FieldersChoice?"야수 선택":null;
+        var currentCategory=outcome.IsHit?"안타":outcome.ResultType==BattingResultType.ReachedOnError || (outcome.ResultType==BattingResultType.SacrificeBunt && outcome.ReachedBase && pa.ResultText?.Contains("실책으로 출루")==true)?"실책":outcome.ResultType==BattingResultType.FieldersChoice || (outcome.ResultType==BattingResultType.SacrificeBunt && outcome.ReachedBase && pa.ResultText?.Contains("야수선택")==true)?"야수 선택":null;
         if(currentCategory!=n.Before&&currentCategory!=n.After){Note("현재 타석 결과가 정정 전후 유형과 일치하지 않음");return;}
         var afterHit=n.After=="안타";var beforeHit=n.Before=="안타";
         // Exact hit type is derived from the published batter total-base delta.
@@ -108,6 +131,17 @@ public sealed partial class DatabaseCacheService
                 if(target==null){if(metric is not("루타수" or "루타" or "희타"))Note($"{name} {metric}: 자동 반영 지원 없음");continue;}
                 var property=target.GetType().GetProperty(prop!)!;var current=(int?)property.GetValue(target);
                 if(current==before)property.SetValue(target,(int?)after);else if(current!=after)Note($"{name} {metric}: 현재 {current}, 기대 {before} 또는 {after}");
+                if(prop=="RunsBattedIn" && target is GamePlayerBattingLine corrected && corrected.RunsBattedIn==after)
+                {
+                    // Notices expose a date, not a publication time. Protect the entire
+                    // notice day from an older daily cache; a later fresh check may supersede it.
+                    DateTimeOffset? publishedBoundary=DateOnly.TryParse(n.Published,out var day)
+                        ? new DateTimeOffset(day.AddDays(1).ToDateTime(TimeOnly.MinValue),TimeSpan.FromHours(9)) : null;
+                    var previous=corrected.OfficialStats ?? new OfficialBattingStats();
+                    var effective=previous.SourceTime.HasValue && publishedBoundary.HasValue && previous.SourceTime>publishedBoundary
+                        ? previous.SourceTime : publishedBoundary;
+                    corrected.OfficialStats=previous with { Source="KBO_CORRECTION",SourceTime=effective,RunsBattedIn=after };
+                }
             }
         }
         Note("타석/박스스코어 대조 완료; 원본 중계 문장은 보존",false);

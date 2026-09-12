@@ -908,6 +908,7 @@ public sealed partial class DatabaseCacheService
         SqliteTransaction transaction,
         string gameId,
         InputDocument document,
+        string sourceFingerprint,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -923,7 +924,7 @@ public sealed partial class DatabaseCacheService
                 ParsedUtc=excluded.ParsedUtc;
             """;
         Add(command, "$key", GetSourceKey(document));
-        Add(command, "$fingerprint", GetFingerprint(document));
+        Add(command, "$fingerprint", sourceFingerprint);
         Add(command, "$gameId", gameId);
         Add(command, "$display", document.SourceDisplay);
         Add(command, "$version", ParserCacheVersion);

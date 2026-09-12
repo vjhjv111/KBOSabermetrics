@@ -45,6 +45,11 @@ foreach (var source in sources)
     try
     {
         var game = RelayParser.ParseJson(source.Json);
+        if (game.ImportedOfficialSource is { } official)
+        {
+            KboPlayLog.Apply(game, official);
+            if (official.BoxScore is { } box) KboBoxScore.Apply(game, box, official.GameId);
+        }
         parsedGames.Add(game);
 
         var safeGameId = string.IsNullOrWhiteSpace(game.GameId)

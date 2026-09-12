@@ -72,14 +72,11 @@ namespace NaverRelay.Parsing
 
             if (preferredSide != TeamSide.Unknown)
             {
-                var preferred = candidates.FirstOrDefault(p => p.TeamSide == preferredSide);
-                if (preferred != null)
-                {
-                    return preferred;
-                }
+                var preferred = candidates.Where(p => p.TeamSide == preferredSide).ToArray();
+                return preferred.Length == 1 ? preferred[0] : null;
             }
 
-            return candidates.Count == 1 ? candidates[0] : candidates.FirstOrDefault();
+            return candidates.Count == 1 ? candidates[0] : null;
         }
 
         public TeamSide ResolveTeam(string? pcode, string? name, TeamSide fallback = TeamSide.Unknown)
@@ -105,22 +102,13 @@ namespace NaverRelay.Parsing
                 return null;
             }
 
-            foreach (var pair in slots)
+            if (!string.IsNullOrWhiteSpace(pcode))
             {
-                if (!string.IsNullOrWhiteSpace(pcode)
-                    && string.Equals(pair.Value.Pcode, pcode, StringComparison.Ordinal))
-                {
-                    return pair.Key;
-                }
-
-                if (!string.IsNullOrWhiteSpace(name)
-                    && string.Equals(pair.Value.Name, name, StringComparison.Ordinal))
-                {
-                    return pair.Key;
-                }
+                var byCode = slots.Where(pair => string.Equals(pair.Value.Pcode, pcode, StringComparison.Ordinal)).ToArray();
+                return byCode.Length == 1 ? byCode[0].Key : null;
             }
-
-            return null;
+            var byName = slots.Where(pair => !string.IsNullOrWhiteSpace(name) && string.Equals(pair.Value.Name, name, StringComparison.Ordinal)).ToArray();
+            return byName.Length == 1 ? byName[0].Key : null;
         }
 
         public GameStateSnapshot NormalizeState(CurrentGameState? raw, TeamSide battingSide)
@@ -184,7 +172,14 @@ namespace NaverRelay.Parsing
                 _playersByCode.TryGetValue(pcode, out player);
             }
 
-            player ??= FindByName(name, teamSide);
+            if (player == null)
+            {
+                var byName = FindByName(name, teamSide);
+                // A new known ID is a different player, even if an opponent or teammate has the
+                // same name. Reusing that object's identity corrupts both code indexes and slots.
+                if (byName != null && (string.IsNullOrWhiteSpace(pcode) || string.IsNullOrWhiteSpace(byName.Pcode) || byName.Pcode == pcode))
+                    player = byName;
+            }
             if (player == null)
             {
                 player = new PlayerIdentity

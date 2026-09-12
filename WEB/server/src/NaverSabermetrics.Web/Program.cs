@@ -22,7 +22,7 @@ catch (Exception ex) when (args.Length > 0 && args[0].StartsWith("--", StringCom
 var webRoot=Path.Combine(AppContext.BaseDirectory,"wwwroot");
 if (!Directory.Exists(webRoot))
     throw new DirectoryNotFoundException($"웹 정적 파일 폴더가 없습니다: {webRoot}. 솔루션을 다시 빌드하세요.");
-foreach (var asset in new[] { "index.html", "app.css", "app.js", "games.js" })
+foreach (var asset in new[] { "index.html", "app.css", "app.js", "games.js", "diamond.js", "diamond/index.html" })
 {
     var assetPath = Path.Combine(webRoot, asset);
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
@@ -63,6 +63,10 @@ builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<Que
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
+builder.Services.AddSingleton(_ => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data")));
+// Opt-in for isolated local UI/API verification where Windows user-profile keys are unavailable.
+if(development && builder.Configuration.GetValue<bool>("Site:UseEphemeralDevelopmentKeys"))
+    builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
 builder.Services.AddAntiforgery(o=>
 {
     o.HeaderName="X-CSRF-TOKEN";o.Cookie.Name="saber.csrf";o.Cookie.HttpOnly=true;
@@ -88,7 +92,9 @@ builder.Services.AddRateLimiter(o=>
     };
     o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(c=>!c.Request.Path.StartsWithSegments("/api")
         ? RateLimitPartition.GetNoLimiter("static")
-        : RateLimitPartition.GetFixedWindowLimiter("ip:"+Ip(c),_=>new(){PermitLimit=settings.IpRequestsPerMinute,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
+        : c.Request.Path.StartsWithSegments("/api/diamond")
+          ? RateLimitPartition.GetFixedWindowLimiter("diamond:"+Ip(c),_=>new(){PermitLimit=900,Window=TimeSpan.FromMinutes(1),QueueLimit=0})
+          : RateLimitPartition.GetFixedWindowLimiter("ip:"+Ip(c),_=>new(){PermitLimit=settings.IpRequestsPerMinute,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
 });
 var app=builder.Build();
 var db=app.Services.GetRequiredService<DatabaseCacheService>();
@@ -105,10 +111,13 @@ if(isRender || settings.TrustedProxies.Length>0)app.UseForwardedHeaders();
 app.Use(async(c,next)=>
 {
     c.Response.Headers["X-Content-Type-Options"]="nosniff";
-    c.Response.Headers["X-Frame-Options"]="DENY";
+    var diamondPage=c.Request.Path.StartsWithSegments("/diamond");
+    c.Response.Headers["X-Frame-Options"]=diamondPage?"SAMEORIGIN":"DENY";
     c.Response.Headers["Referrer-Policy"]="no-referrer";
     c.Response.Headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()";
-    c.Response.Headers["Content-Security-Policy"]="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+    c.Response.Headers["Content-Security-Policy"]=diamondPage
+        ? "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'"
+        : "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
     if(c.Request.Path.StartsWithSegments("/api"))c.Response.Headers.CacheControl="no-store";
     if(!development && c.Request.IsHttps)c.Response.Headers["Strict-Transport-Security"]="max-age=31536000";
     try { await next(c); }
@@ -143,7 +152,7 @@ app.UseStaticFiles(new StaticFileOptions
     {
         // DefaultFiles rewrites / to index.html before static files are served.
         // Keep the HTML entry point and tooltip script fresh across deployments.
-        if (context.File.Name is "index.html" or "app.js" or "games.js")
+        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js")
         {
             context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
             context.Context.Response.Headers.Pragma = "no-cache";
@@ -163,6 +172,7 @@ app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(n
     csrfToken=antiforgery.GetAndStoreTokens(c).RequestToken,
     demo=settings.Demo
 }));
+app.MapDiamondGame();
 app.MapGet("/api/health",()=>Results.Ok(new{status=databaseReady?"ok":"waiting_for_database",databaseReady,databasePath=settings.DatabasePath}));
 app.MapGet("/api/ready",()=>databaseReady
     ? Results.Ok(new{status="ready"})

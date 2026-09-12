@@ -9,6 +9,9 @@ using NaverRelay.Application.Queries;
 
 namespace NaverRelay.Infrastructure.Sqlite;
 
+public sealed record SourceCacheProgress(int Completed, int Total, string DocumentId, string DocumentName,
+    int ContentReads, int Unchanged, bool IsChecking);
+
 /// <summary>
 /// JSON은 최초 import에서만 사용하고 이후 모든 조회를 관계형 SQLite 테이블에서 수행하는 저장소입니다.
 /// Games.NormalizedJson 같은 대형 JSON 열은 만들지 않습니다.
@@ -16,7 +19,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
-    private const string ParserCacheVersion = "sabermetrics-v2-audit-corrections-v4";
+    private const string ParserCacheVersion = "sabermetrics-v2-combined-official-v8";
     private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-common-war-v1";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -67,6 +70,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await ExecuteAsync(connection, "PRAGMA cache_size=-131072;", cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, "PRAGMA mmap_size=536870912;", cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, SchemaSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, OfficialBoxSourceSchema, cancellationToken).ConfigureAwait(false);
         await EnsureColumnAsync(connection, "Players", "LastClubGameDate", "TEXT NULL", cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "SchemaVersion", WarehouseSchemaVersion, cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "DataVersion", "0", cancellationToken).ConfigureAwait(false);
@@ -111,21 +115,45 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 
     public async Task<HashSet<string>> GetUnchangedSourceKeysAsync(
         IEnumerable<InputDocument> documents,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<SourceCacheProgress>? progress = null)
     {
+        var inputs = documents.ToArray();
         var result = new HashSet<string>(StringComparer.Ordinal);
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT Fingerprint FROM ParsedSources WHERE SourceKey=$key LIMIT 1;";
         var keyParameter = command.Parameters.Add("$key", SqliteType.Text);
 
-        foreach (var document in documents)
+        var completed = 0;
+        var contentReads = 0;
+        var currentPrefix = ParserCacheVersion + ":";
+        foreach (var document in inputs)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new SourceCacheProgress(completed, inputs.Length, document.Id, document.DisplayName,
+                contentReads, result.Count, IsChecking: true));
             keyParameter.Value = GetSourceKey(document);
             var stored = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
-            if (string.Equals(stored, GetFingerprint(document), StringComparison.Ordinal))
-                result.Add(document.Id);
+            // New, outdated or unverified sources must be parsed regardless of their contents.
+            // Only a current-version cache can be reused and needs the complete content check.
+            if (stored?.StartsWith(currentPrefix, StringComparison.Ordinal) == true)
+            {
+                try
+                {
+                    contentReads++;
+                    // One file at a time; size/mtime can remain unchanged after a collector or cloud-sync update.
+                    var json = await document.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
+                    if (string.Equals(stored, GetFingerprint(json), StringComparison.Ordinal)) result.Add(document.Id);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                {
+                    // Let the import workflow report the inaccessible/invalid source instead of skipping it as cached.
+                }
+            }
+            completed++;
+            progress?.Report(new SourceCacheProgress(completed, inputs.Length, document.Id, document.DisplayName,
+                contentReads, result.Count, IsChecking: false));
         }
         return result;
     }
@@ -134,17 +162,52 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         NormalizedGame game,
         InputDocument document,
         CancellationToken cancellationToken = default)
+        => await SaveGameWithPlayLogAsync(game, document, cancellationToken, null);
+
+    private async Task SaveGameWithPlayLogAsync(NormalizedGame game, InputDocument document,
+        CancellationToken cancellationToken, KboPlayLog.Document? official)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(document);
+        var hasParsedSnapshot = game.ImportedSourceJson != null;
+        var sourceJson = game.ImportedSourceJson ?? await document.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
+        // Manually constructed normalized games remain supported, but cannot mark an unverified file as unchanged.
+        var sourceFingerprint = hasParsedSnapshot ? GetFingerprint(sourceJson) : "unverified:" + Guid.NewGuid().ToString("N");
+        if (string.IsNullOrWhiteSpace(game.GameId) || string.IsNullOrWhiteSpace(game.GameDate) ||
+            string.IsNullOrWhiteSpace(game.HomeTeam.TeamCode) || string.IsNullOrWhiteSpace(game.AwayTeam.TeamCode) ||
+            game.Diagnostics.Any(d => d.Code == "MISSING_TEXT_RELAY_DATA"))
+            throw new InvalidDataException("경기 식별 정보나 중계 데이터가 없는 JSON은 저장할 수 없습니다.");
+        var cached = await LoadPlayLogAsync(game.GameId, cancellationToken);
+        if (game.ImportedOfficialSource is { } embedded) cached = KboPlayLog.SelectPreferred(cached, embedded);
+        official = official is null ? cached : KboPlayLog.SelectPreferred(cached, official);
+        if (official != null) KboPlayLog.Apply(game, official);
         await ApplyKboCorrectionsAsync(game, cancellationToken).ConfigureAwait(false);
+        if (official != null) KboPlayLog.ReconcileLines(game);
+        if (official?.BoxScore is { } box)
+        {
+            KboBoxScore.Apply(game, box, official.GameId);
+            // A correction notice published after the downloaded box score still takes precedence.
+            await ApplyKboCorrectionsAsync(game, cancellationToken, box.DownloadedAt ?? official.DownloadedAt).ConfigureAwait(false);
+        }
+        await ApplyStoredOfficialRbiAsync(game, cancellationToken).ConfigureAwait(false);
         var projection = WarehouseProjectionBuilder.Build(game);
+        game.Summary.WarningCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
+        game.Summary.ErrorCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
 
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        if (official != null)
+        {
+            await using var cmd = connection.CreateCommand(); cmd.Transaction = transaction;
+            cmd.CommandText = PlayLogSchema; await cmd.ExecuteNonQueryAsync(cancellationToken);
+            cmd.CommandText = "INSERT INTO OfficialPlayLogs VALUES($id,$json,$utc) ON CONFLICT(GameId) DO UPDATE SET Json=excluded.Json,ImportedUtc=excluded.ImportedUtc";
+            cmd.Parameters.AddWithValue("$id", game.GameId); cmd.Parameters.AddWithValue("$json", official.Json);
+            cmd.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
         await DeleteExistingGameAsync(connection, transaction, game.GameId, cancellationToken).ConfigureAwait(false);
         await InsertGameAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
-        await SaveGameMetadataAsync(connection, transaction, game.GameId, document, cancellationToken).ConfigureAwait(false);
+        await SaveOfficialBoxSourcesAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
+        await SaveGameMetadataAsync(connection, transaction, game.GameId, sourceJson, cancellationToken).ConfigureAwait(false);
         await InsertGameSummaryAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertRelayGroupsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertEventsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
@@ -160,9 +223,10 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await InsertBatterGameStatsAsync(connection, transaction, projection.BatterGames, cancellationToken).ConfigureAwait(false);
         await InsertPitcherGameStatsAsync(connection, transaction, projection.PitcherGames, cancellationToken).ConfigureAwait(false);
         await UpsertPlayerProfilesAsync(connection, transaction, game, projection.Players, cancellationToken).ConfigureAwait(false);
-        await UpsertParsedSourceAsync(connection, transaction, game.GameId, document, cancellationToken).ConfigureAwait(false);
+        await UpsertParsedSourceAsync(connection, transaction, game.GameId, document, sourceFingerprint, cancellationToken).ConfigureAwait(false);
         await BumpDataVersionAndInvalidateCachesAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        game.ImportedSourceJson = null;
     }
 
     public async Task<T?> TryLoadComputedAsync<T>(string cacheKey, CancellationToken cancellationToken = default)
@@ -292,16 +356,9 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 
-    private static string GetFingerprint(InputDocument document)
+    private static string GetFingerprint(string sourceJson)
     {
-        var info = new FileInfo(document.ContainerPath);
-        var canonical = string.Join("|",
-            document.Length,
-            info.Exists ? info.Length : 0,
-            info.Exists ? info.LastWriteTimeUtc.Ticks : 0,
-            document.EntryName ?? string.Empty,
-            ParserCacheVersion);
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        return ParserCacheVersion + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sourceJson)));
     }
 
     private static object DbValue(object? value) => value ?? DBNull.Value;

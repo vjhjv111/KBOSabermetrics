@@ -14,6 +14,11 @@ namespace NaverRelay.Parsing
 
     public sealed class NormalizedGame
     {
+        [System.Text.Json.Serialization.JsonIgnore]
+        public KboPlayLog.Document? ImportedOfficialSource { get; set; }
+        // Retained only until persistence so source metadata and fingerprints use the same bytes as parsing.
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? ImportedSourceJson { get; set; }
         public string GameId { get; set; } = string.Empty;
         public int? SeasonYear { get; set; }
         public string? SuperCategoryId { get; set; }
@@ -352,6 +357,7 @@ namespace NaverRelay.Parsing
 
     public sealed class GamePlayerBattingLine
     {
+        public OfficialBattingStats? OfficialStats { get; set; }
         public string GameId { get; set; } = string.Empty;
         public TeamSide TeamSide { get; set; } = TeamSide.Unknown;
         public string? TeamCode { get; set; }
@@ -380,6 +386,7 @@ namespace NaverRelay.Parsing
 
     public sealed class GamePlayerPitchingLine
     {
+        public OfficialPitchingStats? OfficialStats { get; set; }
         public string GameId { get; set; } = string.Empty;
         public TeamSide TeamSide { get; set; } = TeamSide.Unknown;
         public string? TeamCode { get; set; }

@@ -280,16 +280,23 @@ namespace NaverRelay.Parsing
 
         public static NormalizedGame ParseJson(string json)
         {
-            var response = RelayDeserializer.Deserialize(json)
+            var input = RelayInput.Read(json);
+            if (input.NaverJson == null) throw new InvalidDataException("공식 단독 JSON은 기존 네이버 경기와 함께 수집해주세요.");
+            var response = RelayDeserializer.Deserialize(input.NaverJson)
                 ?? throw new InvalidDataException("The JSON did not contain a relay response.");
-            return Parse(response);
+            if (response.Result?.TextRelayData == null) throw new InvalidDataException("result.textRelayData가 없는 JSON입니다.");
+            var parsed = Parse(response);
+            if (string.IsNullOrWhiteSpace(parsed.GameId)) throw new InvalidDataException("경기 ID가 없는 JSON은 저장할 수 없습니다.");
+            parsed.ImportedOfficialSource = input.Official;
+            parsed.ImportedSourceJson = json;
+            if (input.Official != null && parsed.GameId != input.Official.GameId + input.Official.GameId[..4])
+                throw new InvalidDataException("통합 JSON의 네이버/공식 경기 ID가 다릅니다.");
+            return parsed;
         }
 
         public static NormalizedGame ParseFile(string filePath)
         {
-            var response = RelayDeserializer.DeserializeFile(filePath)
-                ?? throw new InvalidDataException($"The file did not contain a relay response: {filePath}");
-            return Parse(response);
+            return ParseJson(File.ReadAllText(filePath));
         }
 
         /// <summary>Compatibility helper for the original prototype call site.</summary>

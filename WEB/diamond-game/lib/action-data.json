@@ -1,0 +1,3210 @@
+{
+  "source": "https://kbosabermetrics.onrender.com/",
+  "retrievedAt": "2026-09-11T21:39:46.679Z",
+  "season": 2025,
+  "competition": "정규시즌",
+  "localDbRead": false,
+  "notes": [
+    "Public source API snapshot, 2025 qualified player season records. Local DB access was denied.",
+    "velocityKmh is measured season-average pitch speed; the source excludes pitches without recorded speed.",
+    "usage is the displayed season usage percentage divided by 100; count is observed pitch count. Rounded usage may not sum to exactly 1.",
+    "AI should sample pitch type by count divided by total observed count; any exclusion of rare pitches is game tuning.",
+    "Discipline percentage fields are normalized to probabilities in [0, 1], with unavailable values null.",
+    "Movement, release location, timing windows, aim forgiveness, and control-error variance are game tuning; they are not measured here.",
+    "Optional body/jersey profile values describe the last collected game date, not necessarily the 2025 season."
+  ],
+  "pitcherDisciplineFields": {
+    "Games": {
+      "label": "G",
+      "unit": "integer"
+    },
+    "Pitches": {
+      "label": "투구 수",
+      "unit": "integer"
+    },
+    "StrikeRate": {
+      "label": "S%",
+      "unit": "probability"
+    },
+    "CalledStrikeRate": {
+      "label": "루킹%",
+      "unit": "probability"
+    },
+    "WhiffPerPitch": {
+      "label": "헛스윙/투구%",
+      "unit": "probability"
+    },
+    "CswRate": {
+      "label": "CSW%",
+      "unit": "probability"
+    },
+    "SwingRate": {
+      "label": "Swing%",
+      "unit": "probability"
+    },
+    "ContactRate": {
+      "label": "Contact%",
+      "unit": "probability"
+    },
+    "WhiffRate": {
+      "label": "Whiff/Swing%",
+      "unit": "probability"
+    },
+    "FirstPitchStrikeRate": {
+      "label": "초구 S%",
+      "unit": "probability"
+    },
+    "FirstPitchWhiffRate": {
+      "label": "초구 헛스윙%",
+      "unit": "probability"
+    },
+    "PutAwayRate": {
+      "label": "Putaway%",
+      "unit": "probability"
+    },
+    "ZonePitchRate": {
+      "label": "Z-Pitch%",
+      "unit": "probability"
+    },
+    "ZoneSwingRate": {
+      "label": "Z-Swing%",
+      "unit": "probability"
+    },
+    "ZoneContactRate": {
+      "label": "Z-Contact%",
+      "unit": "probability"
+    },
+    "OutZonePitchRate": {
+      "label": "O-Pitch%",
+      "unit": "probability"
+    },
+    "ChaseRate": {
+      "label": "O-Swing%",
+      "unit": "probability"
+    },
+    "OutZoneContactRate": {
+      "label": "O-Contact%",
+      "unit": "probability"
+    },
+    "HeartPitchRate": {
+      "label": "Heart%",
+      "unit": "probability"
+    },
+    "HeartSwingRate": {
+      "label": "Heart Swing%",
+      "unit": "probability"
+    },
+    "CalledStrikeouts": {
+      "label": "L/SO",
+      "unit": "integer"
+    },
+    "SwingingStrikeouts": {
+      "label": "S/SO",
+      "unit": "integer"
+    },
+    "CalledStrikeoutRate": {
+      "label": "L/SO%",
+      "unit": "probability"
+    }
+  },
+  "batterDisciplineFields": {
+    "PA": {
+      "label": "PA",
+      "unit": "integer"
+    },
+    "Pitches": {
+      "label": "Pitches",
+      "unit": "integer"
+    },
+    "PitchesPerPa": {
+      "label": "P/PA",
+      "unit": "decimal2"
+    },
+    "SwingRate": {
+      "label": "Swing%",
+      "unit": "probability"
+    },
+    "ContactRate": {
+      "label": "Contact%",
+      "unit": "probability"
+    },
+    "WhiffRate": {
+      "label": "Whiff%",
+      "unit": "probability"
+    },
+    "CswRate": {
+      "label": "CSW%",
+      "unit": "probability"
+    },
+    "ZoneSwingRate": {
+      "label": "Z-Swing%",
+      "unit": "probability"
+    },
+    "ChaseRate": {
+      "label": "O-Swing%",
+      "unit": "probability"
+    },
+    "ZoneContactRate": {
+      "label": "Z-Contact%",
+      "unit": "probability"
+    },
+    "OutZoneContactRate": {
+      "label": "O-Contact%",
+      "unit": "probability"
+    },
+    "FirstPitchSwingRate": {
+      "label": "1st Swing%",
+      "unit": "probability"
+    }
+  },
+  "pitchers": {
+    "55912": {
+      "id": "55912",
+      "name": "로건",
+      "teamCode": "NC",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 144.9,
+          "usage": 0.321,
+          "count": 975,
+          "opponentAVG": 0.236,
+          "opponentSLG": 0.337
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 127.2,
+          "usage": 0.22699999999999998,
+          "count": 690,
+          "opponentAVG": 0.235,
+          "opponentSLG": 0.362
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 137.6,
+          "usage": 0.18,
+          "count": 548,
+          "opponentAVG": 0.297,
+          "opponentSLG": 0.5
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 128.3,
+          "usage": 0.159,
+          "count": 482,
+          "opponentAVG": 0.282,
+          "opponentSLG": 0.42
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 141.4,
+          "usage": 0.067,
+          "count": 202,
+          "opponentAVG": 0.35,
+          "opponentSLG": 0.375
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 119.5,
+          "usage": 0.038,
+          "count": 116,
+          "opponentAVG": 0.25,
+          "opponentSLG": 0.25
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 126.9,
+          "usage": 0.008,
+          "count": 24,
+          "opponentAVG": 0.2,
+          "opponentSLG": 0.8
+        }
+      ],
+      "discipline": {
+        "Games": 32.0,
+        "Pitches": 3037.0,
+        "StrikeRate": 0.6509999999999999,
+        "CalledStrikeRate": 0.193,
+        "WhiffPerPitch": 0.09300000000000001,
+        "CswRate": 0.28600000000000003,
+        "SwingRate": 0.45799999999999996,
+        "ContactRate": 0.797,
+        "WhiffRate": 0.203,
+        "FirstPitchStrikeRate": 0.636,
+        "FirstPitchWhiffRate": 0.061,
+        "PutAwayRate": 0.157,
+        "ZonePitchRate": 0.41100000000000003,
+        "ZoneSwingRate": 0.655,
+        "ZoneContactRate": 0.879,
+        "OutZonePitchRate": 0.589,
+        "ChaseRate": 0.321,
+        "OutZoneContactRate": 0.679,
+        "HeartPitchRate": 0.076,
+        "HeartSwingRate": 0.698,
+        "CalledStrikeouts": 43.0,
+        "SwingingStrikeouts": 106.0,
+        "CalledStrikeoutRate": 0.289
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 186.0,
+        "weightKg": 105.0,
+        "jerseyNumber": "43",
+        "asOf": "2026-09-11"
+      }
+    },
+    "53375": {
+      "id": "53375",
+      "name": "후라도",
+      "teamCode": "SS",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 146.8,
+          "usage": 0.316,
+          "count": 922,
+          "opponentAVG": 0.272,
+          "opponentSLG": 0.355
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 135.6,
+          "usage": 0.223,
+          "count": 652,
+          "opponentAVG": 0.191,
+          "opponentSLG": 0.314
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 146.0,
+          "usage": 0.18,
+          "count": 525,
+          "opponentAVG": 0.298,
+          "opponentSLG": 0.395
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 139.0,
+          "usage": 0.107,
+          "count": 313,
+          "opponentAVG": 0.19,
+          "opponentSLG": 0.302
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 129.4,
+          "usage": 0.107,
+          "count": 313,
+          "opponentAVG": 0.203,
+          "opponentSLG": 0.261
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 136.0,
+          "usage": 0.067,
+          "count": 196,
+          "opponentAVG": 0.242,
+          "opponentSLG": 0.371
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2921.0,
+        "StrikeRate": 0.691,
+        "CalledStrikeRate": 0.185,
+        "WhiffPerPitch": 0.099,
+        "CswRate": 0.28300000000000003,
+        "SwingRate": 0.506,
+        "ContactRate": 0.804,
+        "WhiffRate": 0.196,
+        "FirstPitchStrikeRate": 0.648,
+        "FirstPitchWhiffRate": 0.06,
+        "PutAwayRate": 0.16,
+        "ZonePitchRate": 0.418,
+        "ZoneSwingRate": 0.6759999999999999,
+        "ZoneContactRate": 0.892,
+        "OutZonePitchRate": 0.5820000000000001,
+        "ChaseRate": 0.384,
+        "OutZoneContactRate": 0.693,
+        "HeartPitchRate": 0.075,
+        "HeartSwingRate": 0.726,
+        "CalledStrikeouts": 24.0,
+        "SwingingStrikeouts": 118.0,
+        "CalledStrikeoutRate": 0.16899999999999998
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 188.0,
+        "weightKg": 109.0,
+        "jerseyNumber": "75",
+        "asOf": "2026-09-06"
+      }
+    },
+    "55903": {
+      "id": "55903",
+      "name": "라일리",
+      "teamCode": "NC",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 149.9,
+          "usage": 0.466,
+          "count": 1360,
+          "opponentAVG": 0.228,
+          "opponentSLG": 0.404
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 136.9,
+          "usage": 0.24,
+          "count": 700,
+          "opponentAVG": 0.26,
+          "opponentSLG": 0.49
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 131.7,
+          "usage": 0.171,
+          "count": 499,
+          "opponentAVG": 0.146,
+          "opponentSLG": 0.178
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 134.4,
+          "usage": 0.122,
+          "count": 357,
+          "opponentAVG": 0.217,
+          "opponentSLG": 0.241
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2916.0,
+        "StrikeRate": 0.665,
+        "CalledStrikeRate": 0.193,
+        "WhiffPerPitch": 0.13699999999999998,
+        "CswRate": 0.33,
+        "SwingRate": 0.47100000000000003,
+        "ContactRate": 0.71,
+        "WhiffRate": 0.29,
+        "FirstPitchStrikeRate": 0.626,
+        "FirstPitchWhiffRate": 0.10800000000000001,
+        "PutAwayRate": 0.21899999999999997,
+        "ZonePitchRate": 0.425,
+        "ZoneSwingRate": 0.6609999999999999,
+        "ZoneContactRate": 0.8190000000000001,
+        "OutZonePitchRate": 0.575,
+        "ChaseRate": 0.332,
+        "OutZoneContactRate": 0.5489999999999999,
+        "HeartPitchRate": 0.08199999999999999,
+        "HeartSwingRate": 0.72,
+        "CalledStrikeouts": 58.0,
+        "SwingingStrikeouts": 158.0,
+        "CalledStrikeoutRate": 0.26899999999999996
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 190.0,
+        "weightKg": 100.0,
+        "jerseyNumber": "3",
+        "asOf": "2026-09-10"
+      }
+    },
+    "55730": {
+      "id": "55730",
+      "name": "폰세",
+      "teamCode": "HH",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 153.7,
+          "usage": 0.439,
+          "count": 1252,
+          "opponentAVG": 0.21,
+          "opponentSLG": 0.321
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 141.1,
+          "usage": 0.172,
+          "count": 492,
+          "opponentAVG": 0.197,
+          "opponentSLG": 0.235
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 131.0,
+          "usage": 0.168,
+          "count": 479,
+          "opponentAVG": 0.16,
+          "opponentSLG": 0.173
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 144.2,
+          "usage": 0.12300000000000001,
+          "count": 351,
+          "opponentAVG": 0.138,
+          "opponentSLG": 0.2
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 144.8,
+          "usage": 0.052000000000000005,
+          "count": 147,
+          "opponentAVG": 0.179,
+          "opponentSLG": 0.179
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 153.1,
+          "usage": 0.032,
+          "count": 91,
+          "opponentAVG": 0.407,
+          "opponentSLG": 0.593
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 140.7,
+          "usage": 0.015,
+          "count": 42,
+          "opponentAVG": 0.182,
+          "opponentSLG": 0.182
+        }
+      ],
+      "discipline": {
+        "Games": 29.0,
+        "Pitches": 2854.0,
+        "StrikeRate": 0.679,
+        "CalledStrikeRate": 0.18600000000000003,
+        "WhiffPerPitch": 0.166,
+        "CswRate": 0.353,
+        "SwingRate": 0.493,
+        "ContactRate": 0.662,
+        "WhiffRate": 0.33799999999999997,
+        "FirstPitchStrikeRate": 0.625,
+        "FirstPitchWhiffRate": 0.08900000000000001,
+        "PutAwayRate": 0.265,
+        "ZonePitchRate": 0.413,
+        "ZoneSwingRate": 0.667,
+        "ZoneContactRate": 0.789,
+        "OutZonePitchRate": 0.5870000000000001,
+        "ChaseRate": 0.371,
+        "OutZoneContactRate": 0.502,
+        "HeartPitchRate": 0.07,
+        "HeartSwingRate": 0.73,
+        "CalledStrikeouts": 49.0,
+        "SwingingStrikeouts": 202.0,
+        "CalledStrikeoutRate": 0.195
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 198.0,
+        "weightKg": 115.0,
+        "jerseyNumber": "30",
+        "asOf": "2025-10-29"
+      }
+    },
+    "54755": {
+      "id": "54755",
+      "name": "와이스",
+      "teamCode": "HH",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 151.7,
+          "usage": 0.466,
+          "count": 1323,
+          "opponentAVG": 0.232,
+          "opponentSLG": 0.387
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 135.0,
+          "usage": 0.247,
+          "count": 701,
+          "opponentAVG": 0.186,
+          "opponentSLG": 0.269
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 129.1,
+          "usage": 0.124,
+          "count": 351,
+          "opponentAVG": 0.107,
+          "opponentSLG": 0.173
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 134.3,
+          "usage": 0.099,
+          "count": 281,
+          "opponentAVG": 0.171,
+          "opponentSLG": 0.211
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 139.7,
+          "usage": 0.064,
+          "count": 181,
+          "opponentAVG": 0.184,
+          "opponentSLG": 0.263
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2837.0,
+        "StrikeRate": 0.6659999999999999,
+        "CalledStrikeRate": 0.195,
+        "WhiffPerPitch": 0.133,
+        "CswRate": 0.32799999999999996,
+        "SwingRate": 0.47100000000000003,
+        "ContactRate": 0.718,
+        "WhiffRate": 0.282,
+        "FirstPitchStrikeRate": 0.617,
+        "FirstPitchWhiffRate": 0.087,
+        "PutAwayRate": 0.22399999999999998,
+        "ZonePitchRate": 0.401,
+        "ZoneSwingRate": 0.637,
+        "ZoneContactRate": 0.852,
+        "OutZonePitchRate": 0.599,
+        "ChaseRate": 0.36,
+        "OutZoneContactRate": 0.5579999999999999,
+        "HeartPitchRate": 0.07200000000000001,
+        "HeartSwingRate": 0.6729999999999999,
+        "CalledStrikeouts": 39.0,
+        "SwingingStrikeouts": 168.0,
+        "CalledStrikeoutRate": 0.188
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 193.0,
+        "weightKg": 95.0,
+        "jerseyNumber": "55",
+        "asOf": "2025-10-30"
+      }
+    },
+    "55146": {
+      "id": "55146",
+      "name": "치리노스",
+      "teamCode": "LG",
+      "arsenal": [
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 148.6,
+          "usage": 0.461,
+          "count": 1294,
+          "opponentAVG": 0.29,
+          "opponentSLG": 0.355
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 137.6,
+          "usage": 0.262,
+          "count": 736,
+          "opponentAVG": 0.219,
+          "opponentSLG": 0.279
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 136.0,
+          "usage": 0.14,
+          "count": 392,
+          "opponentAVG": 0.25,
+          "opponentSLG": 0.308
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 135.4,
+          "usage": 0.10099999999999999,
+          "count": 283,
+          "opponentAVG": 0.224,
+          "opponentSLG": 0.306
+        },
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 149.4,
+          "usage": 0.037000000000000005,
+          "count": 103,
+          "opponentAVG": 0.091,
+          "opponentSLG": 0.136
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 116.0,
+          "usage": 0.0,
+          "count": 1,
+          "opponentAVG": null,
+          "opponentSLG": null
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2809.0,
+        "StrikeRate": 0.675,
+        "CalledStrikeRate": 0.201,
+        "WhiffPerPitch": 0.09699999999999999,
+        "CswRate": 0.298,
+        "SwingRate": 0.473,
+        "ContactRate": 0.795,
+        "WhiffRate": 0.205,
+        "FirstPitchStrikeRate": 0.65,
+        "FirstPitchWhiffRate": 0.064,
+        "PutAwayRate": 0.157,
+        "ZonePitchRate": 0.41600000000000004,
+        "ZoneSwingRate": 0.636,
+        "ZoneContactRate": 0.9009999999999999,
+        "OutZonePitchRate": 0.584,
+        "ChaseRate": 0.35700000000000004,
+        "OutZoneContactRate": 0.662,
+        "HeartPitchRate": 0.078,
+        "HeartSwingRate": 0.693,
+        "CalledStrikeouts": 29.0,
+        "SwingingStrikeouts": 107.0,
+        "CalledStrikeoutRate": 0.213
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 188.0,
+        "weightKg": 102.0,
+        "jerseyNumber": "46",
+        "asOf": "2026-05-27"
+      }
+    },
+    "54833": {
+      "id": "54833",
+      "name": "앤더슨",
+      "teamCode": "SK",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 153.0,
+          "usage": 0.519,
+          "count": 1448,
+          "opponentAVG": 0.205,
+          "opponentSLG": 0.349
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 128.3,
+          "usage": 0.21,
+          "count": 586,
+          "opponentAVG": 0.155,
+          "opponentSLG": 0.198
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 143.0,
+          "usage": 0.198,
+          "count": 553,
+          "opponentAVG": 0.167,
+          "opponentSLG": 0.188
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 134.9,
+          "usage": 0.055999999999999994,
+          "count": 157,
+          "opponentAVG": 0.219,
+          "opponentSLG": 0.219
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 142.5,
+          "usage": 0.017,
+          "count": 48,
+          "opponentAVG": 0.556,
+          "opponentSLG": 0.778
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2792.0,
+        "StrikeRate": 0.674,
+        "CalledStrikeRate": 0.188,
+        "WhiffPerPitch": 0.152,
+        "CswRate": 0.34,
+        "SwingRate": 0.485,
+        "ContactRate": 0.687,
+        "WhiffRate": 0.313,
+        "FirstPitchStrikeRate": 0.665,
+        "FirstPitchWhiffRate": 0.095,
+        "PutAwayRate": 0.255,
+        "ZonePitchRate": 0.39799999999999996,
+        "ZoneSwingRate": 0.635,
+        "ZoneContactRate": 0.8059999999999999,
+        "OutZonePitchRate": 0.602,
+        "ChaseRate": 0.386,
+        "OutZoneContactRate": 0.5579999999999999,
+        "HeartPitchRate": 0.066,
+        "HeartSwingRate": 0.69,
+        "CalledStrikeouts": 50.0,
+        "SwingingStrikeouts": 194.0,
+        "CalledStrikeoutRate": 0.205
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 194.0,
+        "weightKg": 83.0,
+        "jerseyNumber": "33",
+        "asOf": "2025-10-13"
+      }
+    },
+    "54354": {
+      "id": "54354",
+      "name": "헤이수스",
+      "teamCode": "KT",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 149.5,
+          "usage": 0.441,
+          "count": 1199,
+          "opponentAVG": 0.264,
+          "opponentSLG": 0.391
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 135.9,
+          "usage": 0.2,
+          "count": 542,
+          "opponentAVG": 0.236,
+          "opponentSLG": 0.364
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 139.0,
+          "usage": 0.19899999999999998,
+          "count": 540,
+          "opponentAVG": 0.26,
+          "opponentSLG": 0.351
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 149.6,
+          "usage": 0.107,
+          "count": 290,
+          "opponentAVG": 0.33,
+          "opponentSLG": 0.407
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 122.3,
+          "usage": 0.053,
+          "count": 144,
+          "opponentAVG": 0.259,
+          "opponentSLG": 0.519
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 130.0,
+          "usage": 0.0,
+          "count": 1,
+          "opponentAVG": 0.0,
+          "opponentSLG": 0.0
+        }
+      ],
+      "discipline": {
+        "Games": 32.0,
+        "Pitches": 2716.0,
+        "StrikeRate": 0.679,
+        "CalledStrikeRate": 0.177,
+        "WhiffPerPitch": 0.127,
+        "CswRate": 0.304,
+        "SwingRate": 0.501,
+        "ContactRate": 0.747,
+        "WhiffRate": 0.253,
+        "FirstPitchStrikeRate": 0.628,
+        "FirstPitchWhiffRate": 0.077,
+        "PutAwayRate": 0.19,
+        "ZonePitchRate": 0.41100000000000003,
+        "ZoneSwingRate": 0.67,
+        "ZoneContactRate": 0.84,
+        "OutZonePitchRate": 0.589,
+        "ChaseRate": 0.384,
+        "OutZoneContactRate": 0.635,
+        "HeartPitchRate": 0.067,
+        "HeartSwingRate": 0.6890000000000001,
+        "CalledStrikeouts": 37.0,
+        "SwingingStrikeouts": 127.0,
+        "CalledStrikeoutRate": 0.226
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 192.0,
+        "weightKg": 104.0,
+        "jerseyNumber": "65",
+        "asOf": "2025-09-30"
+      }
+    },
+    "55239": {
+      "id": "55239",
+      "name": "잭로그",
+      "teamCode": "OB",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 145.3,
+          "usage": 0.317,
+          "count": 854,
+          "opponentAVG": 0.201,
+          "opponentSLG": 0.284
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 142.9,
+          "usage": 0.215,
+          "count": 580,
+          "opponentAVG": 0.237,
+          "opponentSLG": 0.297
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 139.1,
+          "usage": 0.135,
+          "count": 363,
+          "opponentAVG": 0.294,
+          "opponentSLG": 0.424
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 133.1,
+          "usage": 0.12300000000000001,
+          "count": 332,
+          "opponentAVG": 0.33,
+          "opponentSLG": 0.407
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 122.9,
+          "usage": 0.114,
+          "count": 307,
+          "opponentAVG": 0.1,
+          "opponentSLG": 0.144
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 123.5,
+          "usage": 0.07400000000000001,
+          "count": 201,
+          "opponentAVG": 0.2,
+          "opponentSLG": 0.3
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 122.6,
+          "usage": 0.023,
+          "count": 61,
+          "opponentAVG": 0.2,
+          "opponentSLG": 0.6
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2698.0,
+        "StrikeRate": 0.6829999999999999,
+        "CalledStrikeRate": 0.20800000000000002,
+        "WhiffPerPitch": 0.09300000000000001,
+        "CswRate": 0.301,
+        "SwingRate": 0.47600000000000003,
+        "ContactRate": 0.804,
+        "WhiffRate": 0.196,
+        "FirstPitchStrikeRate": 0.665,
+        "FirstPitchWhiffRate": 0.057999999999999996,
+        "PutAwayRate": 0.185,
+        "ZonePitchRate": 0.447,
+        "ZoneSwingRate": 0.6509999999999999,
+        "ZoneContactRate": 0.889,
+        "OutZonePitchRate": 0.5529999999999999,
+        "ChaseRate": 0.33399999999999996,
+        "OutZoneContactRate": 0.669,
+        "HeartPitchRate": 0.09,
+        "HeartSwingRate": 0.716,
+        "CalledStrikeouts": 48.0,
+        "SwingingStrikeouts": 108.0,
+        "CalledStrikeoutRate": 0.308
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 183.0,
+        "weightKg": 84.0,
+        "jerseyNumber": "39",
+        "asOf": "2026-09-06"
+      }
+    },
+    "64021": {
+      "id": "64021",
+      "name": "박세웅",
+      "teamCode": "LT",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 147.0,
+          "usage": 0.4,
+          "count": 1078,
+          "opponentAVG": 0.355,
+          "opponentSLG": 0.542
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 135.2,
+          "usage": 0.32299999999999995,
+          "count": 869,
+          "opponentAVG": 0.298,
+          "opponentSLG": 0.421
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 134.1,
+          "usage": 0.142,
+          "count": 382,
+          "opponentAVG": 0.182,
+          "opponentSLG": 0.282
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 122.2,
+          "usage": 0.135,
+          "count": 365,
+          "opponentAVG": 0.149,
+          "opponentSLG": 0.253
+        }
+      ],
+      "discipline": {
+        "Games": 29.0,
+        "Pitches": 2694.0,
+        "StrikeRate": 0.637,
+        "CalledStrikeRate": 0.18100000000000002,
+        "WhiffPerPitch": 0.105,
+        "CswRate": 0.285,
+        "SwingRate": 0.457,
+        "ContactRate": 0.7709999999999999,
+        "WhiffRate": 0.22899999999999998,
+        "FirstPitchStrikeRate": 0.639,
+        "FirstPitchWhiffRate": 0.061,
+        "PutAwayRate": 0.19899999999999998,
+        "ZonePitchRate": 0.402,
+        "ZoneSwingRate": 0.6729999999999999,
+        "ZoneContactRate": 0.893,
+        "OutZonePitchRate": 0.598,
+        "ChaseRate": 0.311,
+        "OutZoneContactRate": 0.595,
+        "HeartPitchRate": 0.07200000000000001,
+        "HeartSwingRate": 0.732,
+        "CalledStrikeouts": 26.0,
+        "SwingingStrikeouts": 128.0,
+        "CalledStrikeoutRate": 0.16899999999999998
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 182.0,
+        "weightKg": 85.0,
+        "jerseyNumber": "21",
+        "asOf": "2026-09-08"
+      }
+    },
+    "55257": {
+      "id": "55257",
+      "name": "콜어빈",
+      "teamCode": "OB",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 146.8,
+          "usage": 0.37200000000000005,
+          "count": 965,
+          "opponentAVG": 0.254,
+          "opponentSLG": 0.337
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 145.6,
+          "usage": 0.166,
+          "count": 430,
+          "opponentAVG": 0.265,
+          "opponentSLG": 0.296
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 125.4,
+          "usage": 0.14800000000000002,
+          "count": 384,
+          "opponentAVG": 0.272,
+          "opponentSLG": 0.432
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 131.2,
+          "usage": 0.13,
+          "count": 337,
+          "opponentAVG": 0.316,
+          "opponentSLG": 0.447
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 134.4,
+          "usage": 0.12300000000000001,
+          "count": 320,
+          "opponentAVG": 0.257,
+          "opponentSLG": 0.473
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 136.2,
+          "usage": 0.051,
+          "count": 132,
+          "opponentAVG": 0.35,
+          "opponentSLG": 0.5
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 125.9,
+          "usage": 0.01,
+          "count": 25,
+          "opponentAVG": 0.083,
+          "opponentSLG": 0.083
+        }
+      ],
+      "discipline": {
+        "Games": 28.0,
+        "Pitches": 2593.0,
+        "StrikeRate": 0.613,
+        "CalledStrikeRate": 0.182,
+        "WhiffPerPitch": 0.08900000000000001,
+        "CswRate": 0.272,
+        "SwingRate": 0.43,
+        "ContactRate": 0.792,
+        "WhiffRate": 0.20800000000000002,
+        "FirstPitchStrikeRate": 0.573,
+        "FirstPitchWhiffRate": 0.046,
+        "PutAwayRate": 0.165,
+        "ZonePitchRate": 0.368,
+        "ZoneSwingRate": 0.638,
+        "ZoneContactRate": 0.852,
+        "OutZonePitchRate": 0.632,
+        "ChaseRate": 0.309,
+        "OutZoneContactRate": 0.7190000000000001,
+        "HeartPitchRate": 0.063,
+        "HeartSwingRate": 0.7440000000000001,
+        "CalledStrikeouts": 23.0,
+        "SwingingStrikeouts": 103.0,
+        "CalledStrikeoutRate": 0.183
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 193.0,
+        "weightKg": 102.0,
+        "jerseyNumber": "57",
+        "asOf": "2025-09-30"
+      }
+    },
+    "64001": {
+      "id": "64001",
+      "name": "고영표",
+      "teamCode": "KT",
+      "arsenal": [
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 116.7,
+          "usage": 0.467,
+          "count": 1178,
+          "opponentAVG": 0.236,
+          "opponentSLG": 0.333
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 134.9,
+          "usage": 0.355,
+          "count": 896,
+          "opponentAVG": 0.316,
+          "opponentSLG": 0.407
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 116.6,
+          "usage": 0.096,
+          "count": 242,
+          "opponentAVG": 0.375,
+          "opponentSLG": 0.688
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 127.1,
+          "usage": 0.054000000000000006,
+          "count": 136,
+          "opponentAVG": 0.194,
+          "opponentSLG": 0.222
+        },
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 134.5,
+          "usage": 0.024,
+          "count": 60,
+          "opponentAVG": 0.333,
+          "opponentSLG": 0.533
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 120.2,
+          "usage": 0.005,
+          "count": 13,
+          "opponentAVG": 0.0,
+          "opponentSLG": 0.0
+        }
+      ],
+      "discipline": {
+        "Games": 29.0,
+        "Pitches": 2525.0,
+        "StrikeRate": 0.715,
+        "CalledStrikeRate": 0.18600000000000003,
+        "WhiffPerPitch": 0.141,
+        "CswRate": 0.327,
+        "SwingRate": 0.529,
+        "ContactRate": 0.7340000000000001,
+        "WhiffRate": 0.266,
+        "FirstPitchStrikeRate": 0.6609999999999999,
+        "FirstPitchWhiffRate": 0.085,
+        "PutAwayRate": 0.193,
+        "ZonePitchRate": 0.382,
+        "ZoneSwingRate": 0.63,
+        "ZoneContactRate": 0.847,
+        "OutZonePitchRate": 0.618,
+        "ChaseRate": 0.465,
+        "OutZoneContactRate": 0.639,
+        "HeartPitchRate": 0.069,
+        "HeartSwingRate": 0.665,
+        "CalledStrikeouts": 12.0,
+        "SwingingStrikeouts": 142.0,
+        "CalledStrikeoutRate": 0.078
+      },
+      "profile": {
+        "batsThrows": "우언우타",
+        "heightCm": 187.0,
+        "weightKg": 88.0,
+        "jerseyNumber": "1",
+        "asOf": "2026-09-09"
+      }
+    },
+    "51111": {
+      "id": "51111",
+      "name": "송승기",
+      "teamCode": "LG",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 144.8,
+          "usage": 0.532,
+          "count": 1341,
+          "opponentAVG": 0.27,
+          "opponentSLG": 0.422
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 131.6,
+          "usage": 0.20800000000000002,
+          "count": 524,
+          "opponentAVG": 0.237,
+          "opponentSLG": 0.333
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 130.4,
+          "usage": 0.14300000000000002,
+          "count": 361,
+          "opponentAVG": 0.215,
+          "opponentSLG": 0.29
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 116.9,
+          "usage": 0.085,
+          "count": 215,
+          "opponentAVG": 0.417,
+          "opponentSLG": 0.563
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 128.8,
+          "usage": 0.033,
+          "count": 82,
+          "opponentAVG": 0.148,
+          "opponentSLG": 0.259
+        }
+      ],
+      "discipline": {
+        "Games": 28.0,
+        "Pitches": 2523.0,
+        "StrikeRate": 0.637,
+        "CalledStrikeRate": 0.16399999999999998,
+        "WhiffPerPitch": 0.114,
+        "CswRate": 0.278,
+        "SwingRate": 0.473,
+        "ContactRate": 0.759,
+        "WhiffRate": 0.24100000000000002,
+        "FirstPitchStrikeRate": 0.586,
+        "FirstPitchWhiffRate": 0.07,
+        "PutAwayRate": 0.168,
+        "ZonePitchRate": 0.39,
+        "ZoneSwingRate": 0.693,
+        "ZoneContactRate": 0.843,
+        "OutZonePitchRate": 0.61,
+        "ChaseRate": 0.332,
+        "OutZoneContactRate": 0.6459999999999999,
+        "HeartPitchRate": 0.071,
+        "HeartSwingRate": 0.775,
+        "CalledStrikeouts": 16.0,
+        "SwingingStrikeouts": 109.0,
+        "CalledStrikeoutRate": 0.128
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 181.0,
+        "weightKg": 90.0,
+        "jerseyNumber": "13",
+        "asOf": "2026-08-21"
+      }
+    },
+    "54640": {
+      "id": "54640",
+      "name": "네일",
+      "teamCode": "HT",
+      "arsenal": [
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 148.3,
+          "usage": 0.321,
+          "count": 809,
+          "opponentAVG": 0.259,
+          "opponentSLG": 0.335
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 134.5,
+          "usage": 0.195,
+          "count": 491,
+          "opponentAVG": 0.154,
+          "opponentSLG": 0.188
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 139.9,
+          "usage": 0.19399999999999998,
+          "count": 489,
+          "opponentAVG": 0.274,
+          "opponentSLG": 0.368
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 134.6,
+          "usage": 0.109,
+          "count": 276,
+          "opponentAVG": 0.177,
+          "opponentSLG": 0.241
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 142.9,
+          "usage": 0.099,
+          "count": 250,
+          "opponentAVG": 0.22,
+          "opponentSLG": 0.24
+        },
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 148.7,
+          "usage": 0.073,
+          "count": 183,
+          "opponentAVG": 0.313,
+          "opponentSLG": 0.396
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 124.3,
+          "usage": 0.009000000000000001,
+          "count": 23,
+          "opponentAVG": 0.25,
+          "opponentSLG": 0.375
+        }
+      ],
+      "discipline": {
+        "Games": 27.0,
+        "Pitches": 2521.0,
+        "StrikeRate": 0.66,
+        "CalledStrikeRate": 0.192,
+        "WhiffPerPitch": 0.098,
+        "CswRate": 0.29,
+        "SwingRate": 0.46799999999999997,
+        "ContactRate": 0.7909999999999999,
+        "WhiffRate": 0.209,
+        "FirstPitchStrikeRate": 0.632,
+        "FirstPitchWhiffRate": 0.051,
+        "PutAwayRate": 0.2,
+        "ZonePitchRate": 0.42200000000000004,
+        "ZoneSwingRate": 0.6759999999999999,
+        "ZoneContactRate": 0.883,
+        "OutZonePitchRate": 0.578,
+        "ChaseRate": 0.316,
+        "OutZoneContactRate": 0.6459999999999999,
+        "HeartPitchRate": 0.079,
+        "HeartSwingRate": 0.7090000000000001,
+        "CalledStrikeouts": 41.0,
+        "SwingingStrikeouts": 110.0,
+        "CalledStrikeoutRate": 0.272
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 193.0,
+        "weightKg": 83.0,
+        "jerseyNumber": "40",
+        "asOf": "2026-09-06"
+      }
+    },
+    "64350": {
+      "id": "64350",
+      "name": "하영민",
+      "teamCode": "WO",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 144.0,
+          "usage": 0.36200000000000004,
+          "count": 906,
+          "opponentAVG": 0.352,
+          "opponentSLG": 0.491
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 132.6,
+          "usage": 0.247,
+          "count": 618,
+          "opponentAVG": 0.215,
+          "opponentSLG": 0.314
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 128.8,
+          "usage": 0.152,
+          "count": 381,
+          "opponentAVG": 0.258,
+          "opponentSLG": 0.371
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 135.8,
+          "usage": 0.131,
+          "count": 329,
+          "opponentAVG": 0.284,
+          "opponentSLG": 0.407
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 122.3,
+          "usage": 0.109,
+          "count": 272,
+          "opponentAVG": 0.186,
+          "opponentSLG": 0.326
+        }
+      ],
+      "discipline": {
+        "Games": 28.0,
+        "Pitches": 2506.0,
+        "StrikeRate": 0.653,
+        "CalledStrikeRate": 0.188,
+        "WhiffPerPitch": 0.10400000000000001,
+        "CswRate": 0.292,
+        "SwingRate": 0.46399999999999997,
+        "ContactRate": 0.7759999999999999,
+        "WhiffRate": 0.22399999999999998,
+        "FirstPitchStrikeRate": 0.607,
+        "FirstPitchWhiffRate": 0.064,
+        "PutAwayRate": 0.193,
+        "ZonePitchRate": 0.408,
+        "ZoneSwingRate": 0.66,
+        "ZoneContactRate": 0.8590000000000001,
+        "OutZonePitchRate": 0.5920000000000001,
+        "ChaseRate": 0.33,
+        "OutZoneContactRate": 0.6609999999999999,
+        "HeartPitchRate": 0.073,
+        "HeartSwingRate": 0.7340000000000001,
+        "CalledStrikeouts": 33.0,
+        "SwingingStrikeouts": 101.0,
+        "CalledStrikeoutRate": 0.24600000000000002
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 183.0,
+        "weightKg": 74.0,
+        "jerseyNumber": "50",
+        "asOf": "2026-09-08"
+      }
+    },
+    "77637": {
+      "id": "77637",
+      "name": "양현종",
+      "teamCode": "HT",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 140.3,
+          "usage": 0.484,
+          "count": 1208,
+          "opponentAVG": 0.33,
+          "opponentSLG": 0.502
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 128.4,
+          "usage": 0.27699999999999997,
+          "count": 691,
+          "opponentAVG": 0.184,
+          "opponentSLG": 0.234
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 128.7,
+          "usage": 0.188,
+          "count": 469,
+          "opponentAVG": 0.36,
+          "opponentSLG": 0.45
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 115.9,
+          "usage": 0.052000000000000005,
+          "count": 129,
+          "opponentAVG": 0.308,
+          "opponentSLG": 0.385
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2497.0,
+        "StrikeRate": 0.638,
+        "CalledStrikeRate": 0.17800000000000002,
+        "WhiffPerPitch": 0.092,
+        "CswRate": 0.27,
+        "SwingRate": 0.46,
+        "ContactRate": 0.8009999999999999,
+        "WhiffRate": 0.19899999999999998,
+        "FirstPitchStrikeRate": 0.614,
+        "FirstPitchWhiffRate": 0.068,
+        "PutAwayRate": 0.162,
+        "ZonePitchRate": 0.406,
+        "ZoneSwingRate": 0.6779999999999999,
+        "ZoneContactRate": 0.879,
+        "OutZonePitchRate": 0.594,
+        "ChaseRate": 0.312,
+        "OutZoneContactRate": 0.684,
+        "HeartPitchRate": 0.073,
+        "HeartSwingRate": 0.716,
+        "CalledStrikeouts": 20.0,
+        "SwingingStrikeouts": 89.0,
+        "CalledStrikeoutRate": 0.183
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 183.0,
+        "weightKg": 91.0,
+        "jerseyNumber": "54",
+        "asOf": "2026-09-11"
+      }
+    },
+    "67143": {
+      "id": "67143",
+      "name": "손주영",
+      "teamCode": "LG",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 146.5,
+          "usage": 0.524,
+          "count": 1309,
+          "opponentAVG": 0.245,
+          "opponentSLG": 0.328
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 121.3,
+          "usage": 0.228,
+          "count": 570,
+          "opponentAVG": 0.258,
+          "opponentSLG": 0.336
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 134.6,
+          "usage": 0.12300000000000001,
+          "count": 308,
+          "opponentAVG": 0.362,
+          "opponentSLG": 0.483
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 136.2,
+          "usage": 0.059000000000000004,
+          "count": 148,
+          "opponentAVG": 0.212,
+          "opponentSLG": 0.303
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 132.9,
+          "usage": 0.057999999999999996,
+          "count": 146,
+          "opponentAVG": 0.314,
+          "opponentSLG": 0.343
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 136.1,
+          "usage": 0.006,
+          "count": 15,
+          "opponentAVG": 0.5,
+          "opponentSLG": 0.5
+        }
+      ],
+      "discipline": {
+        "Games": 30.0,
+        "Pitches": 2496.0,
+        "StrikeRate": 0.6579999999999999,
+        "CalledStrikeRate": 0.19399999999999998,
+        "WhiffPerPitch": 0.091,
+        "CswRate": 0.285,
+        "SwingRate": 0.46399999999999997,
+        "ContactRate": 0.8029999999999999,
+        "WhiffRate": 0.19699999999999998,
+        "FirstPitchStrikeRate": 0.607,
+        "FirstPitchWhiffRate": 0.051,
+        "PutAwayRate": 0.17800000000000002,
+        "ZonePitchRate": 0.42700000000000005,
+        "ZoneSwingRate": 0.6659999999999999,
+        "ZoneContactRate": 0.89,
+        "OutZonePitchRate": 0.573,
+        "ChaseRate": 0.314,
+        "OutZoneContactRate": 0.6659999999999999,
+        "HeartPitchRate": 0.07400000000000001,
+        "HeartSwingRate": 0.741,
+        "CalledStrikeouts": 31.0,
+        "SwingingStrikeouts": 100.0,
+        "CalledStrikeoutRate": 0.237
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 191.0,
+        "weightKg": 95.0,
+        "jerseyNumber": "29",
+        "asOf": "2026-09-05"
+      }
+    },
+    "69446": {
+      "id": "69446",
+      "name": "원태인",
+      "teamCode": "SS",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 146.3,
+          "usage": 0.425,
+          "count": 1059,
+          "opponentAVG": 0.281,
+          "opponentSLG": 0.434
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 134.8,
+          "usage": 0.266,
+          "count": 663,
+          "opponentAVG": 0.232,
+          "opponentSLG": 0.401
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 126.3,
+          "usage": 0.20199999999999999,
+          "count": 504,
+          "opponentAVG": 0.203,
+          "opponentSLG": 0.375
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 122.8,
+          "usage": 0.066,
+          "count": 165,
+          "opponentAVG": 0.306,
+          "opponentSLG": 0.444
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 137.2,
+          "usage": 0.039,
+          "count": 98,
+          "opponentAVG": 0.231,
+          "opponentSLG": 0.269
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 145.8,
+          "usage": 0.002,
+          "count": 4,
+          "opponentAVG": 0.0,
+          "opponentSLG": 0.0
+        }
+      ],
+      "discipline": {
+        "Games": 27.0,
+        "Pitches": 2493.0,
+        "StrikeRate": 0.675,
+        "CalledStrikeRate": 0.18899999999999997,
+        "WhiffPerPitch": 0.09300000000000001,
+        "CswRate": 0.282,
+        "SwingRate": 0.486,
+        "ContactRate": 0.8079999999999999,
+        "WhiffRate": 0.192,
+        "FirstPitchStrikeRate": 0.672,
+        "FirstPitchWhiffRate": 0.065,
+        "PutAwayRate": 0.14300000000000002,
+        "ZonePitchRate": 0.424,
+        "ZoneSwingRate": 0.6809999999999999,
+        "ZoneContactRate": 0.892,
+        "OutZonePitchRate": 0.5760000000000001,
+        "ChaseRate": 0.34299999999999997,
+        "OutZoneContactRate": 0.6859999999999999,
+        "HeartPitchRate": 0.07400000000000001,
+        "HeartSwingRate": 0.757,
+        "CalledStrikeouts": 26.0,
+        "SwingingStrikeouts": 82.0,
+        "CalledStrikeoutRate": 0.24100000000000002
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 183.0,
+        "weightKg": 92.0,
+        "jerseyNumber": "18",
+        "asOf": "2026-09-09"
+      }
+    },
+    "55633": {
+      "id": "55633",
+      "name": "올러",
+      "teamCode": "HT",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 150.0,
+          "usage": 0.408,
+          "count": 1015,
+          "opponentAVG": 0.271,
+          "opponentSLG": 0.419
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 136.0,
+          "usage": 0.265,
+          "count": 660,
+          "opponentAVG": 0.131,
+          "opponentSLG": 0.181
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 139.8,
+          "usage": 0.124,
+          "count": 310,
+          "opponentAVG": 0.155,
+          "opponentSLG": 0.169
+        },
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 149.5,
+          "usage": 0.084,
+          "count": 210,
+          "opponentAVG": 0.339,
+          "opponentSLG": 0.492
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 129.0,
+          "usage": 0.064,
+          "count": 160,
+          "opponentAVG": 0.375,
+          "opponentSLG": 0.458
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "sourceType": "Other",
+          "velocityKmh": 135.5,
+          "usage": 0.052000000000000005,
+          "count": 130,
+          "opponentAVG": 0.207,
+          "opponentSLG": 0.241
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 142.8,
+          "usage": 0.002,
+          "count": 5,
+          "opponentAVG": 1.0,
+          "opponentSLG": 4.0
+        }
+      ],
+      "discipline": {
+        "Games": 26.0,
+        "Pitches": 2490.0,
+        "StrikeRate": 0.643,
+        "CalledStrikeRate": 0.19899999999999998,
+        "WhiffPerPitch": 0.105,
+        "CswRate": 0.304,
+        "SwingRate": 0.444,
+        "ContactRate": 0.763,
+        "WhiffRate": 0.237,
+        "FirstPitchStrikeRate": 0.636,
+        "FirstPitchWhiffRate": 0.052000000000000005,
+        "PutAwayRate": 0.214,
+        "ZonePitchRate": 0.406,
+        "ZoneSwingRate": 0.653,
+        "ZoneContactRate": 0.853,
+        "OutZonePitchRate": 0.594,
+        "ChaseRate": 0.301,
+        "OutZoneContactRate": 0.629,
+        "HeartPitchRate": 0.078,
+        "HeartSwingRate": 0.701,
+        "CalledStrikeouts": 49.0,
+        "SwingingStrikeouts": 119.0,
+        "CalledStrikeoutRate": 0.292
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 193.0,
+        "weightKg": 102.0,
+        "jerseyNumber": "33",
+        "asOf": "2026-09-10"
+      }
+    },
+    "61101": {
+      "id": "61101",
+      "name": "임찬규",
+      "teamCode": "LG",
+      "arsenal": [
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 140.0,
+          "usage": 0.341,
+          "count": 848,
+          "opponentAVG": 0.322,
+          "opponentSLG": 0.446
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 110.4,
+          "usage": 0.287,
+          "count": 714,
+          "opponentAVG": 0.244,
+          "opponentSLG": 0.333
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 126.8,
+          "usage": 0.263,
+          "count": 656,
+          "opponentAVG": 0.23,
+          "opponentSLG": 0.346
+        },
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 131.7,
+          "usage": 0.1,
+          "count": 250,
+          "opponentAVG": 0.242,
+          "opponentSLG": 0.403
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 131.9,
+          "usage": 0.009000000000000001,
+          "count": 22,
+          "opponentAVG": 0.25,
+          "opponentSLG": 0.25
+        }
+      ],
+      "discipline": {
+        "Games": 27.0,
+        "Pitches": 2490.0,
+        "StrikeRate": 0.664,
+        "CalledStrikeRate": 0.21,
+        "WhiffPerPitch": 0.083,
+        "CswRate": 0.293,
+        "SwingRate": 0.45399999999999996,
+        "ContactRate": 0.8170000000000001,
+        "WhiffRate": 0.183,
+        "FirstPitchStrikeRate": 0.62,
+        "FirstPitchWhiffRate": 0.045,
+        "PutAwayRate": 0.16,
+        "ZonePitchRate": 0.425,
+        "ZoneSwingRate": 0.627,
+        "ZoneContactRate": 0.885,
+        "OutZonePitchRate": 0.575,
+        "ChaseRate": 0.327,
+        "OutZoneContactRate": 0.72,
+        "HeartPitchRate": 0.076,
+        "HeartSwingRate": 0.6890000000000001,
+        "CalledStrikeouts": 27.0,
+        "SwingingStrikeouts": 80.0,
+        "CalledStrikeoutRate": 0.252
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 185.0,
+        "weightKg": 80.0,
+        "jerseyNumber": "1",
+        "asOf": "2026-09-06"
+      }
+    },
+    "77829": {
+      "id": "77829",
+      "name": "김광현",
+      "teamCode": "SK",
+      "arsenal": [
+        {
+          "key": "slider",
+          "label": "슬라이더",
+          "sourceType": "Slider",
+          "velocityKmh": 134.3,
+          "usage": 0.373,
+          "count": 914,
+          "opponentAVG": 0.268,
+          "opponentSLG": 0.394
+        },
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 144.1,
+          "usage": 0.302,
+          "count": 741,
+          "opponentAVG": 0.297,
+          "opponentSLG": 0.407
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 131.4,
+          "usage": 0.168,
+          "count": 411,
+          "opponentAVG": 0.372,
+          "opponentSLG": 0.513
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 114.3,
+          "usage": 0.151,
+          "count": 371,
+          "opponentAVG": 0.247,
+          "opponentSLG": 0.36
+        },
+        {
+          "key": "forkball",
+          "label": "포크",
+          "sourceType": "Forkball",
+          "velocityKmh": 118.8,
+          "usage": 0.006999999999999999,
+          "count": 16,
+          "opponentAVG": 0.0,
+          "opponentSLG": 0.0
+        }
+      ],
+      "discipline": {
+        "Games": 28.0,
+        "Pitches": 2453.0,
+        "StrikeRate": 0.6409999999999999,
+        "CalledStrikeRate": 0.182,
+        "WhiffPerPitch": 0.11900000000000001,
+        "CswRate": 0.301,
+        "SwingRate": 0.45899999999999996,
+        "ContactRate": 0.74,
+        "WhiffRate": 0.26,
+        "FirstPitchStrikeRate": 0.62,
+        "FirstPitchWhiffRate": 0.057999999999999996,
+        "PutAwayRate": 0.19699999999999998,
+        "ZonePitchRate": 0.396,
+        "ZoneSwingRate": 0.664,
+        "ZoneContactRate": 0.8590000000000001,
+        "OutZonePitchRate": 0.604,
+        "ChaseRate": 0.325,
+        "OutZoneContactRate": 0.581,
+        "HeartPitchRate": 0.07,
+        "HeartSwingRate": 0.715,
+        "CalledStrikeouts": 24.0,
+        "SwingingStrikeouts": 114.0,
+        "CalledStrikeoutRate": 0.174
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 188.0,
+        "weightKg": 88.0,
+        "jerseyNumber": "29",
+        "asOf": "2025-10-14"
+      }
+    },
+    "50030": {
+      "id": "50030",
+      "name": "소형준",
+      "teamCode": "KT",
+      "arsenal": [
+        {
+          "key": "twoSeam",
+          "label": "투심",
+          "sourceType": "TwoSeam",
+          "velocityKmh": 145.1,
+          "usage": 0.51,
+          "count": 1127,
+          "opponentAVG": 0.278,
+          "opponentSLG": 0.343
+        },
+        {
+          "key": "cutter",
+          "label": "커터",
+          "sourceType": "Cutter",
+          "velocityKmh": 139.1,
+          "usage": 0.273,
+          "count": 604,
+          "opponentAVG": 0.252,
+          "opponentSLG": 0.339
+        },
+        {
+          "key": "changeup",
+          "label": "체인지업",
+          "sourceType": "Changeup",
+          "velocityKmh": 131.9,
+          "usage": 0.18,
+          "count": 398,
+          "opponentAVG": 0.25,
+          "opponentSLG": 0.417
+        },
+        {
+          "key": "curve",
+          "label": "커브",
+          "sourceType": "Curve",
+          "velocityKmh": 123.8,
+          "usage": 0.035,
+          "count": 78,
+          "opponentAVG": 0.259,
+          "opponentSLG": 0.259
+        },
+        {
+          "key": "fastball",
+          "label": "직구",
+          "sourceType": "FourSeam",
+          "velocityKmh": 148.0,
+          "usage": 0.001,
+          "count": 2,
+          "opponentAVG": 1.0,
+          "opponentSLG": 1.0
+        }
+      ],
+      "discipline": {
+        "Games": 26.0,
+        "Pitches": 2209.0,
+        "StrikeRate": 0.6970000000000001,
+        "CalledStrikeRate": 0.19899999999999998,
+        "WhiffPerPitch": 0.099,
+        "CswRate": 0.297,
+        "SwingRate": 0.498,
+        "ContactRate": 0.802,
+        "WhiffRate": 0.198,
+        "FirstPitchStrikeRate": 0.674,
+        "FirstPitchWhiffRate": 0.067,
+        "PutAwayRate": 0.184,
+        "ZonePitchRate": 0.467,
+        "ZoneSwingRate": 0.688,
+        "ZoneContactRate": 0.885,
+        "OutZonePitchRate": 0.5329999999999999,
+        "ChaseRate": 0.331,
+        "OutZoneContactRate": 0.6509999999999999,
+        "HeartPitchRate": 0.08,
+        "HeartSwingRate": 0.831,
+        "CalledStrikeouts": 46.0,
+        "SwingingStrikeouts": 76.0,
+        "CalledStrikeoutRate": 0.377
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 189.0,
+        "weightKg": 92.0,
+        "jerseyNumber": "30",
+        "asOf": "2026-09-08"
+      }
+    }
+  },
+  "batters": {
+    "69636": {
+      "id": "69636",
+      "name": "오선우",
+      "teamCode": "HT",
+      "discipline": {
+        "PA": 474.0,
+        "Pitches": 1930.0,
+        "PitchesPerPa": 4.07,
+        "SwingRate": 0.495,
+        "ContactRate": 0.64,
+        "WhiffRate": 0.36,
+        "CswRate": 0.33399999999999996,
+        "ZoneSwingRate": 0.7,
+        "ChaseRate": 0.373,
+        "ZoneContactRate": 0.768,
+        "OutZoneContactRate": 0.49700000000000005,
+        "FirstPitchSwingRate": 0.32299999999999995
+      }
+    },
+    "67893": {
+      "id": "67893",
+      "name": "박성한",
+      "teamCode": "SK",
+      "discipline": {
+        "PA": 538.0,
+        "Pitches": 2436.0,
+        "PitchesPerPa": 4.53,
+        "SwingRate": 0.32799999999999996,
+        "ContactRate": 0.8590000000000001,
+        "WhiffRate": 0.141,
+        "CswRate": 0.32299999999999995,
+        "ZoneSwingRate": 0.501,
+        "ChaseRate": 0.204,
+        "ZoneContactRate": 0.9470000000000001,
+        "OutZoneContactRate": 0.7020000000000001,
+        "FirstPitchSwingRate": 0.037000000000000005
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 180.0,
+        "weightKg": 77.0,
+        "jerseyNumber": "2",
+        "asOf": "2026-09-11"
+      }
+    },
+    "62895": {
+      "id": "62895",
+      "name": "한유섬",
+      "teamCode": "SK",
+      "discipline": {
+        "PA": 511.0,
+        "Pitches": 2021.0,
+        "PitchesPerPa": 3.95,
+        "SwingRate": 0.441,
+        "ContactRate": 0.74,
+        "WhiffRate": 0.26,
+        "CswRate": 0.304,
+        "ZoneSwingRate": 0.65,
+        "ChaseRate": 0.308,
+        "ZoneContactRate": 0.83,
+        "OutZoneContactRate": 0.618,
+        "FirstPitchSwingRate": 0.233
+      }
+    },
+    "55645": {
+      "id": "55645",
+      "name": "위즈덤",
+      "teamCode": "HT",
+      "discipline": {
+        "PA": 486.0,
+        "Pitches": 2140.0,
+        "PitchesPerPa": 4.4,
+        "SwingRate": 0.436,
+        "ContactRate": 0.713,
+        "WhiffRate": 0.287,
+        "CswRate": 0.302,
+        "ZoneSwingRate": 0.675,
+        "ChaseRate": 0.284,
+        "ZoneContactRate": 0.792,
+        "OutZoneContactRate": 0.594,
+        "FirstPitchSwingRate": 0.233
+      }
+    },
+    "79240": {
+      "id": "79240",
+      "name": "허경민",
+      "teamCode": "KT",
+      "discipline": {
+        "PA": 481.0,
+        "Pitches": 1865.0,
+        "PitchesPerPa": 3.88,
+        "SwingRate": 0.374,
+        "ContactRate": 0.905,
+        "WhiffRate": 0.095,
+        "CswRate": 0.301,
+        "ZoneSwingRate": 0.521,
+        "ChaseRate": 0.261,
+        "ZoneContactRate": 0.9670000000000001,
+        "OutZoneContactRate": 0.8109999999999999,
+        "FirstPitchSwingRate": 0.067
+      }
+    },
+    "52430": {
+      "id": "52430",
+      "name": "김영웅",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 499.0,
+        "Pitches": 1980.0,
+        "PitchesPerPa": 3.97,
+        "SwingRate": 0.503,
+        "ContactRate": 0.6859999999999999,
+        "WhiffRate": 0.314,
+        "CswRate": 0.3,
+        "ZoneSwingRate": 0.716,
+        "ChaseRate": 0.377,
+        "ZoneContactRate": 0.787,
+        "OutZoneContactRate": 0.5710000000000001,
+        "FirstPitchSwingRate": 0.386
+      }
+    },
+    "63963": {
+      "id": "63963",
+      "name": "권희동",
+      "teamCode": "NC",
+      "discipline": {
+        "PA": 456.0,
+        "Pitches": 2042.0,
+        "PitchesPerPa": 4.48,
+        "SwingRate": 0.35100000000000003,
+        "ContactRate": 0.862,
+        "WhiffRate": 0.138,
+        "CswRate": 0.3,
+        "ZoneSwingRate": 0.568,
+        "ChaseRate": 0.188,
+        "ZoneContactRate": 0.884,
+        "OutZoneContactRate": 0.813,
+        "FirstPitchSwingRate": 0.105
+      }
+    },
+    "78548": {
+      "id": "78548",
+      "name": "장성우",
+      "teamCode": "KT",
+      "discipline": {
+        "PA": 480.0,
+        "Pitches": 1927.0,
+        "PitchesPerPa": 4.01,
+        "SwingRate": 0.37799999999999995,
+        "ContactRate": 0.8009999999999999,
+        "WhiffRate": 0.19899999999999998,
+        "CswRate": 0.295,
+        "ZoneSwingRate": 0.588,
+        "ChaseRate": 0.22899999999999998,
+        "ZoneContactRate": 0.87,
+        "OutZoneContactRate": 0.6779999999999999,
+        "FirstPitchSwingRate": 0.217
+      }
+    },
+    "69517": {
+      "id": "69517",
+      "name": "고승민",
+      "teamCode": "LT",
+      "discipline": {
+        "PA": 538.0,
+        "Pitches": 2152.0,
+        "PitchesPerPa": 4.0,
+        "SwingRate": 0.4,
+        "ContactRate": 0.843,
+        "WhiffRate": 0.157,
+        "CswRate": 0.28800000000000003,
+        "ZoneSwingRate": 0.594,
+        "ChaseRate": 0.259,
+        "ZoneContactRate": 0.91,
+        "OutZoneContactRate": 0.731,
+        "FirstPitchSwingRate": 0.156
+      }
+    },
+    "79109": {
+      "id": "79109",
+      "name": "오지환",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 472.0,
+        "Pitches": 1980.0,
+        "PitchesPerPa": 4.19,
+        "SwingRate": 0.469,
+        "ContactRate": 0.722,
+        "WhiffRate": 0.278,
+        "CswRate": 0.28600000000000003,
+        "ZoneSwingRate": 0.727,
+        "ChaseRate": 0.298,
+        "ZoneContactRate": 0.8059999999999999,
+        "OutZoneContactRate": 0.586,
+        "FirstPitchSwingRate": 0.287
+      }
+    },
+    "52001": {
+      "id": "52001",
+      "name": "안현민",
+      "teamCode": "KT",
+      "discipline": {
+        "PA": 482.0,
+        "Pitches": 2026.0,
+        "PitchesPerPa": 4.2,
+        "SwingRate": 0.36700000000000005,
+        "ContactRate": 0.8440000000000001,
+        "WhiffRate": 0.156,
+        "CswRate": 0.285,
+        "ZoneSwingRate": 0.551,
+        "ChaseRate": 0.257,
+        "ZoneContactRate": 0.9,
+        "OutZoneContactRate": 0.773,
+        "FirstPitchSwingRate": 0.132
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 183.0,
+        "weightKg": 90.0,
+        "jerseyNumber": "23",
+        "asOf": "2026-09-11"
+      }
+    },
+    "50167": {
+      "id": "50167",
+      "name": "이주형",
+      "teamCode": "WO",
+      "discipline": {
+        "PA": 514.0,
+        "Pitches": 1924.0,
+        "PitchesPerPa": 3.74,
+        "SwingRate": 0.486,
+        "ContactRate": 0.737,
+        "WhiffRate": 0.263,
+        "CswRate": 0.28300000000000003,
+        "ZoneSwingRate": 0.737,
+        "ChaseRate": 0.327,
+        "ZoneContactRate": 0.8109999999999999,
+        "OutZoneContactRate": 0.631,
+        "FirstPitchSwingRate": 0.397
+      }
+    },
+    "51344": {
+      "id": "51344",
+      "name": "김휘집",
+      "teamCode": "NC",
+      "discipline": {
+        "PA": 501.0,
+        "Pitches": 1960.0,
+        "PitchesPerPa": 3.91,
+        "SwingRate": 0.419,
+        "ContactRate": 0.81,
+        "WhiffRate": 0.19,
+        "CswRate": 0.28300000000000003,
+        "ZoneSwingRate": 0.619,
+        "ChaseRate": 0.289,
+        "ZoneContactRate": 0.904,
+        "OutZoneContactRate": 0.6779999999999999,
+        "FirstPitchSwingRate": 0.262
+      }
+    },
+    "62415": {
+      "id": "62415",
+      "name": "박해민",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 544.0,
+        "Pitches": 2162.0,
+        "PitchesPerPa": 3.97,
+        "SwingRate": 0.42,
+        "ContactRate": 0.835,
+        "WhiffRate": 0.165,
+        "CswRate": 0.28,
+        "ZoneSwingRate": 0.626,
+        "ChaseRate": 0.27,
+        "ZoneContactRate": 0.888,
+        "OutZoneContactRate": 0.746,
+        "FirstPitchSwingRate": 0.27399999999999997
+      }
+    },
+    "64646": {
+      "id": "64646",
+      "name": "박찬호",
+      "teamCode": "HT",
+      "discipline": {
+        "PA": 595.0,
+        "Pitches": 2303.0,
+        "PitchesPerPa": 3.87,
+        "SwingRate": 0.425,
+        "ContactRate": 0.852,
+        "WhiffRate": 0.14800000000000002,
+        "CswRate": 0.27899999999999997,
+        "ZoneSwingRate": 0.615,
+        "ChaseRate": 0.284,
+        "ZoneContactRate": 0.925,
+        "OutZoneContactRate": 0.733,
+        "FirstPitchSwingRate": 0.247
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 178.0,
+        "weightKg": 72.0,
+        "jerseyNumber": "7",
+        "asOf": "2026-09-10"
+      }
+    },
+    "79365": {
+      "id": "79365",
+      "name": "박동원",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 523.0,
+        "Pitches": 2035.0,
+        "PitchesPerPa": 3.89,
+        "SwingRate": 0.47700000000000004,
+        "ContactRate": 0.698,
+        "WhiffRate": 0.302,
+        "CswRate": 0.278,
+        "ZoneSwingRate": 0.755,
+        "ChaseRate": 0.322,
+        "ZoneContactRate": 0.831,
+        "OutZoneContactRate": 0.524,
+        "FirstPitchSwingRate": 0.424
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 178.0,
+        "weightKg": 92.0,
+        "jerseyNumber": "27",
+        "asOf": "2026-09-08"
+      }
+    },
+    "52415": {
+      "id": "52415",
+      "name": "이재현",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 555.0,
+        "Pitches": 2432.0,
+        "PitchesPerPa": 4.38,
+        "SwingRate": 0.39299999999999996,
+        "ContactRate": 0.809,
+        "WhiffRate": 0.191,
+        "CswRate": 0.278,
+        "ZoneSwingRate": 0.638,
+        "ChaseRate": 0.22899999999999998,
+        "ZoneContactRate": 0.878,
+        "OutZoneContactRate": 0.679,
+        "FirstPitchSwingRate": 0.162
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 180.0,
+        "weightKg": 82.0,
+        "jerseyNumber": "7",
+        "asOf": "2026-09-11"
+      }
+    },
+    "50854": {
+      "id": "50854",
+      "name": "최지훈",
+      "teamCode": "SK",
+      "discipline": {
+        "PA": 574.0,
+        "Pitches": 2252.0,
+        "PitchesPerPa": 3.92,
+        "SwingRate": 0.442,
+        "ContactRate": 0.8420000000000001,
+        "WhiffRate": 0.158,
+        "CswRate": 0.27699999999999997,
+        "ZoneSwingRate": 0.617,
+        "ChaseRate": 0.32299999999999995,
+        "ZoneContactRate": 0.92,
+        "OutZoneContactRate": 0.74,
+        "FirstPitchSwingRate": 0.21100000000000002
+      }
+    },
+    "51907": {
+      "id": "51907",
+      "name": "김주원",
+      "teamCode": "NC",
+      "discipline": {
+        "PA": 624.0,
+        "Pitches": 2465.0,
+        "PitchesPerPa": 3.95,
+        "SwingRate": 0.43,
+        "ContactRate": 0.812,
+        "WhiffRate": 0.188,
+        "CswRate": 0.276,
+        "ZoneSwingRate": 0.682,
+        "ChaseRate": 0.272,
+        "ZoneContactRate": 0.9059999999999999,
+        "OutZoneContactRate": 0.6629999999999999,
+        "FirstPitchSwingRate": 0.24600000000000002
+      },
+      "profile": {
+        "batsThrows": "우투양타",
+        "heightCm": 185.0,
+        "weightKg": 83.0,
+        "jerseyNumber": "7",
+        "asOf": "2026-09-11"
+      }
+    },
+    "69102": {
+      "id": "69102",
+      "name": "문보경",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 607.0,
+        "Pitches": 2507.0,
+        "PitchesPerPa": 4.13,
+        "SwingRate": 0.41,
+        "ContactRate": 0.7809999999999999,
+        "WhiffRate": 0.21899999999999997,
+        "CswRate": 0.275,
+        "ZoneSwingRate": 0.6709999999999999,
+        "ChaseRate": 0.248,
+        "ZoneContactRate": 0.873,
+        "OutZoneContactRate": 0.627,
+        "FirstPitchSwingRate": 0.336
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 182.0,
+        "weightKg": 88.0,
+        "jerseyNumber": "2",
+        "asOf": "2026-09-09"
+      }
+    },
+    "79192": {
+      "id": "79192",
+      "name": "채은성",
+      "teamCode": "HH",
+      "discipline": {
+        "PA": 527.0,
+        "Pitches": 1966.0,
+        "PitchesPerPa": 3.73,
+        "SwingRate": 0.516,
+        "ContactRate": 0.78,
+        "WhiffRate": 0.22,
+        "CswRate": 0.272,
+        "ZoneSwingRate": 0.684,
+        "ChaseRate": 0.415,
+        "ZoneContactRate": 0.8740000000000001,
+        "OutZoneContactRate": 0.6859999999999999,
+        "FirstPitchSwingRate": 0.217
+      }
+    },
+    "51868": {
+      "id": "51868",
+      "name": "고명준",
+      "teamCode": "SK",
+      "discipline": {
+        "PA": 500.0,
+        "Pitches": 1689.0,
+        "PitchesPerPa": 3.38,
+        "SwingRate": 0.525,
+        "ContactRate": 0.77,
+        "WhiffRate": 0.23,
+        "CswRate": 0.271,
+        "ZoneSwingRate": 0.726,
+        "ChaseRate": 0.38799999999999996,
+        "ZoneContactRate": 0.883,
+        "OutZoneContactRate": 0.626,
+        "FirstPitchSwingRate": 0.364
+      }
+    },
+    "74540": {
+      "id": "74540",
+      "name": "강민호",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 465.0,
+        "Pitches": 1681.0,
+        "PitchesPerPa": 3.62,
+        "SwingRate": 0.45899999999999996,
+        "ContactRate": 0.7929999999999999,
+        "WhiffRate": 0.207,
+        "CswRate": 0.26899999999999996,
+        "ZoneSwingRate": 0.691,
+        "ChaseRate": 0.307,
+        "ZoneContactRate": 0.88,
+        "OutZoneContactRate": 0.6659999999999999,
+        "FirstPitchSwingRate": 0.299
+      }
+    },
+    "55208": {
+      "id": "55208",
+      "name": "케이브",
+      "teamCode": "OB",
+      "discipline": {
+        "PA": 593.0,
+        "Pitches": 2244.0,
+        "PitchesPerPa": 3.78,
+        "SwingRate": 0.488,
+        "ContactRate": 0.768,
+        "WhiffRate": 0.23199999999999998,
+        "CswRate": 0.26899999999999996,
+        "ZoneSwingRate": 0.6859999999999999,
+        "ChaseRate": 0.373,
+        "ZoneContactRate": 0.907,
+        "OutZoneContactRate": 0.618,
+        "FirstPitchSwingRate": 0.231
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 183.0,
+        "weightKg": 90.0,
+        "jerseyNumber": "8",
+        "asOf": "2025-09-30"
+      }
+    },
+    "65357": {
+      "id": "65357",
+      "name": "송성문",
+      "teamCode": "WO",
+      "discipline": {
+        "PA": 646.0,
+        "Pitches": 2450.0,
+        "PitchesPerPa": 3.79,
+        "SwingRate": 0.425,
+        "ContactRate": 0.807,
+        "WhiffRate": 0.193,
+        "CswRate": 0.268,
+        "ZoneSwingRate": 0.6659999999999999,
+        "ChaseRate": 0.261,
+        "ZoneContactRate": 0.9079999999999999,
+        "OutZoneContactRate": 0.633,
+        "FirstPitchSwingRate": 0.248
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 183.0,
+        "weightKg": 88.0,
+        "jerseyNumber": "24",
+        "asOf": "2025-09-30"
+      }
+    },
+    "54400": {
+      "id": "54400",
+      "name": "디아즈",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 628.0,
+        "Pitches": 2400.0,
+        "PitchesPerPa": 3.82,
+        "SwingRate": 0.452,
+        "ContactRate": 0.804,
+        "WhiffRate": 0.196,
+        "CswRate": 0.267,
+        "ZoneSwingRate": 0.633,
+        "ChaseRate": 0.341,
+        "ZoneContactRate": 0.889,
+        "OutZoneContactRate": 0.7070000000000001,
+        "FirstPitchSwingRate": 0.188
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 188.0,
+        "weightKg": 105.0,
+        "jerseyNumber": "0",
+        "asOf": "2026-09-11"
+      }
+    },
+    "62234": {
+      "id": "62234",
+      "name": "류지혁",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 464.0,
+        "Pitches": 1780.0,
+        "PitchesPerPa": 3.84,
+        "SwingRate": 0.442,
+        "ContactRate": 0.85,
+        "WhiffRate": 0.15,
+        "CswRate": 0.265,
+        "ZoneSwingRate": 0.6679999999999999,
+        "ChaseRate": 0.28300000000000003,
+        "ZoneContactRate": 0.9329999999999999,
+        "OutZoneContactRate": 0.713,
+        "FirstPitchSwingRate": 0.28800000000000003
+      }
+    },
+    "79231": {
+      "id": "79231",
+      "name": "정수빈",
+      "teamCode": "OB",
+      "discipline": {
+        "PA": 546.0,
+        "Pitches": 2168.0,
+        "PitchesPerPa": 3.97,
+        "SwingRate": 0.40700000000000003,
+        "ContactRate": 0.878,
+        "WhiffRate": 0.122,
+        "CswRate": 0.265,
+        "ZoneSwingRate": 0.637,
+        "ChaseRate": 0.24100000000000002,
+        "ZoneContactRate": 0.9259999999999999,
+        "OutZoneContactRate": 0.7859999999999999,
+        "FirstPitchSwingRate": 0.177
+      }
+    },
+    "62404": {
+      "id": "62404",
+      "name": "구자욱",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 616.0,
+        "Pitches": 2508.0,
+        "PitchesPerPa": 4.07,
+        "SwingRate": 0.42,
+        "ContactRate": 0.823,
+        "WhiffRate": 0.177,
+        "CswRate": 0.26,
+        "ZoneSwingRate": 0.636,
+        "ChaseRate": 0.281,
+        "ZoneContactRate": 0.904,
+        "OutZoneContactRate": 0.706,
+        "FirstPitchSwingRate": 0.257
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 189.0,
+        "weightKg": 75.0,
+        "jerseyNumber": "5",
+        "asOf": "2026-09-11"
+      }
+    },
+    "76290": {
+      "id": "76290",
+      "name": "김현수",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 552.0,
+        "Pitches": 2152.0,
+        "PitchesPerPa": 3.9,
+        "SwingRate": 0.40299999999999997,
+        "ContactRate": 0.84,
+        "WhiffRate": 0.16,
+        "CswRate": 0.26,
+        "ZoneSwingRate": 0.665,
+        "ChaseRate": 0.231,
+        "ZoneContactRate": 0.91,
+        "OutZoneContactRate": 0.708,
+        "FirstPitchSwingRate": 0.17600000000000002
+      }
+    },
+    "72443": {
+      "id": "72443",
+      "name": "최형우",
+      "teamCode": "HT",
+      "discipline": {
+        "PA": 549.0,
+        "Pitches": 2194.0,
+        "PitchesPerPa": 4.0,
+        "SwingRate": 0.465,
+        "ContactRate": 0.768,
+        "WhiffRate": 0.23199999999999998,
+        "CswRate": 0.258,
+        "ZoneSwingRate": 0.727,
+        "ChaseRate": 0.294,
+        "ZoneContactRate": 0.857,
+        "OutZoneContactRate": 0.624,
+        "FirstPitchSwingRate": 0.313
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 180.0,
+        "weightKg": 106.0,
+        "jerseyNumber": "34",
+        "asOf": "2026-09-11"
+      }
+    },
+    "62907": {
+      "id": "62907",
+      "name": "박민우",
+      "teamCode": "NC",
+      "discipline": {
+        "PA": 468.0,
+        "Pitches": 1721.0,
+        "PitchesPerPa": 3.68,
+        "SwingRate": 0.45,
+        "ContactRate": 0.851,
+        "WhiffRate": 0.149,
+        "CswRate": 0.253,
+        "ZoneSwingRate": 0.674,
+        "ChaseRate": 0.299,
+        "ZoneContactRate": 0.948,
+        "OutZoneContactRate": 0.705,
+        "FirstPitchSwingRate": 0.253
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 185.0,
+        "weightKg": 80.0,
+        "jerseyNumber": "2",
+        "asOf": "2026-09-11"
+      }
+    },
+    "78513": {
+      "id": "78513",
+      "name": "전준우",
+      "teamCode": "LT",
+      "discipline": {
+        "PA": 472.0,
+        "Pitches": 1746.0,
+        "PitchesPerPa": 3.7,
+        "SwingRate": 0.473,
+        "ContactRate": 0.7879999999999999,
+        "WhiffRate": 0.212,
+        "CswRate": 0.25,
+        "ZoneSwingRate": 0.722,
+        "ChaseRate": 0.314,
+        "ZoneContactRate": 0.8859999999999999,
+        "OutZoneContactRate": 0.644,
+        "FirstPitchSwingRate": 0.282
+      }
+    },
+    "69737": {
+      "id": "69737",
+      "name": "노시환",
+      "teamCode": "HH",
+      "discipline": {
+        "PA": 624.0,
+        "Pitches": 2476.0,
+        "PitchesPerPa": 3.97,
+        "SwingRate": 0.47700000000000004,
+        "ContactRate": 0.784,
+        "WhiffRate": 0.21600000000000003,
+        "CswRate": 0.25,
+        "ZoneSwingRate": 0.74,
+        "ChaseRate": 0.309,
+        "ZoneContactRate": 0.858,
+        "OutZoneContactRate": 0.67,
+        "FirstPitchSwingRate": 0.28600000000000003
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 185.0,
+        "weightKg": 105.0,
+        "jerseyNumber": "8",
+        "asOf": "2026-09-11"
+      }
+    },
+    "53764": {
+      "id": "53764",
+      "name": "문현빈",
+      "teamCode": "HH",
+      "discipline": {
+        "PA": 592.0,
+        "Pitches": 2145.0,
+        "PitchesPerPa": 3.62,
+        "SwingRate": 0.49700000000000005,
+        "ContactRate": 0.8190000000000001,
+        "WhiffRate": 0.18100000000000002,
+        "CswRate": 0.242,
+        "ZoneSwingRate": 0.721,
+        "ChaseRate": 0.35100000000000003,
+        "ZoneContactRate": 0.9079999999999999,
+        "OutZoneContactRate": 0.6990000000000001,
+        "FirstPitchSwingRate": 0.316
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 174.0,
+        "weightKg": 82.0,
+        "jerseyNumber": "51",
+        "asOf": "2026-09-11"
+      }
+    },
+    "76267": {
+      "id": "76267",
+      "name": "최주환",
+      "teamCode": "WO",
+      "discipline": {
+        "PA": 506.0,
+        "Pitches": 2056.0,
+        "PitchesPerPa": 4.06,
+        "SwingRate": 0.45299999999999996,
+        "ContactRate": 0.873,
+        "WhiffRate": 0.127,
+        "CswRate": 0.24,
+        "ZoneSwingRate": 0.645,
+        "ChaseRate": 0.337,
+        "ZoneContactRate": 0.93,
+        "OutZoneContactRate": 0.807,
+        "FirstPitchSwingRate": 0.185
+      }
+    },
+    "53123": {
+      "id": "53123",
+      "name": "오스틴",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 499.0,
+        "Pitches": 1892.0,
+        "PitchesPerPa": 3.79,
+        "SwingRate": 0.423,
+        "ContactRate": 0.871,
+        "WhiffRate": 0.129,
+        "CswRate": 0.23600000000000002,
+        "ZoneSwingRate": 0.621,
+        "ChaseRate": 0.303,
+        "ZoneContactRate": 0.95,
+        "OutZoneContactRate": 0.773,
+        "FirstPitchSwingRate": 0.201
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 183.0,
+        "weightKg": 97.0,
+        "jerseyNumber": "23",
+        "asOf": "2026-09-09"
+      }
+    },
+    "68119": {
+      "id": "68119",
+      "name": "문성주",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 542.0,
+        "Pitches": 2045.0,
+        "PitchesPerPa": 3.77,
+        "SwingRate": 0.42,
+        "ContactRate": 0.885,
+        "WhiffRate": 0.115,
+        "CswRate": 0.23600000000000002,
+        "ZoneSwingRate": 0.6729999999999999,
+        "ChaseRate": 0.247,
+        "ZoneContactRate": 0.937,
+        "OutZoneContactRate": 0.787,
+        "FirstPitchSwingRate": 0.275
+      }
+    },
+    "54529": {
+      "id": "54529",
+      "name": "레이예스",
+      "teamCode": "LT",
+      "discipline": {
+        "PA": 643.0,
+        "Pitches": 2317.0,
+        "PitchesPerPa": 3.6,
+        "SwingRate": 0.534,
+        "ContactRate": 0.8390000000000001,
+        "WhiffRate": 0.161,
+        "CswRate": 0.228,
+        "ZoneSwingRate": 0.731,
+        "ChaseRate": 0.41100000000000003,
+        "ZoneContactRate": 0.883,
+        "OutZoneContactRate": 0.79,
+        "FirstPitchSwingRate": 0.24100000000000002
+      },
+      "profile": {
+        "batsThrows": "우투양타",
+        "heightCm": 196.0,
+        "weightKg": 87.0,
+        "jerseyNumber": "29",
+        "asOf": "2026-09-11"
+      }
+    },
+    "76232": {
+      "id": "76232",
+      "name": "양의지",
+      "teamCode": "OB",
+      "discipline": {
+        "PA": 517.0,
+        "Pitches": 1923.0,
+        "PitchesPerPa": 3.72,
+        "SwingRate": 0.469,
+        "ContactRate": 0.858,
+        "WhiffRate": 0.142,
+        "CswRate": 0.22699999999999998,
+        "ZoneSwingRate": 0.701,
+        "ChaseRate": 0.32,
+        "ZoneContactRate": 0.92,
+        "OutZoneContactRate": 0.77,
+        "FirstPitchSwingRate": 0.292
+      },
+      "profile": {
+        "batsThrows": "우투우타",
+        "heightCm": 180.0,
+        "weightKg": 95.0,
+        "jerseyNumber": "25",
+        "asOf": "2026-09-10"
+      }
+    },
+    "65207": {
+      "id": "65207",
+      "name": "신민재",
+      "teamCode": "LG",
+      "discipline": {
+        "PA": 538.0,
+        "Pitches": 2097.0,
+        "PitchesPerPa": 3.9,
+        "SwingRate": 0.426,
+        "ContactRate": 0.91,
+        "WhiffRate": 0.09,
+        "CswRate": 0.22399999999999998,
+        "ZoneSwingRate": 0.6779999999999999,
+        "ChaseRate": 0.252,
+        "ZoneContactRate": 0.95,
+        "OutZoneContactRate": 0.8370000000000001,
+        "FirstPitchSwingRate": 0.264
+      },
+      "profile": {
+        "batsThrows": "우투좌타",
+        "heightCm": 171.0,
+        "weightKg": 67.0,
+        "jerseyNumber": "4",
+        "asOf": "2026-09-09"
+      }
+    },
+    "67449": {
+      "id": "67449",
+      "name": "김성윤",
+      "teamCode": "SS",
+      "discipline": {
+        "PA": 538.0,
+        "Pitches": 1975.0,
+        "PitchesPerPa": 3.67,
+        "SwingRate": 0.43700000000000006,
+        "ContactRate": 0.888,
+        "WhiffRate": 0.11199999999999999,
+        "CswRate": 0.21600000000000003,
+        "ZoneSwingRate": 0.6759999999999999,
+        "ChaseRate": 0.29600000000000004,
+        "ZoneContactRate": 0.94,
+        "OutZoneContactRate": 0.8170000000000001,
+        "FirstPitchSwingRate": 0.336
+      },
+      "profile": {
+        "batsThrows": "좌투좌타",
+        "heightCm": 163.0,
+        "weightKg": 62.0,
+        "jerseyNumber": "39",
+        "asOf": "2026-09-11"
+      }
+    }
+  }
+}

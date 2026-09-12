@@ -100,6 +100,30 @@ internal static class WarehouseProjectionBuilder
         {
             var key = Key(line.Pcode, line.Name, line.TeamCode);
             var batter = GetBatter(batters, game.GameId, key, line.Name);
+            if (line.OfficialStats is { } official)
+            {
+                // Final official totals and event-level analysis have independent provenance.
+                // Missing box fields retain the official-relay/Naver event-derived values.
+                if (official.PlateAppearances.HasValue) batter.PlateAppearances = line.PlateAppearances ?? batter.PlateAppearances;
+                if (official.AtBats.HasValue) batter.AtBats = line.AtBats ?? batter.AtBats;
+                if (official.Hits.HasValue) batter.Hits = line.Hits ?? batter.Hits;
+                if (official.HomeRuns.HasValue) batter.HomeRuns = line.HomeRuns ?? batter.HomeRuns;
+                if (official.Walks.HasValue) batter.Walks = line.Walks ?? batter.Walks;
+                if (official.HitByPitch.HasValue) batter.HitByPitch = line.HitByPitch ?? batter.HitByPitch;
+                if (official.Strikeouts.HasValue) batter.Strikeouts = line.Strikeouts ?? batter.Strikeouts;
+                batter.Doubles = official.Doubles ?? batter.Doubles;
+                batter.Triples = official.Triples ?? batter.Triples;
+                batter.IntentionalWalks = official.IntentionalWalks ?? batter.IntentionalWalks;
+                batter.StolenBases = official.StolenBases ?? batter.StolenBases;
+                batter.CaughtStealing = official.CaughtStealing ?? batter.CaughtStealing;
+                batter.DoublePlays = official.DoublePlays ?? batter.DoublePlays;
+                batter.SacrificeBunts = official.SacrificeBunts ?? batter.SacrificeBunts;
+                batter.SacrificeFlies = official.SacrificeFlies ?? batter.SacrificeFlies;
+                batter.Singles = batter.Hits - batter.Doubles - batter.Triples - batter.HomeRuns;
+                if (batter.Singles < 0 || batter.Hits > batter.AtBats || batter.IntentionalWalks > batter.Walks)
+                    throw new InvalidDataException($"{game.GameId} {line.Name}: 공식 박스스코어와 중계의 안타 종류/볼넷 기록이 충돌합니다. 최신 중계와 박스스코어를 함께 수집해주세요.");
+                batter.TotalBases = batter.Singles + batter.Doubles * 2 + batter.Triples * 3 + batter.HomeRuns * 4;
+            }
             batter.Runs += line.Runs ?? 0;
             batter.RunsBattedIn += line.RunsBattedIn ?? 0;
             AddPosition(batter, line.Position, line.EnteredAsSubstitute, line.PlateAppearances ?? 0);
@@ -121,6 +145,7 @@ internal static class WarehouseProjectionBuilder
         {
             var key = Key(line.Pcode, line.Name, line.TeamCode);
             var pitcher = GetPitcher(pitchers, game.GameId, key, line.Name);
+            if (line.OfficialStats?.BattersFaced is { } officialFaced) pitcher.BattersFaced = officialFaced;
             pitcher.HasFinalLine = true;
             pitcher.AppearanceSequence = line.AppearanceSequence ?? pitcher.AppearanceSequence;
             var outs = ParseInningsOuts(line.InningsDisplay);

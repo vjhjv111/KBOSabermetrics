@@ -224,6 +224,9 @@ internal sealed class BatterAggregateRecord
 
 internal sealed class PitcherAggregateRecord
 {
+    // Display-only season team totals; individual inputs and WAR calibration remain unchanged.
+    public int? OfficialTeamEarnedRuns { get; set; }
+    public int? DisplayTeamGames { get; set; }
     public string Pcode { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public string TeamCode { get; init; } = string.Empty;
