@@ -11,7 +11,7 @@ type SurfaceMaterial=THREE.MeshStandardMaterial|THREE.MeshPhysicalMaterial;
 export type PlayerModel={
  root:THREE.Group;hips:THREE.Group;torso:THREE.Group;head:THREE.Group;
  left:THREE.Group;right:THREE.Group;le:THREE.Group;re:THREE.Group;
- ll:THREE.Group;rl:THREE.Group;lk:THREE.Group;rk:THREE.Group;
+ ll:THREE.Group;rl:THREE.Group;lk:THREE.Group;rk:THREE.Group;lf:THREE.Group;rf:THREE.Group;
  jersey:SurfaceMaterial;cap:SurfaceMaterial;accent:SurfaceMaterial;
  lettering:{area:"front"|"back"|"cap";decal:THREE.Mesh;material:THREE.MeshStandardMaterial}[];
  appearanceKey:string;
@@ -54,6 +54,13 @@ function loft(profile:Profile[],around=24,steps=3,relief?:Relief){
  }
  const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
  geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();
+ // UVs wrap at the front. Share the lighting normal there so glossy shells do not show a hard meridian.
+ const normals=geometry.getAttribute("normal"),normal=new THREE.Vector3();
+ for(let row=0;row<=rows;row++){
+  const first=row*(around+1),last=first+around;
+  normal.set(normals.getX(first)+normals.getX(last),normals.getY(first)+normals.getY(last),normals.getZ(first)+normals.getZ(last)).normalize();
+  normals.setXYZ(first,normal.x,normal.y,normal.z);normals.setXYZ(last,normal.x,normal.y,normal.z);
+ }
  return geometry;
 }
 
@@ -89,9 +96,12 @@ const shirtProfile:Profile[]=[
  [.605,.237,.134,-.007],[.651,.208,.115,-.009],[.706,.116,.077,-.01],[.731,.083,.068,-.009]
 ];
 function jerseyRelief(height:number,angle:number){
- return .006*gauss(height,.13,.12)*Math.sin(angle*7+height*24)
-  +.004*gauss(height,.34,.19)*Math.sin(angle*5-height*13)
-  +.0045*gauss(height,.535,.075)*Math.sin(angle*6+height*22);
+ const front=Math.max(0,Math.cos(angle)),back=Math.max(0,-Math.cos(angle));
+ return .007*gauss(height,.13,.12)*Math.sin(angle*7+height*24)
+  +.0035*gauss(height,.34,.19)*Math.sin(angle*5-height*13)
+  +.005*gauss(height,.535,.075)*Math.sin(angle*6+height*22)
+  +.007*front*gauss(height,.515,.1)*gauss(Math.abs(Math.sin(angle)),.48,.3)
+  -.0035*back*gauss(Math.sin(angle),0,.22)*gauss(height,.43,.19);
 }
 function jerseyDetails(torso:THREE.Object3D,pants:THREE.Material,belt:THREE.Material,accent:THREE.Material,button:THREE.Material){
  // The narrow, flatter belt sits at the waist instead of a circular waist ring.
@@ -101,10 +111,18 @@ function jerseyDetails(torso:THREE.Object3D,pants:THREE.Material,belt:THREE.Mate
  add(new THREE.BoxGeometry(.033,.027,.009),button,torso,0,.047,.153);
  const paths:number[][][]=[];
  for(const side of [-1,1]){
-  paths.push([[side*.072,.723,.035],[side*.078,.715,.07],[side*.041,.677,.1],[0,.668,.106]]);
   paths.push([[side*.156,.558,-.107],[side*.201,.546,-.087],[side*.228,.506,-.035]]);
  }
  seams(torso,paths,accent,.0028);
+ const collarPositions:number[]=[],collarUV:number[]=[],collarIndices:number[]=[],segments=40;
+ for(let row=0;row<2;row++)for(let i=0;i<=segments;i++){
+  const angle=i/segments*Math.PI*2,y=.723-.057*Math.pow(Math.max(0,Math.cos(angle)),6)+(row-.5)*.009;
+  const [,w,d,z=0]=profileAt(shirtProfile,y),relief=jerseyRelief(y,angle)+.0018;
+  collarPositions.push(Math.sin(angle)*(w+relief),y,z+Math.cos(angle)*(d+relief));collarUV.push(i/segments,row);
+  if(row===0&&i<segments){const a=i,b=i+1,c=b+segments+1,d=a+segments+1;collarIndices.push(a,b,d,b,c,d);}
+ }
+ const collar=new THREE.BufferGeometry();collar.setAttribute("position",new THREE.Float32BufferAttribute(collarPositions,3));
+ collar.setAttribute("uv",new THREE.Float32BufferAttribute(collarUV,2));collar.setIndex(collarIndices);collar.computeVertexNormals();add(collar,accent,torso);
  const front:number[][]=[];
  for(let y=.096;y<=.646;y+=.025){const [, ,depth,z=0]=profileAt(shirtProfile,y);front.push([.005,y,z+depth+jerseyRelief(y,0)+.002]);}
  seams(torso,[front],pants,.0022);
@@ -113,18 +131,36 @@ function jerseyDetails(torso:THREE.Object3D,pants:THREE.Material,belt:THREE.Mate
   return new THREE.CylinderGeometry(.0043,.0043,.002,7).rotateX(Math.PI/2).translate(.006,y,z+depth+jerseyRelief(y,0)+.004);
  });
  add(joined(buttons),button,torso);
+ const stitchPaths:number[][][]=[];
+ for(const sign of [-1,1]){
+  stitchPaths.push([[sign*.08,.707,-.068],[sign*.142,.675,-.094],[sign*.204,.609,-.105]]);
+  stitchPaths.push([[sign*.171,.09,-.075],[sign*.198,.24,-.055],[sign*.215,.42,-.045]]);
+ }
+ seams(torso,stitchPaths,pants,.0011);
+ const backYoke:number[][]=[];for(let i=0;i<=20;i++){
+  const angle=(i/20-.5)*1.9+Math.PI,y=.584-Math.cos(angle-Math.PI)*.018;
+  const [,w,d,z=0]=profileAt(shirtProfile,y),relief=jerseyRelief(y,angle)+.002;
+  backYoke.push([Math.sin(angle)*(w+relief),y,z+Math.cos(angle)*(d+relief)]);
+ }
+ seams(torso,[backYoke],pants,.0014);
 }
 
-function headGeometry(){
- const geometry=loft([
+const headProfile:Profile[]=[
   [-.07,.035,.042,.04],[-.055,.061,.053,.034],[-.027,.091,.071,.017],
   [.014,.111,.095,.002],[.049,.114,.104,-.002],[.084,.112,.104,-.005],
   [.124,.106,.101,-.006],[.158,.089,.085,-.006],[.186,.048,.044,-.006],[.193,.002,.002,-.006]
- ],32,3,(height,angle)=>{
+];
+const capProfile:Profile[]=[
+ [.066,.116,.116,-.009],[.091,.126,.121,-.009],[.13,.126,.12,-.01],
+ [.18,.107,.102,-.01],[.213,.069,.068,-.01],[.23,.032,.032,-.01],[.235,.0005,.0005,-.01]
+];
+function headGeometry(){
+ const geometry=loft(headProfile,40,4,(height,angle)=>{
   const front=Math.max(0,Math.cos(angle));
   const socket=gauss(height,.064,.018)*gauss(Math.abs(Math.sin(angle)),.43,.18);
   const cheek=gauss(height,.015,.03)*gauss(Math.abs(Math.sin(angle)),.6,.24);
-  return front*(-.0055*socket+.004*cheek);
+  const chin=gauss(height,-.047,.02)*gauss(Math.sin(angle),0,.5);
+  return front*(-.006*socket+.006*cheek+.0025*chin);
  });
  // A very slight warm cheek and cooler jaw shade supplies face planes without a painted-on smile.
  const positions=geometry.getAttribute("position"),colors:number[]=[],color=new THREE.Color();
@@ -137,14 +173,37 @@ function headGeometry(){
  geometry.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));return geometry;
 }
 
-function noseGeometry(){
- const positions=[
-  -.012,.077,.097, .012,.077,.097, -.017,.02,.106, .017,.02,.106,
-  -.019,.004,.116, .019,.004,.116, -.013,-.004,.107, .013,-.004,.107,
-  0,.063,.119, 0,.013,.143, 0,-.007,.122
- ];
+function hairGeometry(){
+ const geometry=loft([[0,.1,.1],[1,.1,.1]],32,12),positions=geometry.getAttribute("position");
+ for(let row=0;row<=12;row++)for(let col=0;col<=32;col++){
+  const angle=col/32*Math.PI*2,front=Math.max(0,Math.cos(angle));
+  // A hairline follows the temples and nape, staying above the eyebrows under the bill.
+  const bottom=.023+.111*front*front,y=THREE.MathUtils.lerp(bottom,.191,row/12);
+  const [,w,d,z=0]=profileAt(headProfile,y);
+  positions.setXYZ(row*33+col,Math.sin(angle)*(w+.0018),y,z+Math.cos(angle)*(d+.0018));
+ }
+ geometry.computeVertexNormals();return geometry;
+}
+
+/** A thin inset patch follows the helmet instead of floating ellipsoids above its curved shell. */
+function helmetVent(x:number,y:number,width:number,height:number){
+ const positions:number[]=[],uv:number[]=[],indices:number[]=[],segments=20;
+ for(let i=0;i<=segments;i++){
+  const angle=i?((i-1)/(segments-1))*Math.PI*2:0;
+  const px=x+(i?Math.cos(angle)*width:0),py=y+(i?Math.sin(angle)*height:0);
+  const [,w,d,z=0]=profileAt(capProfile,py),pz=z+d*Math.sqrt(Math.max(0,1-(px/w)**2))+.0008;
+  positions.push(px,py,pz);uv.push(i?.5+Math.cos(angle)*.5:.5,i?.5+Math.sin(angle)*.5:.5);
+  if(i>1)indices.push(0,i-1,i);
+ }
  const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
- geometry.setIndex([0,2,8,0,8,1,1,8,3,8,2,9,8,9,3,2,4,9,3,9,5,4,10,9,5,9,10,4,6,10,5,10,7,6,7,10]);geometry.computeVertexNormals();return geometry;
+ geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
+}
+
+function noseGeometry(){
+ // Rounded alar wings and a tapered bridge blend into the face instead of a faceted wedge.
+ return loft([[-.012,.006,.006,.108],[-.006,.013,.011,.115],[.004,.019,.019,.12],
+  [.016,.016,.024,.119],[.031,.01,.019,.11],[.055,.008,.012,.103],
+  [.079,.011,.003,.099],[.087,.002,.001,.098]],20,3);
 }
 
 function brimGeometry(){
@@ -163,25 +222,46 @@ function brimGeometry(){
 function headDetails(head:THREE.Object3D,skin:SurfaceMaterial,cap:SurfaceMaterial,cloth:THREE.Texture|null,isBatter:boolean){
  const faceMaterial=skin.clone();faceMaterial.vertexColors=true;
  add(headGeometry(),faceMaterial,head);add(noseGeometry(),skin,head);
- const hair=material("#242421",.97),features=material("#684f42",.91),eyeWhite=material("#dcd7ca",.7),iris=material("#252923",.59);
+ const hair=material("#242421",.94),features=material("#684f42",.91),eyeWhite=material("#c6c2b5",.64),iris=material("#282a25",.42);
  const ears=[-1,1].map(sign=>loft([[-.006,.005,.01],[.003,.009,.017],[.026,.012,.021],[.047,.009,.016],[.053,.002,.005]],12,2).translate(sign*.111,0,-.014));
  add(joined(ears),skin,head);
  add(joined([-1,1].map(sign=>oval(.003,.019,.01,sign*.122,.025,-.003,10))),features,head);
- add(loft([[.045,.11,.098,-.018],[.115,.11,.104,-.019],[.166,.083,.078,-.02],[.195,.01,.01,-.019]],24,2),hair,head);
+ add(hairGeometry(),hair,head);
  // Facial details stay restrained: the eyes are almond-shaped, set under the brow.
- const eyes=[-1,1].map(sign=>oval(.017,.0045,.0027,sign*.047,.06,.0945,12));
+ const eyes=[-1,1].map(sign=>oval(.016,.0039,.0025,sign*.047,.06,.091,16));
  add(joined(eyes),eyeWhite,head);
- add(joined([-1,1].map(sign=>oval(.0041,.0043,.0018,sign*.047,.06,.0975,10))),iris,head);
+ add(joined([-1,1].map(sign=>oval(.0037,.0038,.0013,sign*.047,.06,.0934,12))),iris,head);
+ const lid=skin.clone();lid.color.multiplyScalar(.91);
+ seams(head,[-1,1].flatMap(sign=>[
+  [[sign*.03,.059,.092],[sign*.046,.055,.094],[sign*.063,.059,.087]],
+  [[sign*.034,.052,.092],[sign*.048,.05,.092],[sign*.061,.052,.086]]
+ ]),lid,.0018);
+ add(joined([-1,1].map(sign=>oval(.005,.002,.002,sign*.01,-.002,.132,10))),features,head);
  const featuresPaths:number[][][]=[];
  for(const sign of [-1,1]){
-  featuresPaths.push([[sign*.029,.063,.095],[sign*.047,.067,.098],[sign*.064,.063,.089]]);
-  featuresPaths.push([[sign*.027,.079,.1],[sign*.044,.083,.103],[sign*.067,.079,.093]]);
+  featuresPaths.push([[sign*.03,.063,.092],[sign*.047,.065,.094],[sign*.063,.063,.087]]);
+  featuresPaths.push([[sign*.027,.079,.095],[sign*.044,.083,.097],[sign*.067,.079,.086]]);
  }
- featuresPaths.push([[-.026,-.023,.107],[-.013,-.025,.115],[0,-.026,.118],[.013,-.025,.115],[.026,-.023,.107]]);
+ featuresPaths.push([[-.023,-.025,.088],[-.012,-.026,.092],[0,-.025,.094],[.012,-.026,.092],[.023,-.025,.088]]);
  seams(head,featuresPaths,features,.0015);
  const lips=material("#a87763",.83);
- seams(head,[[[-.019,-.029,.112],[0,-.031,.117],[.019,-.029,.112]]],lips,.0022);
- const shell=loft([[.066,.116,.116,-.009],[.091,.126,.121,-.009],[.13,.126,.12,-.01],[.18,.107,.102,-.01],[.218,.062,.061,-.01],[.235,.002,.002,-.01]],28,3);
+ seams(head,[[[-.019,-.029,.089],[0,-.031,.095],[.019,-.029,.089]]],lips,.0022);
+ // Small skin folds, philtrum and the chin plane are relief rather than dark drawn lines.
+ seams(head,[[[-.004,-.01,.1],[-.004,-.018,.096]],[[.004,-.01,.1],[.004,-.018,.096]]],skin,.0014);
+ const shell=loft(capProfile,40,4),shellPositions=shell.getAttribute("position");
+ for(let i=0;i<shellPositions.count;i++){
+  const angle=(i%41)/40*Math.PI*2,y=shellPositions.getY(i);
+  // Raise the forehead opening above the brows; the sides still protect the temples.
+  const lifted=y+.029*Math.pow(Math.max(0,Math.cos(angle)),6)*(1-THREE.MathUtils.smoothstep(y,.066,.14));
+  const [,w,d,z=0]=profileAt(capProfile,lifted);
+  shellPositions.setXYZ(i,Math.sin(angle)*w,lifted,z+Math.cos(angle)*d);
+ }
+ shell.computeVertexNormals();
+ const shellNormals=shell.getAttribute("normal");
+ for(let i=0;i<shellPositions.count;i+=41){
+  const normal=v(shellNormals.getX(i)+shellNormals.getX(i+40),shellNormals.getY(i)+shellNormals.getY(i+40),shellNormals.getZ(i)+shellNormals.getZ(i+40)).normalize();
+  shellNormals.setXYZ(i,normal.x,normal.y,normal.z);shellNormals.setXYZ(i+40,normal.x,normal.y,normal.z);
+ }
  add(shell,cap,head);
  const bill=add(brimGeometry(),cap,head);bill.material.side=THREE.DoubleSide;
  const underside=material("#28312d",.86);add(brimGeometry().translate(0,-.002,0),underside,head).material.side=THREE.BackSide;
@@ -190,9 +270,13 @@ function headDetails(head:THREE.Object3D,skin:SurfaceMaterial,cap:SurfaceMateria
   add(joined(guards),cap,head);
   const vents=[-1,1].flatMap(sign=>[
    oval(.0018,.011,.017,sign*.132,.023,-.002,10),
-   oval(.017,.003,.002,sign*.074,.178,.077,10),
-   oval(.009,.003,.002,sign*.036,.203,.062,10)
-  ]);add(joined(vents),underside,head);
+   helmetVent(sign*.072,.173,.014,.003),helmetVent(sign*.035,.203,.008,.0025)
+  ]);
+  const ventMaterial=underside.clone();ventMaterial.side=THREE.FrontSide;add(joined(vents),ventMaterial,head);
+  const edge=material("#101820",.58);
+  seams(head,[-1,1].map(sign=>[[sign*.112,.093,.047],[sign*.128,.038,.03],[sign*.124,-.019,.004],[sign*.107,-.041,-.026]]),edge,.0028);
+  const rivets=[-1,1].flatMap(sign=>[oval(.0028,.003,.003,sign*.134,.047,.03,8),oval(.0028,.003,.003,sign*.126,-.017,.005,8)]);
+  add(joined(rivets),features,head);
  }else{
   const stitch=material("#81868a",.94,cloth,.002);
   seams(head,[-1,1].map(sign=>[[0,.236,-.011],[sign*.064,.218,.033],[sign*.11,.166,.053],[sign*.12,.098,.019]]),stitch,.001);
@@ -206,10 +290,29 @@ function cuff(parent:THREE.Object3D,at:number,width:number,depth:number,mat:THRE
 
 function arm(parent:THREE.Object3D,side:number,jersey:THREE.Material,skin:THREE.Material,accent:THREE.Material){
  const upper=object(parent,side*.27,.58),lower=object(upper,0,-.34);
- add(loft([[-.377,.025,.026,.005],[-.346,.049,.052,.002],[-.29,.058,.06,-.002],[-.204,.072,.071,-.006],[-.11,.074,.069,-.005],[.008,.064,.061],[.055,.025,.025]],20,3),skin,upper);
+ const anatomy=loft([[-.681,.024,.026,.006],[-.656,.032,.032,.006],[-.603,.038,.036,.008],
+  [-.51,.053,.047,.004],[-.44,.061,.055,-.002],[-.38,.051,.05,.0],[-.341,.047,.049,.005],
+  [-.295,.057,.059,.002],[-.204,.07,.068,-.005],[-.11,.075,.068,-.004],
+  [.008,.065,.061],[.055,.025,.025]],24,3,(y,a)=>
+   .003*Math.sin(a*2+.5)*gauss(y,-.16,.11)+.0025*Math.cos(a*3)*gauss(y,-.46,.09));
+ const positions=anatomy.getAttribute("position"),indices:number[]=[],weights:number[]=[],colors:number[]=[];
+ for(let i=0;i<positions.count;i++){
+  const y=positions.getY(i),blend=THREE.MathUtils.smoothstep(y,-.4,-.275);
+  indices.push(0,1,0,0);weights.push(blend,1-blend,0,0);
+  const elbow=gauss(y,-.34,.065),warm=gauss(y,-.22,.12);
+  colors.push(1-elbow*.026,.99-elbow*.038-warm*.01,.975-elbow*.037-warm*.016);
+ }
+ anatomy.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(indices,4));anatomy.setAttribute("skinWeight",new THREE.Float32BufferAttribute(weights,4));
+ anatomy.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
+ const armSkin=skin.clone() as SurfaceMaterial;armSkin.vertexColors=true;
+ const bones=[upper,lower].map((pivot,i)=>{const bone=new THREE.Bone();bone.name=`${side>0?"Left":"Right"} ${i?"elbow":"shoulder"}`;pivot.add(bone);return bone;});
+ upper.updateWorldMatrix(true,true);
+ const body=new THREE.SkinnedMesh(anatomy,armSkin);body.name="Continuous anatomical arm";body.castShadow=body.receiveShadow=true;body.frustumCulled=false;
+ upper.add(body);body.bind(new THREE.Skeleton(bones));
  add(loft([[-.192,.068,.069,-.004],[-.166,.079,.073,-.003],[-.085,.091,.078,-.005],[.004,.087,.076,-.005],[.052,.055,.052],[.07,.011,.014]],24,2,(y,a)=>.004*gauss(y,-.117,.08)*Math.sin(a*5+y*20)),jersey,upper);
  cuff(upper,-.184,.073,.072,accent);
- add(loft([[-.341,.026,.028,.006],[-.315,.035,.034,.005],[-.263,.04,.038,.008],[-.166,.057,.05,.006],[-.091,.064,.057],[.0,.05,.051],[.028,.022,.026]],20,3,(y,a)=>.0015*Math.sin(a*3)*gauss(y,-.12,.12)),skin,lower);
+ const stitches:number[][]=[];for(let i=0;i<=28;i++){const a=i/28*Math.PI*2;stitches.push([Math.sin(a)*.075,-.174,Math.cos(a)*.074-.004]);}
+ seams(upper,[stitches],jersey,.0012);
  return {upper,lower};
 }
 
@@ -228,17 +331,27 @@ function shoe(parent:THREE.Object3D,dark:THREE.Material,accent:THREE.Material,so
  seams(parent,lacePaths,sole,.0022);
  const studs=[-.049,.049].flatMap(x=>[-.015,.125,.205].map(z=>new THREE.CylinderGeometry(.009,.006,.016,5).translate(x,-.461,z)));
  add(joined(studs),dark,parent);
+ const tongue=loft([[-.025,.032,.01],[.014,.037,.012],[.043,.029,.011],[.05,.007,.004]],16,2).rotateX(.32).translate(0,-.356,.015);
+ add(tongue,dark,parent);
+ const eyelets:number[][][]=[];
+ for(const side of [-1,1])for(let i=0;i<4;i++){
+  const x=side*.035,y=-.34-i*.009,z=.019+i*.023;
+  eyelets.push([[x-.003,y,z],[x,y+.002,z-.003],[x+.003,y,z]]);
+ }
+ seams(parent,eyelets,accent,.0015);
+ seams(parent,[-1,1].map(sign=>[[sign*.045,-.386,-.038],[sign*.066,-.409,-.019],[sign*.075,-.424,.05],[sign*.073,-.428,.148]]),sole,.0014);
 }
 
 function leg(root:THREE.Object3D,side:number,accent:THREE.Material,dark:THREE.Material,sole:THREE.Material){
  const thigh=object(root,side*.115,.91),knee=object(thigh,0,-.43);
  seams(thigh,[[[side*.104,.012,.027],[side*.116,-.12,.027],[side*.111,-.247,.028],[side*.078,-.414,.026]]],accent,.0025);
  seams(knee,[[[side*.073,-.01,.025],[side*.088,-.143,.012],[side*.07,-.266,.026],[side*.057,-.381,.026]]],accent,.0025);
- shoe(knee,dark,accent,sole);return {thigh,knee};
+ const ankle=object(knee,0,-.43),shoeOrigin=object(ankle,0,.43);ankle.name=side>0?"Left ankle":"Right ankle";
+ shoe(shoeOrigin,dark,accent,sole);return {thigh,knee,ankle};
 }
 
 function trousers(root:THREE.Group,hips:THREE.Group,left:{thigh:THREE.Group;knee:THREE.Group},right:{thigh:THREE.Group;knee:THREE.Group},mat:THREE.Material){
- const positions:number[]=[],uvs:number[]=[],indices:number[]=[],boneIndices:number[]=[],weights:number[]=[];
+ let positions:number[]=[],uvs:number[]=[],indices:number[]=[],boneIndices:number[]=[],weights:number[]=[];
  const count=32;
  const vertex=(x:number,height:number,z:number,u:number,side:number)=>{
   const index=positions.length/3;positions.push(x,height,z);uvs.push(u,(height-.08)/.93);
@@ -275,20 +388,21 @@ function trousers(root:THREE.Group,hips:THREE.Group,left:{thigh:THREE.Group;knee
  for(const [y,width,depth,forward] of [[.982,.19,.13,.007],[.941,.198,.136,.003],[.897,.207,.137,-.003]]){
   const lower=ring(y,width,depth,0,forward);connect(upper,lower);upper=lower;
  }
- // One waist branches into two legs with a shared crotch surface; there is no separate pelvis shell.
- const leftTop=ring(.811,.11,.118,.112,0,1),rightTop=ring(.811,.11,.118,-.112,0,-1);
- connect(upper,leftTop,0,count/2);connect(upper,rightTop,count/2,count);
- // Recess the fly into the two thigh surfaces; a single flat triangle reads like a flap when crouched.
- const fly=vertex(0,.852,.111,0,0),crotch=vertex(0,.803,.096,0,0);
- indices.push(upper[0],rightTop[0],fly,upper[0],fly,leftTop[0]);
- indices.push(fly,rightTop[0],crotch,fly,crotch,leftTop[0]);
- indices.push(upper[count/2],leftTop[count/2],rightTop[count/2]);
- for(let i=0;i<count/2;i++){
-  const a=leftTop[(count/2+i)%count],b=leftTop[(count/2+i+1)%count];
-  const c=rightTop[(count/2-i+count)%count],d=rightTop[(count/2-i-1+count)%count];
-  if(i===count/2-1)indices.push(a,b,crotch,a,crotch,c,c,crotch,d);
-  else indices.push(a,b,c,c,b,d);
+ // Both leg openings share a curved inseam from the fly, under the crotch, to the seat.
+ // Welding that saddle into the waist removes the horizontal bridge between separate thigh rings.
+ const leftTop:number[]=[],rightTop:number[]=[];
+ for(let i=0;i<=count/2;i++){
+  const angle=i/count*Math.PI*2,x=Math.sin(angle)*.222;
+  const height=.822+.054*Math.cos(angle)**2,z=-.002+Math.cos(angle)*.126;
+  const index=vertex(x,height,z,i/count,i===0||i===count/2?0:1);leftTop[i]=index;
+  rightTop[(count-i)%count]=i===0||i===count/2?index:vertex(-x,height,z,(count-i)/count,-1);
  }
+ for(let i=count/2+1;i<count;i++){
+  const angle=i/count*Math.PI*2;
+  const index=vertex(0,.876+.082*Math.sin(angle),-.002+Math.cos(angle)*.126,i/count,0);
+  leftTop[i]=index;rightTop[count-i]=index;
+ }
+ connect(upper,leftTop,0,count/2);connect(upper,rightTop,count/2,count);
  const sections=[
   [.754,.111,.105,.0],[.685,.109,.103,.0],[.604,.1,.095,.003],
   [.553,.091,.087,.007],[.513,.085,.081,.011],[.478,.081,.079,.01],
@@ -302,6 +416,53 @@ function trousers(root:THREE.Group,hips:THREE.Group,left:{thigh:THREE.Group;knee
    const next=ring(height,width,depth,side*.115,forward,side);connect(previous,next);previous=next;
   }
  }
+ // One Loop subdivision rounds the branching surface and carries the existing side-specific
+ // skin weights with it. The only boundary edges are the waist and the two trouser cuffs.
+ const neighbours=Array.from({length:positions.length/3},()=>new Set<number>());
+ const edges=new Map<string,{a:number;b:number;opposites:number[];index:number}>();
+ const edgeKey=(a:number,b:number)=>a<b?`${a}:${b}`:`${b}:${a}`;
+ for(let i=0;i<indices.length;i+=3){
+  const face=indices.slice(i,i+3);
+  for(let j=0;j<3;j++){
+   const a=face[j],b=face[(j+1)%3],opposite=face[(j+2)%3],key=edgeKey(a,b);
+   neighbours[a].add(b);neighbours[b].add(a);
+   if(!edges.has(key))edges.set(key,{a,b,opposites:[],index:0});
+   edges.get(key)!.opposites.push(opposite);
+  }
+ }
+ const boundaries=Array.from({length:neighbours.length},()=>[] as number[]);
+ for(const edge of edges.values())if(edge.opposites.length===1){boundaries[edge.a].push(edge.b);boundaries[edge.b].push(edge.a);}
+ const smoothPositions:number[]=[],smoothUvs:number[]=[],smoothBones:number[]=[],smoothWeights:number[]=[];
+ const blend=(vertices:number[],factors:number[])=>{
+  const index=smoothPositions.length/3,point=[0,0,0],uv=[0,0],skin=[0,0,0,0,0];
+  for(let i=0;i<vertices.length;i++){
+   const at=vertices[i],factor=factors[i];
+   for(let k=0;k<3;k++)point[k]+=positions[at*3+k]*factor;
+   for(let k=0;k<2;k++)uv[k]+=uvs[at*2+k]*factor;
+   for(let k=0;k<4;k++)skin[boneIndices[at*4+k]]+=weights[at*4+k]*factor;
+  }
+  const influences=skin.map((weight,bone)=>[bone,weight]).filter(([,weight])=>weight>0).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  while(influences.length<4)influences.push([0,0]);
+  const sum=influences.reduce((total,[,weight])=>total+weight,0);
+  smoothPositions.push(...point);smoothUvs.push(...uv);
+  smoothBones.push(...influences.map(([bone])=>bone));smoothWeights.push(...influences.map(([,weight])=>weight/sum));return index;
+ };
+ for(let i=0;i<neighbours.length;i++){
+  const boundary=boundaries[i];
+  if(boundary.length===2)blend([i,...boundary],[.75,.125,.125]);
+  else{
+   const adjacent=[...neighbours[i]],n=adjacent.length,beta=(.625-(.375+.25*Math.cos(2*Math.PI/n))**2)/n;
+   blend([i,...adjacent],[1-n*beta,...adjacent.map(()=>beta)]);
+  }
+ }
+ for(const edge of edges.values())edge.index=edge.opposites.length===2
+  ?blend([edge.a,edge.b,...edge.opposites],[.375,.375,.125,.125]):blend([edge.a,edge.b],[.5,.5]);
+ const smoothIndices:number[]=[];
+ for(let i=0;i<indices.length;i+=3){
+  const [a,b,c]=indices.slice(i,i+3),ab=edges.get(edgeKey(a,b))!.index,bc=edges.get(edgeKey(b,c))!.index,ca=edges.get(edgeKey(c,a))!.index;
+  smoothIndices.push(a,ab,ca,b,bc,ab,c,ca,bc,ab,bc,ca);
+ }
+ positions=smoothPositions;uvs=smoothUvs;boneIndices=smoothBones;weights=smoothWeights;indices=smoothIndices;
  const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
  geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));geometry.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(boneIndices,4));
  geometry.setAttribute("skinWeight",new THREE.Float32BufferAttribute(weights,4));geometry.setIndex(indices);geometry.computeVertexNormals();
@@ -320,7 +481,9 @@ function hand(parent:THREE.Object3D,mat:THREE.Material){
  add(loft([[-.078,.019,.014,.004],[-.059,.042,.02],[-.012,.045,.023],[.019,.031,.025]],16,3),mat,root);
  const fingers=[-.031,-.01,.01,.03].map((x,index)=>tube([[x,-.05,.003],[x,-.078,.018],[x,-.089,.039],[x,-.073,.052]],.011-(index===3?.002:0),8));
  fingers.push(tube([[.039,-.007,.003],[.056,-.028,.017],[.043,-.049,.036]],.014,8));
- add(joined(fingers),mat,root);return root;
+ add(joined(fingers),mat,root);
+ const knuckles=[-.031,-.01,.01,.03].map((x,index)=>oval(.012-(index===3?.002:0),.009,.009,x,-.054,.006,10));
+ add(joined(knuckles),mat,root);return root;
 }
 
 /** Cupped mitt mesh, with separate finger channels and a woven web. */
@@ -379,7 +542,7 @@ function decalGeometry(area:"front"|"back"|"cap"){
   const y=centre+(row/rows-.5)*height,theta=(col/columns-.5)*angle;
   let x:number,z:number;
   if(area==="cap"){
-   const [,width,depth,forward=0]=profileAt([[.091,.126,.121,-.009],[.13,.126,.12,-.01],[.18,.107,.102,-.01],[.218,.062,.061,-.01]],y);
+   const [,width,depth,forward=0]=profileAt(capProfile,y);
    x=Math.sin(theta)*(width+.0017);z=forward+Math.cos(theta)*(depth+.0017);
   }else{
    const [,width,depth,forward=0]=profileAt(shirtProfile,y),surfaceAngle=theta+(area==="back"?Math.PI:0),relief=jerseyRelief(y,surfaceAngle)+.0022;
@@ -394,8 +557,9 @@ function decalGeometry(area:"front"|"back"|"cap"){
 export function createPlayer(color:string,isBatter=false):PlayerModel{
  const root=new THREE.Group();root.name=isBatter?"Athletic batter":"Athletic pitcher";
  const cloth=createPlayerSurface("cloth"),skinTexture=createPlayerSurface("skin"),leather=createPlayerSurface("leather");
- const jersey=material(color,.92,cloth,.0045),pants=material("#e5e3dc",.95,cloth,.004);
- const skin=new THREE.MeshPhysicalMaterial({color:"#bb8967",roughness:.72,clearcoat:.025,bumpMap:skinTexture,bumpScale:.0015});
+ const jersey=new THREE.MeshPhysicalMaterial({color,roughness:.83,bumpMap:cloth,bumpScale:.0026,sheen:.5,sheenRoughness:.85,sheenColor:"#a7acb2"});
+ const pants=new THREE.MeshPhysicalMaterial({color:"#e5e3dc",roughness:.89,bumpMap:cloth,bumpScale:.0023,sheen:.28,sheenRoughness:.94});
+ const skin=new THREE.MeshPhysicalMaterial({color:"#c89675",roughness:.64,clearcoat:.04,clearcoatRoughness:.72,bumpMap:skinTexture,bumpScale:.001});
  const dark=material("#172027",.72,leather,.0025),white=material("#dfdfd5",.86),accent=material("#dedccf",.9,cloth,.002);
  const cap=new THREE.MeshPhysicalMaterial({color,roughness:isBatter?.26:.87,clearcoat:isBatter?.66:0,clearcoatRoughness:.2,bumpMap:isBatter?null:cloth,bumpScale:.003});
  const hips=object(root,0,.93),torso=object(root,0,.95),head=object(torso,0,.82);
@@ -414,13 +578,20 @@ export function createPlayer(color:string,isBatter=false):PlayerModel{
  }
  const leftLeg=leg(root,1,accent,dark,white),rightLeg=leg(root,-1,accent,dark,white);
  trousers(root,hips,leftLeg,rightLeg,pants);
+ if(isBatter){
+  // A fitted lead-leg guard follows the shin. Mirroring the whole rig keeps it on the lead side.
+  const guard=new THREE.MeshPhysicalMaterial({color:"#27313b",roughness:.6,clearcoat:.14});
+  add(loft([[-.344,.029,.017,.058],[-.302,.054,.022,.061],[-.174,.071,.025,.072],[-.084,.058,.02,.081],[-.067,.021,.01,.074]],20,3),guard,leftLeg.knee);
+  for(const y of [-.108,-.296])cuff(leftLeg.knee,y,y>-.2?.084:.071,y>-.2?.087:.07,dark);
+  seams(leftLeg.knee,[[[-.038,-.304,.087],[-.045,-.179,.102],[-.035,-.096,.104]],[[.038,-.304,.087],[.045,-.179,.102],[.035,-.096,.104]]],accent,.0025);
+ }
  const lettering=(["front","back","cap"] as const).map(area=>{
   const material=new THREE.MeshStandardMaterial({transparent:true,depthWrite:false,roughness:.86,polygonOffset:true,polygonOffsetFactor:-1,alphaTest:.02});
   const {geometry,centre}=decalGeometry(area),decal=add(geometry,material,area==="cap"?head:torso,0,centre);
   if(area==="back")decal.rotation.y=Math.PI;
   decal.castShadow=false;decal.visible=false;return {area,decal,material};
  });
- return {root,hips,torso,head,left,right,le,re,ll:leftLeg.thigh,rl:rightLeg.thigh,lk:leftLeg.knee,rk:rightLeg.knee,jersey,cap,accent,lettering,appearanceKey:""};
+ return {root,hips,torso,head,left,right,le,re,ll:leftLeg.thigh,rl:rightLeg.thigh,lk:leftLeg.knee,rk:rightLeg.knee,lf:leftLeg.ankle,rf:rightLeg.ankle,jersey,cap,accent,lettering,appearanceKey:""};
 }
 
 export function dressPlayer(model:PlayerModel,appearance:PlayerAppearance,handedness=1){
@@ -461,7 +632,7 @@ export function createBat(parent:THREE.Object3D){
  const barrel=new THREE.MeshPhysicalMaterial({color:"#bc8b52",roughness:.42,clearcoat:.35,clearcoatRoughness:.3,bumpMap:wood,bumpScale:.0015});
  const grip=material("#212a2b",.83,cloth,.0025),glove=material("#dfdfd4",.82,cloth,.0018),trim=material("#868e8e",.84);
  // Grip anchors at -0.055 and +0.065 are shared with two-bone arm IK.
- add(loft([[-.154,.028,.028],[-.143,.038,.038],[-.129,.038,.038],[-.117,.022,.022],[.16,.023,.023],[.35,.033,.033],[.55,.049,.049],[.88,.055,.055],[.94,.051,.051],[.976,.026,.026],[.98,.001,.001]],20,3),barrel,root);
+ add(loft([[-.154,.024,.024],[-.143,.032,.032],[-.129,.032,.032],[-.117,.021,.021],[.16,.022,.022],[.35,.028,.028],[.55,.035,.035],[.88,.038,.038],[.94,.034,.034],[.976,.019,.019],[.98,.001,.001]],24,3),barrel,root);
  add(loft([[-.123,.0228,.0228],[.175,.0245,.0245]],16,1),grip,root);
  const wrap:number[][]=[];for(let i=0;i<130;i++){const a=i/129*Math.PI*2*15;wrap.push([Math.sin(a)*.0242,-.117+i/129*.282,Math.cos(a)*.0242]);}
  seams(root,[wrap],trim,.0008);
