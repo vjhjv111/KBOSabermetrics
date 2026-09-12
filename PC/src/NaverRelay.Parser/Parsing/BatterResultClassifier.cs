@@ -76,11 +76,18 @@ namespace NaverRelay.Parsing
                     isHit: false, isOut: !reached, isSacrifice: false, isWalk: false,
                     isIntentionalWalk: false, isStrikeout: true, reachedBase: reached, totalBases: 0);
             }
-            else if (Contains(normalized, "희생플라이 아웃"))
+            else if (Contains(normalized, "희생플라이"))
             {
+                var reached = Contains(normalized, "실책") || Contains(normalized, "출루");
                 Set(outcome, BattingResultType.SacrificeFly, countsAsAtBat: false,
-                    isHit: false, isOut: true, isSacrifice: true, isWalk: false,
-                    isIntentionalWalk: false, isStrikeout: false, reachedBase: false, totalBases: 0);
+                    isHit: false, isOut: !reached, isSacrifice: true, isWalk: false,
+                    isIntentionalWalk: false, isStrikeout: false, reachedBase: reached, totalBases: 0);
+            }
+            else if (Contains(normalized, "희생번트") && Contains(normalized, "출루"))
+            {
+                Set(outcome, BattingResultType.SacrificeBunt, countsAsAtBat: false,
+                    isHit: false, isOut: false, isSacrifice: true, isWalk: false,
+                    isIntentionalWalk: false, isStrikeout: false, reachedBase: true, totalBases: 0);
             }
             else if (Contains(normalized, "희생번트 아웃"))
             {
@@ -88,11 +95,13 @@ namespace NaverRelay.Parsing
                     isHit: false, isOut: true, isSacrifice: true, isWalk: false,
                     isIntentionalWalk: false, isStrikeout: false, reachedBase: false, totalBases: 0);
             }
-            else if (Contains(normalized, "병살타 아웃"))
+            else if (Contains(normalized, "병살타") || Contains(normalized, "병살 실책") ||
+                (Contains(normalized, "삼중살") && normalized.Contains("3루수->2루수->1루수")))
             {
+                var reached = Contains(normalized, "출루");
                 Set(outcome, BattingResultType.GroundedIntoDoublePlay, countsAsAtBat: true,
-                    isHit: false, isOut: true, isSacrifice: false, isWalk: false,
-                    isIntentionalWalk: false, isStrikeout: false, reachedBase: false, totalBases: 0);
+                    isHit: false, isOut: !reached, isSacrifice: false, isWalk: false,
+                    isIntentionalWalk: false, isStrikeout: false, reachedBase: reached, totalBases: 0);
             }
             else if (Contains(normalized, "실책으로 출루"))
             {
@@ -100,7 +109,7 @@ namespace NaverRelay.Parsing
                     isHit: false, isOut: false, isSacrifice: false, isWalk: false,
                     isIntentionalWalk: false, isStrikeout: false, reachedBase: true, totalBases: 0);
             }
-            else if (Contains(normalized, "땅볼로 출루"))
+            else if (Contains(normalized, "땅볼로 출루") || Contains(normalized, "야수선택으로 출루") || Contains(normalized, "야수 선택으로 출루"))
             {
                 Set(outcome, BattingResultType.FieldersChoice, countsAsAtBat: true,
                     isHit: false, isOut: false, isSacrifice: false, isWalk: false,
