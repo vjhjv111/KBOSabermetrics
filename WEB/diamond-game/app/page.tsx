@@ -43,7 +43,7 @@ export default function Home(){
  const batterSource=b?rosterBatter(batter):undefined,pitcherSource=p?rosterPitcher(pitcher):undefined;
  const selectedSeason=game?(game.roster?.season??null):roster?.season??seasonRequest;
  useEffect(()=>{if(pitches.length&&!pitches.some(item=>item.type===pitchType))setPitchType(pitches[0].type)},[pitcher,roster,game?.code,pitchType]);
- const waiting=!!game?.waiting,done=!!game?.done,isFlying=!!active&&!active.resolved&&now>=active.releaseAt,canPitch=!!game&&!done&&!waiting&&!busy&&(!active||active.resolved&&now>Math.max(active.releaseAt+active.flightMs,last?.at??0)+1000),canSwing=!!game&&side==="batter"&&!done&&!waiting&&!busy&&!!active&&!active.resolved&&now>=active.releaseAt-120;
+ const waiting=!!game?.waiting,done=!!game?.done,isFlying=!!active&&!active.resolved&&now>=active.releaseAt,canPitch=!!game&&!done&&!waiting&&!busy&&(!active||active.resolved&&now>Math.max(active.releaseAt+active.flightMs,last?.at??0)+1000);
  const progress=charging?((now-chargeStarted)%1400)/1400:0;
  function tone(kind:"swing"|"hit"|"pitch"){if(!soundRef.current)return;try{const ac=audio.current??new AudioContext();audio.current=ac;if(ac.state==="suspended")void ac.resume();const n=ac.currentTime;
   if(kind==="hit"){const buffer=ac.createBuffer(1,Math.ceil(ac.sampleRate*.045),ac.sampleRate),data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/ac.sampleRate*140);const crack=ac.createBufferSource(),filter=ac.createBiquadFilter(),volume=ac.createGain();crack.buffer=buffer;filter.type="bandpass";filter.frequency.value=2300;filter.Q.value=.7;volume.gain.value=.55;crack.connect(filter);filter.connect(volume);volume.connect(ac.destination);crack.start(n);}
@@ -56,13 +56,32 @@ export default function Home(){
   const v=await response.json() as ActionView&{error?:string;message?:string;code?:string};if(!response.ok){if(v.code==="CSRF")csrf.current=null;throw new Error(v.error??v.message??"연결을 확인해 주세요.")}
   const end=localNow();if(gen===generation.current&&v.serverReceivedAt!==undefined&&v.serverSentAt!==undefined){const offset=clockSync.current.sample({clientStart:start,clientEnd:end,serverReceived:v.serverReceivedAt,serverSent:v.serverSentAt});if(offset!==null&&(!liveGame.current?.pitch||liveGame.current.pitch.resolved)){clock.current=offset;setNow(localNow()+offset)}}return v
  }
- async function run(body:unknown){if(lock.current)throw new Error("처리 중입니다.");lock.current=true;setBusy(true);setError("");const gen=generation.current;try{const v=await request(body);apply(v,gen);setConnected(true);return v}catch(e){if(gen===generation.current)setError(e instanceof Error?e.message:"다시 시도해 주세요.");throw e}finally{lock.current=false;setBusy(false)}}
+ async function run(body:unknown,{independent=false}:{independent?:boolean}={}){
+  if(!independent){if(lock.current)throw new Error("처리 중입니다.");lock.current=true;setBusy(true)}
+  setError("");const gen=generation.current;
+  try{const v=await request(body);apply(v,gen);if(gen===generation.current)setConnected(true);return v}
+  catch(e){if(gen===generation.current)setError(e instanceof Error?e.message:"다시 시도해 주세요.");throw e}
+  finally{if(!independent){lock.current=false;setBusy(false)}}
+ }
  async function start(){if(!ready3d||!roster||!b||!p||rosterLoading||restoring)return;try{const v=await run({op:"create",mode,role:side,batter,pitcher,pace,season:roster.season});setPitchType(arsenal(v.pitcher)[0].type);aim.current={x:0,y:0};return v}catch{return null}}
  async function join(){try{const v=await run({op:"join",code:room.trim().toUpperCase()});setPitchType(arsenal(v.pitcher)[0].type)}catch{}}
  function reset(){if(lock.current)return;generation.current++;pinMatchRoster(null);setGame(null);setError("");setCharging(false);chargeRef.current=null;setSwingTime(-100000);setLocalSwing(null);playedContacts.current.clear();history.replaceState(null,"",location.pathname)}
  async function askPitch(){const g=liveGame.current;if(!g)return;try{await run({op:"ready",code:g.code,previousPitch:g.pitchCount})}catch{}}
- const current=useRef({canSwing,canPitch,pitchType,side,run});current.current={canSwing,canPitch,pitchType,side,run};
- const swing=useCallback(()=>{const g=liveGame.current;if(!g?.pitch||!current.current.canSwing||lock.current)return;const key=g.code+":"+g.pitch.id;if(swungPitch.current===key)return;swungPitch.current=key;const started=localNow()+clock.current,at=started+SWING_CONTACT_MS,frozenAim={...aim.current};setLocalSwing({code:g.code,pitchId:g.pitch.id,at,aim:frozenAim});setSwingTime(started);tone("swing");void current.current.run({op:"swing",code:g.code,pitchId:g.pitch.id,inputAt:started,at,aim:frozenAim}).catch(()=>{if(swungPitch.current===key)swungPitch.current=null;setLocalSwing(old=>old?.at===at?null:old)})},[]);
+ const current=useRef({canPitch,pitchType,side,run});current.current={canPitch,pitchType,side,run};
+ const swing=useCallback(()=>{
+  const g=liveGame.current,started=localNow()+clock.current;
+  // Judge the actual input time, not the last 40ms UI clock update.
+  if(!g?.pitch||g.role!=="batter"||g.done||g.waiting||g.pitch.resolved||started<g.pitch.releaseAt-120)return;
+  const key=g.code+":"+g.pitch.id;if(swungPitch.current===key)return;swungPitch.current=key;
+  const at=started+SWING_CONTACT_MS,frozenAim={...aim.current};
+  setLocalSwing({code:g.code,pitchId:g.pitch.id,at,aim:frozenAim});setSwingTime(started);tone("swing");
+  // Polling can reveal the pitch before its ready POST returns. The pitch key
+  // already deduplicates swings, so that earlier request must not swallow input.
+  void current.current.run({op:"swing",code:g.code,pitchId:g.pitch.id,inputAt:started,at,aim:frozenAim},{independent:true}).catch(()=>{
+   if(swungPitch.current===key)swungPitch.current=null;
+   setLocalSwing(old=>old?.at===at?null:old);
+  });
+ },[]);
  const beginCharge=useCallback(()=>{if(current.current.side!=="pitcher"||!current.current.canPitch||chargeRef.current!==null)return;const time=localNow()+clock.current;chargeRef.current=time;setChargeStarted(time);setCharging(true)},[]);
  const cancelCharge=useCallback(()=>{chargeRef.current=null;setCharging(false)},[]);
  const endCharge=useCallback(()=>{const began=chargeRef.current,g=liveGame.current;if(began===null||!g)return;chargeRef.current=null;setCharging(false);const pos=((localNow()+clock.current-began)%1400)/1400,quality=clamp(1-Math.abs(pos-.5)*2,0,1);tone("pitch");void current.current.run({op:"pitch",code:g.code,previousPitch:g.pitchCount,type:current.current.pitchType,aim:{...aim.current},quality}).catch(()=>{})},[]);
