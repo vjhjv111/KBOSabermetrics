@@ -592,9 +592,9 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
             "Blend WAR = 0.70 × KBO fWAR + 0.30 × KBO RA9-WAR", string.Empty,
         };
         if (latestBat is not null)
-            lines.Add($"최근 타격 시즌 {latestBat.Year} {latestBat.Team}: PA {latestBat.PA}, wOBA {Format(latestBat.Woba, "0.000")}, wRC+ {Format(latestBat.WrcPlus, "0")}, WAR {Format(latestBat.War, "0.0")}");
+            lines.Add($"최근 타격 시즌 {latestBat.Year} {latestBat.Team}: PA {latestBat.PA}, wOBA {Format(latestBat.Woba, "0.000")}, wRC+ {Format(latestBat.WrcPlus, "0.0")}, WAR {Format(latestBat.War, "0.00")}");
         if (latestPit is not null)
-            lines.Add($"최근 투구 시즌 {latestPit.Year} {latestPit.Team}: IP {latestPit.InningsPitched:0.0}, ifFIP {Format(latestPit.IfFip, "0.00")}, gmLI {Format(latestPit.GmLi, "0.00")}, KBO fWAR {Format(latestPit.War, "0.0")}, RA9-WAR {Format(latestPit.Ra9War, "0.0")}, Blend {Format(latestPit.BlendWar, "0.0")}");
+            lines.Add($"최근 투구 시즌 {latestPit.Year} {latestPit.Team}: IP {latestPit.InningsPitched:0.0}, ifFIP {Format(latestPit.IfFip, "0.00")}, gmLI {Format(latestPit.GmLi, "0.00")}, KBO fWAR {Format(latestPit.War, "0.00")}, RA9-WAR {Format(latestPit.Ra9War, "0.00")}, Blend {Format(latestPit.BlendWar, "0.00")}");
         lines.Add(string.Empty);
         lines.Add("* 개인 페이지는 관계형 SQLite 테이블만 조회합니다. 원본 JSON을 다시 읽거나 역직렬화하지 않습니다.");
         return string.Join(Environment.NewLine, lines);
