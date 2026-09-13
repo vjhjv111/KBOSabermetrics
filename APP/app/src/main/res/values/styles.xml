@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.KboRecords" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.KboRecords.Base" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/brand</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:statusBarColor">@color/surface</item>
         <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:windowBackground">@color/surface</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="Theme.KboRecords" parent="Theme.KboRecords.Base" />
 
     <style name="ToolbarButton">
         <item name="android:layout_width">48dp</item>
