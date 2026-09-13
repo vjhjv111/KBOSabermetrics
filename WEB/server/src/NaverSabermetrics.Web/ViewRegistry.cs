@@ -72,6 +72,7 @@ public static class ViewRegistry
         if (t == typeof(int) || t == typeof(long)) return "integer";
         if (label.Contains("wRC", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Wrc", StringComparison.OrdinalIgnoreCase)) return "decimal1";
         if (IsWarMetric(p)) return "decimal2";
+        if (label.EndsWith("/9", StringComparison.Ordinal)) return "decimal2";
         if (label.Contains("AVG") || label.Contains("OBP") || label.Contains("SLG") || label.Contains("OPS") && !label.Contains('+')
             || label.Contains("BABIP") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA") return "decimal3";
         if (label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
