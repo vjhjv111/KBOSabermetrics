@@ -22,7 +22,7 @@ catch (Exception ex) when (args.Length > 0 && args[0].StartsWith("--", StringCom
 var webRoot=Path.Combine(AppContext.BaseDirectory,"wwwroot");
 if (!Directory.Exists(webRoot))
     throw new DirectoryNotFoundException($"웹 정적 파일 폴더가 없습니다: {webRoot}. 솔루션을 다시 빌드하세요.");
-foreach (var asset in new[] { "index.html", "app.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "diamond/index.html" })
+foreach (var asset in new[] { "index.html", "app.css", "home.css", "player-profile.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "comparison.js", "comparison.css", "diamond/index.html" })
 {
     var assetPath = Path.Combine(webRoot, asset);
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
@@ -45,6 +45,7 @@ if(isRender)
 }
 settings.StateDirectory=Path.GetFullPath(settings.StateDirectory,builder.Environment.ContentRootPath);
 if(!string.IsNullOrEmpty(settings.DatabasePath))settings.DatabasePath=Path.GetFullPath(settings.DatabasePath,builder.Environment.ContentRootPath);
+if(!string.IsNullOrWhiteSpace(settings.PlayerPhotoDirectory))settings.PlayerPhotoDirectory=Path.GetFullPath(settings.PlayerPhotoDirectory,builder.Environment.ContentRootPath);
 if(settings.MaxPageSize is < 1 or > 100 || settings.QuerySeconds is < 1 or > 120 || settings.ConcurrentQueries is <1 or >4
     || settings.RequestsPerMinute<1 || settings.IpRequestsPerMinute<1 || settings.DailyQueries<1 || settings.DailyRows<1
     || settings.MaxAccessibleRows is <1 or >10000)throw new InvalidOperationException("Site 조회 제한 설정이 유효하지 않습니다.");
@@ -61,9 +62,11 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
+builder.Services.AddSingleton<OfficialPlayerProfileService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
 builder.Services.AddSingleton<AnalysisWebService>();
+builder.Services.AddSingleton<ComparisonWebService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
 builder.Services.AddSingleton(services => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
     roster: services.GetRequiredService<DiamondRosterService>()));
@@ -155,7 +158,7 @@ app.UseStaticFiles(new StaticFileOptions
     {
         // DefaultFiles rewrites / to index.html before static files are served.
         // Keep the HTML entry point and tooltip script fresh across deployments.
-        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css")
+        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css")
         {
             context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
             context.Context.Response.Headers.Pragma = "no-cache";
@@ -222,6 +225,14 @@ app.MapPost("/api/player", async (PlayerWebRequest input, HttpContext c, PlayerW
     quotas.Consume(Ip(c), input.Section == "years" ? 6 : input.PageSize);
     return Results.Ok(await gate.RunAsync(t => players.QueryAsync(input, t), c.RequestAborted));
 });
+app.MapGet("/api/player-photo/{code}", async (string code, HttpContext c, OfficialPlayerProfileService profiles, QueryGate gate) =>
+{
+    if (!databaseReady) return Results.NotFound();
+    var photo = await gate.RunAsync(t => profiles.GetPhotoAsync(code,t),c.RequestAborted);
+    if (photo is null) return Results.NotFound();
+    c.Response.Headers.CacheControl = "private, max-age=3600";
+    return Results.File(photo.Bytes,photo.ContentType);
+});
 app.MapPost("/api/home", async (HomeRequest input, HttpContext c, HomeWebService home, QueryGate gate, QuotaStore quotas) =>
 {
     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
@@ -241,6 +252,13 @@ app.MapPost("/api/analysis", async (AnalysisRequest input, HttpContext c, Analys
     // Like /api/catalog, selector metadata consumes a query but no record-page budget.
     quotas.Consume(Ip(c), input.Section == "catalog" ? 0 : Math.Min(50, settings.MaxPageSize));
     return Results.Ok(await gate.RunAsync(t => analysis.QueryAsync(input,t),c.RequestAborted));
+});
+app.MapPost("/api/comparison", async (ComparisonRequest input, HttpContext c, ComparisonWebService comparison, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    input.Validate();
+    quotas.ConsumeComparison(Ip(c));
+    return Results.Ok(await gate.RunAsync(t => comparison.QueryAsync(input,t),c.RequestAborted));
 });
 app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebService teams, QueryGate gate, QuotaStore quotas) =>
 {

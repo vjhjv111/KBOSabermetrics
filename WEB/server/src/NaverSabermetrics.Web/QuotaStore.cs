@@ -39,6 +39,14 @@ public sealed class QuotaStore
     public void Consume(string ip,int requestedRows)
     {
         if(requestedRows<0 || requestedRows>_options.MaxPageSize)throw new RequestError("출력량이 잘못되었습니다.");
+        ConsumeBounded(ip,requestedRows);
+    }
+    // A league plot returns at most 500 season summaries. Reserve its whole
+    // response budget once, without changing the record-page limit.
+    public void ConsumeComparison(string ip) => ConsumeBounded(ip,500);
+
+    private void ConsumeBounded(string ip,int requestedRows)
+    {
         var day=DateTime.UtcNow.ToString("yyyy-MM-dd");
         lock(_lock)
         {

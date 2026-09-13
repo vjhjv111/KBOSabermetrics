@@ -3,6 +3,7 @@ namespace NaverSabermetrics.Web;
 public sealed class SiteOptions
 {
     public string DatabasePath { get; set; } = "";
+    public string PlayerPhotoDirectory { get; set; } = "";
     public string StateDirectory { get; set; } = "App_Data";
     public bool Demo { get; set; }
     public bool AllowDevelopmentGuest { get; set; }

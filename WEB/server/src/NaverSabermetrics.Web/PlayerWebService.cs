@@ -82,7 +82,7 @@ public sealed partial class RecordService
     }
 }
 
-public sealed class PlayerWebService(DatabaseCacheService db,RecordService records,SiteOptions options)
+public sealed class PlayerWebService(DatabaseCacheService db,RecordService records,SiteOptions options,OfficialPlayerProfileService officialProfiles)
 {
     private static readonly CultureInfo Inv=CultureInfo.InvariantCulture;
     private static string Round(string competition)=>competition switch{"정규시즌"=>"LOWER(TRIM(g.RoundCode))='kbo_r'","시범경기"=>$"g.CompetitionType={(int)GameCompetitionType.Preseason}","포스트시즌"=>$"g.CompetitionType={(int)GameCompetitionType.Postseason}",_=>"1=1"};
@@ -115,7 +115,8 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         {
             var seasons=await Sql($"SELECT g.SeasonYear Year, s.Role, GROUP_CONCAT(DISTINCT s.TeamCode) Team FROM (SELECT GameId,TeamCode,'batter' Role FROM BatterGameStats WHERE Pcode=$code UNION ALL SELECT GameId,TeamCode,'pitcher' Role FROM PitcherGameStats WHERE Pcode=$code) s JOIN Games g ON g.GameId=s.GameId WHERE {Round(r.Competition)} AND g.SeasonYear IS NOT NULL GROUP BY g.SeasonYear,s.Role ORDER BY Year DESC LIMIT 100",r,ct);
             var details=await Sql("SELECT s.BackNumber,s.Height,s.Weight,g.GameDate Date FROM (SELECT GameId,Pcode,BackNumber,Height,Weight FROM BattingGameLines UNION ALL SELECT GameId,Pcode,BackNumber,Height,Weight FROM PitchingGameLines) s JOIN Games g ON g.GameId=s.GameId WHERE s.Pcode=$code ORDER BY g.GameDate DESC,g.GameId DESC LIMIT 1",r,ct);
-            return new{profile,seasons,details=details.FirstOrDefault(),notes=new[]{"신체정보·등번호는 마지막 수집 경기 기준입니다. 수상·계약·연봉·선수 사진은 제공하지 않습니다.","퍼센타일은 자체 DB 기준이며 외부 사이트의 평가값과 다를 수 있습니다."}};
+            var officialProfile=await officialProfiles.GetAsync(r.Code,ct);
+            return new{profile,seasons,details=details.FirstOrDefault(),officialProfile,notes=new[]{"경기 자료의 신체정보·등번호는 마지막 수집 경기 기준입니다. KBO 공식 프로필은 별도 수집 시점의 정보이며 선택 시즌의 과거 정보와 다를 수 있습니다.","퍼센타일은 자체 DB 기준이며 외부 사이트의 평가값과 다를 수 있습니다."}};
         }
         if(r.Section=="career")
         {
@@ -133,7 +134,7 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
             var combined=new List<PlayerMetric>();
             foreach(var view in new[]{"basic","advanced","value"})
                 combined.AddRange(await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,view,true,ct));
-            var metrics=combined.DistinctBy(m=>m.Label).ToArray();
+            var metrics=combined.DistinctBy(m=>m.Label).OrderBy(m=>ViewRegistry.IsWarMetric(m.Label)?1:0).ToArray();
             return new{metrics,reference="선택 시즌·경기 구분에 기록이 있는 전체 타자 또는 전체 투수 기준입니다. 규정타석·규정이닝 제한 없이 지표별 유효값을 비교합니다. 동률은 중간 순위, 높을수록 우수. 비교군 2명 미만이면 표시하지 않습니다."};
         }
         if(r.Section=="years")

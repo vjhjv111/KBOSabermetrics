@@ -44,9 +44,18 @@ public static class ViewRegistry
 
     public static IReadOnlyList<PropertyInfo> Properties(ViewDefinition v) => v.RowType.GetProperties()
         .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && p.Name != "Pcode")
-        .OrderBy(p => p.MetadataToken).ToArray();
+        .OrderBy(p => IsWarMetric(p) ? 1 : 0).ThenBy(p => p.MetadataToken).ToArray();
 
     public static string Label(PropertyInfo p) => p.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? p.Name;
+    // WAR totals belong at the end of every table. WARIP is an innings-based
+    // coefficient; rates and player counts keep their existing units and order.
+    public static bool IsWarMetric(string label) => label.Contains("WAR", StringComparison.OrdinalIgnoreCase)
+        && !label.Contains("WARIP", StringComparison.OrdinalIgnoreCase)
+        && !label.Contains('%') && !label.Contains("비중") && !label.Contains("달성률") && !label.Contains("감소율");
+    public static bool IsWarMetric(PropertyInfo p) => IsNumber(p)
+        && (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) != typeof(int)
+        && (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) != typeof(long)
+        && IsWarMetric(Label(p));
     public static bool IsNumber(PropertyInfo p)
     {
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
@@ -61,9 +70,11 @@ public static class ViewRegistry
         if (p.Name is "InningsPitched" or "StarterInnings" or "ReliefInnings") return "innings";
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
         if (t == typeof(int) || t == typeof(long)) return "integer";
+        if (label.Contains("wRC", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Wrc", StringComparison.OrdinalIgnoreCase)) return "decimal1";
+        if (IsWarMetric(p)) return "decimal2";
         if (label.Contains("AVG") || label.Contains("OBP") || label.Contains("SLG") || label.Contains("OPS") && !label.Contains('+')
             || label.Contains("BABIP") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA") return "decimal3";
-        if (label.Contains("wRC+") || label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
+        if (label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
         if (p.Name.Contains("War", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Runs") || p.Name.Contains("Speed") || label.Contains("PF")) return "decimal1";
         return "decimal2";
     }
