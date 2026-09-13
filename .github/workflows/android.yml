@@ -1,0 +1,80 @@
+name: Android
+
+on:
+  push:
+    paths:
+      - 'APP/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'APP/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug:
+    name: Test, lint and build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: APP
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK and accept SDK licenses
+        uses: android-actions/setup-android@v3.2.2
+        with:
+          cmdline-tools-version: '12266719'
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+
+      # setup-gradle validates every checked-in wrapper JAR before it is executed.
+      - name: Set up Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@v4.4.4
+        with:
+          validate-wrappers: true
+
+      - name: Enable Gradle wrapper
+        run: chmod +x gradlew
+
+      - name: Run unit tests, lint and debug build
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest lintDebug assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: kbo-sabermetrics-debug-apk
+          path: APP/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: kbo-sabermetrics-android-reports
+          path: |
+            APP/app/build/reports/tests/testDebugUnitTest/**
+            APP/app/build/test-results/testDebugUnitTest/**
+            APP/app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
+          retention-days: 7
