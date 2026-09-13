@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using NaverRelay.Application.Statistics;
 
 namespace NaverRelay.Gui.Services;
 
@@ -35,7 +36,8 @@ internal static class CsvExporter
             var values = visibleColumns.Select(column =>
             {
                 var value = row.Cells[column.Index].Value;
-                return Escape(FormatValue(value));
+                var property = string.IsNullOrWhiteSpace(column.DataPropertyName) ? column.Name : column.DataPropertyName;
+                return Escape(FormatValue(value, PrecisionFormat(property, row.DataBoundItem)));
             });
             builder.AppendLine(string.Join(",", values));
         }
@@ -56,6 +58,7 @@ internal static class CsvExporter
         var properties = System.ComponentModel.TypeDescriptor.GetProperties(typeof(T))
             .Cast<System.ComponentModel.PropertyDescriptor>()
             .Where(property => property.IsBrowsable)
+            .OrderBy(property => GridNumberFormatter.IsWarValue(property.Name))
             .ToList();
 
         if (properties.Count == 0)
@@ -67,7 +70,8 @@ internal static class CsvExporter
         foreach (var row in rows)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.AppendLine(string.Join(",", properties.Select(property => Escape(FormatValue(property.GetValue(row))))));
+            builder.AppendLine(string.Join(",", properties.Select(property =>
+                Escape(FormatValue(property.GetValue(row), PrecisionFormat(property.Name, row))))));
         }
 
         await File.WriteAllTextAsync(
@@ -77,14 +81,19 @@ internal static class CsvExporter
             cancellationToken);
     }
 
-    private static string FormatValue(object? value)
+    private static string? PrecisionFormat(string property, object? row) =>
+        property == nameof(LeagueConstantGridRow.Value) && row is LeagueConstantGridRow constant
+            ? GridNumberFormatter.GetLeagueConstantPrecisionFormat(constant.Metric ?? string.Empty)
+            : GridNumberFormatter.GetMetricPrecisionFormat(property);
+
+    private static string FormatValue(object? value, string? format = null)
     {
         return value switch
         {
             null => string.Empty,
             DateTime dateTime => dateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
             DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture),
-            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty,
+            IFormattable formattable => formattable.ToString(format, CultureInfo.InvariantCulture) ?? string.Empty,
             _ => value.ToString() ?? string.Empty,
         };
     }
