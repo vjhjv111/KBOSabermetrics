@@ -69,17 +69,16 @@ internal static class GridNumberFormatter
 
     private static readonly HashSet<string> OneDecimalStats = new(StringComparer.OrdinalIgnoreCase)
     {
-        "SpeedKmh", "AverageSpeed", "InningsPitched", "Wraa", "Wrc",
+        "SpeedKmh", "AverageSpeed", "InningsPitched", "Wraa",
         "BattingRuns", "RunningRuns", "FieldingRuns", "PositionRuns", "OffensiveRuns", "ReplacementRuns",
         "RunsCreated",
-        "RunsAboveReplacement", "RunsPerWin", "War", "Ra9War", "BlendWar",
-        "BatterWar", "PitcherWar", "PitcherRa9War", "PitcherBlendWar", "TotalWar", "BatterRAR", "PitcherRAR",
+        "RunsAboveReplacement", "RunsPerWin", "BatterRAR", "PitcherRAR",
         // KBO 투수 WAR v4 / 파크 팩터
         "ParkFactor", "RawFipFactor", "UsedFipFactor", "Innings",
         "StarterInnings", "ReliefInnings", "StarterRunsAboveAverage", "ReliefRunsAboveAverage",
         "RunsAboveAverage", "StarterReplacementRuns", "ReliefReplacementRuns", "StarterRAR", "ReliefRAR",
         "StarterWAA", "ReliefWAA", "WAA",
-        "RAR", "StarterWar", "ReliefWar",
+        "RAR",
         "TwoSeamSpeed", "FourSeamSpeed", "CutterSpeed", "CurveSpeed", "SliderSpeed",
         "ChangeupSpeed", "SinkerSpeed", "ForkballSpeed", "KnuckleballSpeed", "OtherSpeed",
     };
@@ -92,8 +91,34 @@ internal static class GridNumberFormatter
 
     private static readonly HashSet<string> IntegerIndexStats = new(StringComparer.OrdinalIgnoreCase)
     {
-        "WrcPlus", "OpsPlus", "FipMinus", "XfipMinus",
+        "OpsPlus", "FipMinus", "XfipMinus",
     };
+
+    /// <summary>화면과 CSV가 함께 사용하는 WAR / wRC 표시 정밀도입니다.</summary>
+    public static string? GetMetricPrecisionFormat(string property)
+    {
+        if (property.Contains("Wrc", StringComparison.OrdinalIgnoreCase)) return "0.0";
+        // WARIP 계수, WAR 비중/달성률, WAR 구간별 인원수는 WAR 합계와 단위가 다릅니다.
+        if (property.EndsWith("War", StringComparison.OrdinalIgnoreCase) ||
+            property.Contains("WarBeforeCorrection", StringComparison.OrdinalIgnoreCase) ||
+            property is "PreWarDelta" or "WarIpCorrection" or "LeagueCorrection" or "Ra9LeagueCorrection")
+            return "0.00";
+        return null;
+    }
+
+    public static string? GetLeagueConstantPrecisionFormat(string metric)
+    {
+        if (metric.Contains("wRC", StringComparison.OrdinalIgnoreCase)) return "0.0";
+        if (!metric.Contains("WAR", StringComparison.OrdinalIgnoreCase) ||
+            metric.Contains('%') || metric.Contains("달성률", StringComparison.Ordinal) ||
+            metric.Contains("배분율", StringComparison.Ordinal) || metric.Contains("가중치", StringComparison.Ordinal))
+            return null;
+        if (metric.Contains("WARIP", StringComparison.OrdinalIgnoreCase) &&
+            !metric.Contains("총보정", StringComparison.Ordinal)) return null;
+        return "0.00";
+    }
+
+    public static bool IsWarValue(string property) => GetMetricPrecisionFormat(property) == "0.00";
 
     public static void Apply(DataGridView grid)
     {
@@ -111,6 +136,10 @@ internal static class GridNumberFormatter
             if (SixDecimalStats.Contains(property))
             {
                 column.DefaultCellStyle.Format = "0.000000";
+            }
+            else if (GetMetricPrecisionFormat(property) is { } metricFormat)
+            {
+                column.DefaultCellStyle.Format = metricFormat;
             }
             else if (PercentageStats.Contains(property))
             {
@@ -140,6 +169,15 @@ internal static class GridNumberFormatter
                 column.DefaultCellStyle.Format = "0.00";
             }
         }
+
+        // 각 화면의 기존 WAR 계열 내부 순서는 지키고, 일반 기록 다음에 모아 둡니다.
+        var orderedColumns = grid.Columns.Cast<DataGridViewColumn>()
+            .OrderBy(column => column.DisplayIndex)
+            .OrderBy(column => IsWarValue(string.IsNullOrWhiteSpace(column.DataPropertyName)
+                ? column.Name : column.DataPropertyName))
+            .ToList();
+        for (var index = 0; index < orderedColumns.Count; index++)
+            orderedColumns[index].DisplayIndex = index;
     }
 
     /// <summary>
@@ -166,7 +204,11 @@ internal static class GridNumberFormatter
         var metric = row.Metric ?? string.Empty;
         var value = row.Value.Value;
 
-        if (metric.Contains("WARIP", StringComparison.OrdinalIgnoreCase))
+        if (GetLeagueConstantPrecisionFormat(metric) is { } metricFormat)
+        {
+            e.Value = value.ToString(metricFormat, CultureInfo.CurrentCulture);
+        }
+        else if (metric.Contains("WARIP", StringComparison.OrdinalIgnoreCase))
         {
             e.Value = value.ToString("0.000000", CultureInfo.CurrentCulture);
         }

@@ -3,7 +3,7 @@ namespace NaverRelay.Gui.Services;
 /// <summary>
 /// 선수명 바로 오른쪽에 현재 그리드 정렬 기준의 실제 행 값을 표시합니다.
 /// 정렬 기준명/방향은 헤더에 한 번만 표시합니다.
-/// 예: 헤더 "적용 조건 = wRC+ ↓", 행 "149".
+/// 예: 헤더 "적용 조건 = wRC+ ↓", 행 "149.0".
 /// </summary>
 internal static class GridFilterInfoDecorator
 {

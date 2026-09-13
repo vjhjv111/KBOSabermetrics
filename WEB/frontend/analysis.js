@@ -3,6 +3,7 @@
 // Analysis owns its requests and animation lifecycle; every value comes from the API.
 const analysisTabs=[
   ['zones','공략 지도','구종과 카운트에 따라 달라지는 타자·투수의 코스별 결과를 확인하세요.'],
+  ['velocity','구속별 대응','느린 공부터 빠른 공까지, 구속 구간별 타격 결과와 스윙을 표본 수와 함께 비교하세요.'],
   ['sequences','볼배합','연속으로 던진 두 구종의 빈도와 결과를 살펴보세요.'],
   ['trend','최근 변화','경기별 성적과 이동 평균으로 시즌 안의 변화를 확인하세요.'],
   ['times','투구수·재대면','투구 수가 늘거나 같은 타자를 다시 만날 때의 성적을 비교하세요.'],
@@ -58,7 +59,7 @@ function analysisConfigure(){
   const section=analysisState.section;const tab=analysisTabs.find(t=>t[0]===section);$('analysis-subtitle').textContent=tab[2];
   for(const link of $('analysis-tabs').querySelectorAll('a'))link.setAttribute('aria-current',link.dataset.section===section?'page':'false');
   const pitcherOnly=['times','workload'].includes(section);if(pitcherOnly&&$('an-role').value!=='pitcher'){$('an-role').value='pitcher';analysisState.catalogKey='';}$('an-role').disabled=pitcherOnly;
-  const pitchFilters=['zones','sequences','trend','times'].includes(section);
+  const pitchFilters=['zones','velocity','sequences','trend','times'].includes(section);
   for(const id of ['pitchType','stance','count'])$('an-field-'+id).hidden=!pitchFilters;
   $('an-field-window').hidden=section!=='trend';$('an-field-gameId').hidden=!['replay','provenance'].includes(section);
   $('an-field-start').hidden=section==='workload';
@@ -101,7 +102,7 @@ async function analysisLoad(clear=true){
   try{
     await analysisCatalog(controller.signal,seq);if(seq!==analysisState.seq||!analysisActive())return;
     const r=analysisRequest();if(r.start&&r.end&&r.start>r.end)throw new Error('종료일은 시작일 이후로 선택해 주세요.');
-    if(['zones','sequences','trend','times'].includes(r.section)&&!r.code)throw new Error('이 조건에 수집된 선수가 없습니다. 팀이나 시즌을 바꿔 주세요.');
+    if(['zones','velocity','sequences','trend','times'].includes(r.section)&&!r.code)throw new Error('이 조건에 수집된 선수가 없습니다. 팀이나 시즌을 바꿔 주세요.');
     const data=await api('/api/analysis',r,controller.signal);if(seq!==analysisState.seq||!analysisActive())return;
     analysisState.result=data;analysisRender(data);
     const selected=$('an-code').selectedOptions[0]?.textContent??'';
@@ -127,7 +128,7 @@ function analysisCard(title){const card=text('section','','analysis-card');card.
 function analysisRender(data){
   analysisStopPlayback();const root=$('analysis-content');root.replaceChildren();
   if(data.summary?.length){const summary=text('div','','analysis-summary');for(const metric of data.summary){const item=text('div','','analysis-metric');item.append(text('span',metric.label),text('strong',metric.value??'—'));summary.append(item);}root.append(summary);}
-  const renderers={zones:analysisZones,sequences:analysisSequences,trend:analysisTrend,workload:analysisWorkload,times:analysisTimes,expectancy:analysisExpectancy,replay:analysisReplay};
+  const renderers={zones:analysisZones,velocity:analysisVelocity,sequences:analysisSequences,trend:analysisTrend,workload:analysisWorkload,times:analysisTimes,expectancy:analysisExpectancy,replay:analysisReplay};
   if(renderers[data.section])renderers[data.section](data,root);
   if(data.notes?.length){const notes=text('aside','','analysis-notes');notes.setAttribute('aria-label','해석과 데이터 안내');for(const note of data.notes)notes.append(text('p',note,'analysis-note'));root.append(notes);}
   for(const table of data.tables??[])root.append(analysisTable(table));
@@ -169,6 +170,40 @@ function analysisSequences(data,root){
   for(const row of [...rows].sort((a,b)=>Number(b.Pairs)-Number(a.Pairs)).slice(0,8)){const item=text('div','','analysis-sequence-item'),path=text('div','','analysis-sequence-path');path.append(text('span',row.Previous),text('span','→'),text('span',row.Current));item.append(path,text('p',`${analysisFormat(row.Pairs,'integer')}회 · 헛스윙 ${analysisFormat(row.WhiffPct,'percent')} · 뒤 공 구속 차이 ${analysisFormat(row.SpeedGap,'decimal')} km/h`,'analysis-sequence-meta'));list.append(item);}card.append(text('p','같은 타석 안에서 연속 투구한 구종입니다. 결과는 뒤에 던진 공 기준이며 빈도순으로 표시합니다.','analysis-note'),list);root.append(card);
 }
 function analysisSvg(name,attrs={}){const e=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));return e;}
+function analysisVelocity(data,root){
+  const rows=analysisRows(data,'velocityBands');if(!rows.length)return;
+  const pitcher=data.chart?.role==='pitcher',card=analysisCard(pitcher?'구속에 따른 상대 타자 성적':'어떤 구속에서 결과가 달라질까?');
+  card.classList.add('analysis-velocity');
+  card.append(text('p','타격 결과는 타석의 마지막 공, 스윙 지표는 조건에 맞는 모든 유효 구속 투구를 기준으로 합니다. 구속 구간은 km/h입니다.','analysis-note'));
+  const metrics=[['OPS','OPS · 출루율 + 장타율'],['AVG','AVG · 타율'],['OBP','OBP · 출루율'],['SLG','SLG · 장타율'],['WhiffPct','헛스윙률 · 스윙 대비'],['SwingPct','스윙률 · 투구 대비']],plot=text('div','','analysis-velocity-bands');
+  plot.setAttribute('aria-live','polite');
+  const labels=['120 미만','120–<135','135–<150','150 이상'];
+  function draw(key){
+    const percent=key.endsWith('Pct'),format=percent?'percent':'rate',metric=metrics.find(m=>m[0]===key)[1];
+    const values=rows.map(r=>r[key]).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);
+    const scale=Math.max(percent?100:1,...values,0);plot.replaceChildren();
+    for(const row of rows){
+      const item=text('div','','analysis-velocity-band'),head=text('div','','analysis-velocity-heading');
+      const band=Number(row.Band),label=labels[band]??row.Label,value=row[key],known=value!=null&&Number.isFinite(Number(value));
+      head.append(text('span',`${label} km/h`),text('strong',analysisFormat(value,format)));item.append(head);
+      const svg=analysisSvg('svg',{viewBox:'0 0 600 16',class:'analysis-velocity-bar','aria-hidden':'true',focusable:'false',preserveAspectRatio:'none'});
+      svg.append(analysisSvg('rect',{x:0,y:0,width:600,height:16,rx:5,class:'velocity-track'}));
+      if(known)svg.append(analysisSvg('rect',{x:0,y:0,width:Math.max(0,Number(value))/scale*600,height:16,rx:5,class:'velocity-value'}));
+      item.append(svg);
+      const pitchSample=`투구 N ${analysisFormat(row.N,'integer')} · 스윙 ${analysisFormat(row.Swings,'integer')}`;
+      const paSample=`종료 PA ${analysisFormat(row.PA,'integer')} · 결과 확인 PA ${analysisFormat(row.OutcomePA,'integer')}`;
+      const denominator=key==='WhiffPct'?`분모: 스윙 ${analysisFormat(row.Swings,'integer')}회`:key==='SwingPct'?`분모: 유효 구속 투구 ${analysisFormat(row.N,'integer')}구`:key==='OBP'?`분모: AB+BB+HBP+SF ${analysisFormat(row.ObpN,'integer')}`:key==='OPS'?`분모: OBP ${analysisFormat(row.ObpN,'integer')} / SLG AB ${analysisFormat(row.AB,'integer')}`:`분모: AB ${analysisFormat(row.AB,'integer')}`;
+      item.append(text('p',percent?pitchSample:paSample,'analysis-velocity-sample'),text('p',denominator,'analysis-velocity-sample'));
+      if(!known)item.append(text('span','계산할 분모가 없습니다.','analysis-velocity-empty'));
+      else if(!percent&&Number(row.OutcomePA)<Number(data.chart?.smallSamplePa??30))item.append(text('span','작은 표본 · 결과 확인 30 PA 미만','analysis-velocity-caution'));
+      if(Number(row.UnknownOutcomePA)>0)item.append(text('span',`결과 미분류 ${analysisFormat(row.UnknownOutcomePA,'integer')} PA 제외`,'analysis-velocity-caution'));
+      item.setAttribute('aria-label',`${label} km/h · ${metric} ${analysisFormat(value,format)}`);plot.append(item);
+    }
+  }
+  const choice=analysisMetricSelect('비교할 지표',metrics,draw);card.append(choice.wrap,plot,
+    text('p','막대는 0에서 시작하며 같은 지표 안에서 동일한 눈금을 사용합니다. 작은 표본 표시는 비교를 돕는 안내이며 능력 차이나 통계적 유의성을 뜻하지 않습니다.','analysis-note'));
+  root.append(card);draw(choice.select.value);
+}
 function analysisLineChart(rows,key,label,format='percent'){
   const width=Math.min(840,Math.max(320,analysisRoot.clientWidth-80));
   const svg=analysisSvg('svg',{viewBox:`0 0 ${width} 300`,class:'analysis-chart',role:'img','aria-label':`${label} 경기별 변화`}),valid=rows.map((r,i)=>({row:r,i,v:r[key]==null?null:Number(r[key])})).filter(r=>r.v!==null&&Number.isFinite(r.v));

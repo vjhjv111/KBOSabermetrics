@@ -778,7 +778,7 @@ internal sealed class PlayerHeroCard : Panel
         _detail1.Text = $"생년월일: {profile.BirthDate}";
         _detail2.Text = $"소속 이력: {profile.TeamHistory}";
         _detail3.Text = $"활동 연도: {profile.FirstSeason?.ToString() ?? "-"} ~ {profile.LastSeason?.ToString() ?? "-"}";
-        var warText = profile.CareerWar.HasValue ? profile.CareerWar.Value.ToString("0.0") : "-";
+        var warText = profile.CareerWar.HasValue ? profile.CareerWar.Value.ToString("0.00") : "-";
         _detail4.Text = $"Career G {profile.CareerGames:N0} / PA {profile.CareerPlateAppearances:N0} / IP {profile.CareerInnings:0.0} / WAR {warText}";
     }
 }
@@ -820,7 +820,8 @@ internal sealed class MetricBulletPanel : Panel
         foreach (var metric in _metrics)
         {
             e.Graphics.DrawString(metric.Name, titleFont, labelBrush, left, top - 12);
-            var valueText = metric.Value.HasValue ? metric.Value.Value.ToString(metric.Max <= 1.5 ? "0.000" : "0.0") : "-";
+            var format = GridNumberFormatter.GetMetricPrecisionFormat(metric.Name) ?? (metric.Max <= 1.5 ? "0.000" : "0.0");
+            var valueText = metric.Value.HasValue ? metric.Value.Value.ToString(format) : "-";
             var measured = e.Graphics.MeasureString(valueText, valueFont);
             e.Graphics.DrawString(valueText, valueFont, valueBrush, right - measured.Width, top - 14);
             var y = top + 18;

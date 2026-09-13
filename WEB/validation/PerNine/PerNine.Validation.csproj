@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <SourceTree Condition="'$(SourceTree)' == ''">WEB</SourceTree>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SourceTree)' == 'WEB'">
+    <ProjectReference Include="../../server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(SourceTree)' == 'PC'">
+    <ProjectReference Include="../../../PC/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj" />
+  </ItemGroup>
+  <Target Name="ValidateSourceTree" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(SourceTree)' != 'WEB' and '$(SourceTree)' != 'PC'" Text="SourceTree must be WEB or PC." />
+  </Target>
+</Project>

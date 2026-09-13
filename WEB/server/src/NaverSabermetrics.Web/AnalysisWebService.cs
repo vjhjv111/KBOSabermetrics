@@ -12,7 +12,7 @@ public sealed record AnalysisRequest(string Section = "zones", int Year = 2026, 
     {
         static bool Id(string? s, int max) => s is not null && s.Length <= max && s.All(c => char.IsAsciiLetterOrDigit(c) || c is ':' or '_' or '-');
         static bool Date(string? s) => s is not null && (s == "" || DateOnly.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _));
-        if (Section is not ("catalog" or "zones" or "sequences" or "trend" or "workload" or "times" or "expectancy" or "replay" or "provenance")
+        if (Section is not ("catalog" or "zones" or "velocity" or "sequences" or "trend" or "workload" or "times" or "expectancy" or "replay" or "provenance")
             || Year is < 1900 or > 2200 || Role is not ("batter" or "pitcher") || !Id(Code, 40) || !Id(Team, 10)
             || !Id(GameId, 80) || !Id(PaId, 160) || !Date(Start) || !Date(End)
             || (Start != "" && End != "" && string.CompareOrdinal(Start, End) > 0)
@@ -93,6 +93,7 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
         return r.Section switch
         {
             "catalog" => await CatalogAsync(r, ct), "zones" => await ZonesAsync(r, ct),
+            "velocity" => await VelocityAsync(r, ct),
             "sequences" => await SequencesAsync(r, ct), "trend" => await TrendAsync(r, ct),
             "workload" => await WorkloadAsync(r with { Role = "pitcher" }, ct),
             "times" => await TimesAsync(r with { Role = "pitcher" }, ct),
@@ -145,6 +146,9 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
                  (last.ActualPitchIndex=p.ActualPitchIndex AND last.SourceOptionIndex=p.SourceOptionIndex AND last.PitchEventId>p.PitchEventId)))
               THEN 1 ELSE 0 END Terminal,
             pa.CountsAsAtBat PaAB, pa.TotalBases PaTB, pa.IsStrikeout PaK,
+            pa.IsHit PaH, pa.WasRecognized PaKnown,
+            CASE WHEN pa.ResultType=9 THEN 1 ELSE 0 END PaHBP,
+            CASE WHEN pa.ResultType=17 THEN 1 ELSE 0 END PaSF,
             CASE WHEN pa.IsWalk=1 OR pa.IsIntentionalWalk=1 THEN 1 ELSE 0 END PaBB
           FROM Pitches p JOIN Games g ON g.GameId=p.GameId
           LEFT JOIN PlateAppearances pa ON pa.PlateAppearanceId=p.PlateAppearanceId

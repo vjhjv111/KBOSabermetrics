@@ -12,15 +12,20 @@
     <!-- Explicit physical items prevent an absent project wwwroot in the SDK manifest.
          Only these public files are packaged. frontend/ remains the editable source. -->
     <Content Remove="wwwroot/**" />
-    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css"
+    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/home.css;wwwroot/player-profile.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css;wwwroot/comparison.js;wwwroot/comparison.css"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/index.html" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.css" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/home.css" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/player-profile.css" />
+    <TeamLogoAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/teams/*.png" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/games.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/analysis.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/analysis.css" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/comparison.js" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/comparison.css" />
     <DiamondAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond/**/*" />
     <Content Include="../../../diamond-game/lib/players.json;../../../diamond-game/lib/arsenals.json;../../../diamond-game/lib/action-data.json;../../../diamond-game/lib/player-profiles.json;../../../diamond-game/lib/batter-colliders.json"
              Link="diamond-data/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -42,7 +47,12 @@
     <Copy SourceFiles="@(DiamondAsset)"
           DestinationFiles="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TeamLogoAsset)"
+          DestinationFiles="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
     <ItemGroup>
+      <Content Include="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
       <Content Include="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
                CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>

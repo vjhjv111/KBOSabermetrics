@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The theme attribute starts at API 27; API 26 uses MainActivity's system UI flags. -->
+    <style name="Theme.KboRecords" parent="Theme.KboRecords.Base">
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

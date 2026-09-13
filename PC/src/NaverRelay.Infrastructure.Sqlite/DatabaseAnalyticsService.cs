@@ -9,7 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-official-team-er-v2";
+    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v4";
     private const double Wbb = 0.69;
     private const double Whbp = 0.72;
     private const double W1b = 0.88;
@@ -197,6 +197,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
     private static PitcherSabermetricGridRow BuildPitcherSaber(PitcherAggregateRecord row, LeagueReference league)
     {
         var innings = row.PlateAppearanceOuts / 3.0;
+        // Official outs include non-PA outs; all per-nine rates use the matching official counts.
+        var hasFinalLine = row.FinalGames > 0;
+        var perNineInnings = hasFinalLine ? row.InningsOuts / 3.0 : innings;
         var fip = innings > 0
             ? (13.0 * row.HomeRunsFromPlateAppearances +
                3.0 * (row.WalksFromPlateAppearances + row.HitBattersFromPlateAppearances) -
@@ -229,9 +232,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
                 row.BattersFaced - row.WalksFromPlateAppearances - row.HitBattersFromPlateAppearances -
                 row.StrikeoutsFromPlateAppearances - row.HomeRunsFromPlateAppearances + row.SacrificeFlies),
             LobRate = lob,
-            StrikeoutsPerNine = RatePerNine(row.StrikeoutsFromPlateAppearances, innings),
-            WalksPerNine = RatePerNine(row.WalksFromPlateAppearances, innings),
-            HomeRunsPerNine = RatePerNine(row.HomeRunsFromPlateAppearances, innings),
+            StrikeoutsPerNine = RatePerNine(hasFinalLine ? row.FinalStrikeouts : row.StrikeoutsFromPlateAppearances, perNineInnings),
+            WalksPerNine = RatePerNine(hasFinalLine ? row.FinalWalks : row.WalksFromPlateAppearances, perNineInnings),
+            HomeRunsPerNine = RatePerNine(hasFinalLine ? row.HomeRunsAllowed : row.HomeRunsFromPlateAppearances, perNineInnings),
             Fip = fip,
             FipMinus = fip.HasValue && league.Ra9 > 0 ? 100.0 * fip.Value / league.Ra9 : null,
             Xfip = xfip,

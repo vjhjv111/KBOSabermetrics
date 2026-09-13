@@ -18,7 +18,7 @@ public static class LeagueOverviewBuilder
         return new LeagueOverview(fullLeague ? "리그 전체" : "선택 조건 합계", new[]
         {
             M("G", games, "0"), M("PA", pa), M("AB", ab), M("R", rows.Sum(x=>x.Runs)), M("H", h), M("2B", rows.Sum(x=>x.Doubles)), M("3B", rows.Sum(x=>x.Triples)), M("HR", rows.Sum(x=>x.HomeRuns)),
-            M("BB", bb), M("SO", rows.Sum(x=>x.Strikeouts)), M("AVG", avg, "0.000"), M("OBP", obp, "0.000"), M("SLG", slg, "0.000"), M("OPS", ops, "0.000", true), M("WAR", war, "0.0", true),
+            M("BB", bb), M("SO", rows.Sum(x=>x.Strikeouts)), M("AVG", avg, "0.000"), M("OBP", obp, "0.000"), M("SLG", slg, "0.000"), M("OPS", ops, "0.000", true), M("WAR", war, "0.00", true),
         });
     }
 
@@ -33,8 +33,8 @@ public static class LeagueOverviewBuilder
         return new LeagueOverview(fullLeague ? "리그 전체" : "선택 조건 합계", new[]
         {
             M("G", games, "0"), M("IP", ip, "0.0"), M("ER", er), M("R", r), M("H", h), M("HR", rows.Sum(x=>x.HomeRunsAllowed)), M("BB", bb), M("SO", rows.Sum(x=>x.Strikeouts)),
-            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("KBO fWAR", rows.Where(x=>x.War.HasValue).Sum(x=>x.War!.Value), "0.0", true),
-            M("RA9-WAR", rows.Where(x=>x.Ra9War.HasValue).Sum(x=>x.Ra9War!.Value), "0.0"), M("Blend WAR", rows.Where(x=>x.BlendWar.HasValue).Sum(x=>x.BlendWar!.Value), "0.0"),
+            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("KBO fWAR", rows.Where(x=>x.War.HasValue).Sum(x=>x.War!.Value), "0.00", true),
+            M("RA9-WAR", rows.Where(x=>x.Ra9War.HasValue).Sum(x=>x.Ra9War!.Value), "0.00"), M("Blend WAR", rows.Where(x=>x.BlendWar.HasValue).Sum(x=>x.BlendWar!.Value), "0.00"),
         });
     }
 

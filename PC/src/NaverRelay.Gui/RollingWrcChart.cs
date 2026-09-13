@@ -74,7 +74,7 @@ internal sealed class RollingWrcChart : Control
             var value = min + (max - min) * index / tickCount;
             var y = MapY(value, min, max, plot);
             graphics.DrawLine(gridPen, plot.Left, y, plot.Right, y);
-            var text = value.ToString("0");
+            var text = value.ToString("0.0");
             var size = graphics.MeasureString(text, font);
             graphics.DrawString(text, font, labelBrush, plot.Left - size.Width - 8, y - size.Height / 2);
         }
@@ -83,7 +83,9 @@ internal sealed class RollingWrcChart : Control
         {
             var averageY = MapY(100.0, min, max, plot);
             graphics.DrawLine(averagePen, plot.Left, averageY, plot.Right, averageY);
-            graphics.DrawString("100", font, Brushes.IndianRed, plot.Right - 28, averageY - 17);
+            var averageText = 100.0.ToString("0.0");
+            var averageSize = graphics.MeasureString(averageText, font);
+            graphics.DrawString(averageText, font, Brushes.IndianRed, plot.Right - averageSize.Width, averageY - 17);
         }
 
         var chartPoints = new PointF[_points.Count];
