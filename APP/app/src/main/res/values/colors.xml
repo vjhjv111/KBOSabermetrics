@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#EF0C58</color>
+    <color name="ink">#142E52</color>
+    <color name="muted">#52647A</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="page_background">#F5F7FA</color>
+    <color name="toolbar_border">#E2E7EF</color>
+</resources>

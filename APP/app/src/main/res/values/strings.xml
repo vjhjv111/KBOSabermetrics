@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KBO 기록실</string>
+    <string name="go_home">홈으로</string>
+    <string name="refresh">새로고침</string>
+    <string name="more_options">더 보기</string>
+    <string name="open_browser">브라우저에서 열기</string>
+    <string name="loading">기록실을 불러오는 중</string>
+    <string name="load_error_title">페이지를 불러오지 못했어요</string>
+    <string name="load_error_message">인터넷 연결을 확인한 뒤 다시 시도해 주세요. 서버가 처음 시작될 때에는 잠시 걸릴 수 있어요.</string>
+    <string name="ssl_error_message">안전한 연결을 확인할 수 없어 페이지를 열지 않았어요. 기기의 날짜와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</string>
+    <string name="http_error_message">서버에서 페이지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요. (HTTP %1$d)</string>
+    <string name="renderer_error_message">웹 화면이 종료되었어요. 다시 시도하면 기록실을 새로 열 수 있어요.</string>
+    <string name="retry">다시 시도</string>
+    <string name="external_link_title">외부 링크 열기</string>
+    <string name="external_link_message">%1$s 링크를 기기의 브라우저에서 열까요?</string>
+    <string name="external_link_open">열기</string>
+    <string name="cancel">취소</string>
+    <string name="browser_unavailable">링크를 열 수 있는 브라우저가 없어요.</string>
+    <string name="unsupported_link">이 종류의 링크는 앱에서 열 수 없어요.</string>
+    <string name="download_title">파일 내려받기</string>
+    <string name="download_message">브라우저에서 같은 페이지를 연 뒤 내보내기를 다시 눌러주세요.</string>
+</resources>
