@@ -1,0 +1,23 @@
+/* Official introductions have their own collection date, independent of stats filters. */
+#player-page .player-hero{align-items:center;gap:26px}
+#player-page .player-portrait{width:144px;height:176px;overflow:hidden;border:1px solid #e6eaf0;background:linear-gradient(155deg,#f6f8fc,#e9eef5);color:#52677e;position:relative;flex:none}
+#player-page .player-photo{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;letter-spacing:0}
+#player-page .player-photo[hidden]{display:none}
+#player-page .player-photo-fallback{font-size:23px;letter-spacing:2px}
+#player-page #player-bio{font-size:14px;line-height:1.7}
+#player-page #player-history{max-width:800px;font-size:12px;line-height:1.8;color:#596779}
+#player-page .player-official-profile{margin-top:14px;padding:22px 28px;background:#fff;border:1px solid #dfe5ec;border-radius:8px}
+#player-page .player-profile-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#player-page .player-profile-heading h2{margin:0;font-size:16px;color:#273c50}
+#player-page .player-profile-season{padding:4px 8px;border-radius:4px;background:#eef3f8;font-size:11px;font-weight:700;color:#405970}
+#player-page .player-profile-caption{font-size:12px;line-height:1.7;color:#596779;margin:10px 0 18px}
+#player-page .player-profile-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 26px;margin:0}
+#player-page .player-profile-field{display:grid;grid-template-columns:100px minmax(0,1fr);align-content:start;gap:8px;padding:11px 0;border-top:1px solid #edf0f4;font-size:13px;line-height:1.7;min-width:0}
+#player-page .player-profile-field dt{color:#596779;font-size:12px}
+#player-page .player-profile-field dd{margin:0;color:#273c50;font-weight:600;overflow-wrap:anywhere}
+#player-page .player-profile-field-wide{grid-column:1/-1}
+#player-page .player-profile-source{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 16px;border-top:1px solid #edf0f4;padding-top:10px;margin-top:4px;font-size:11px;line-height:1.7;color:#596779}
+#player-page .player-profile-source a{display:inline-flex;align-items:center;min-height:34px}
+@media(max-width:1050px){#player-page .player-profile-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}#player-page .player-profile-field{grid-template-columns:96px minmax(0,1fr)}}
+@media(max-width:650px){#player-page .player-hero{gap:15px}#player-page .player-portrait{width:96px;height:120px}#player-page .player-photo-fallback{font-size:18px}#player-page .player-hero h1{font-size:26px}#player-page #player-bio{font-size:13px}#player-page .player-official-profile{padding:18px 16px}#player-page .player-profile-fields{gap:0 18px}#player-page .player-profile-field{display:block;padding:10px 0}#player-page .player-profile-field dt{margin-bottom:3px}#player-page .player-profile-caption{margin-bottom:12px}#player-page .player-profile-source{font-size:12px}#player-page .player-profile-source a{min-height:44px}}
+@media(max-width:380px){#player-page .player-hero{gap:12px;padding:16px 12px}#player-page .player-portrait{width:78px;height:102px}#player-page .player-hero h1{font-size:24px}#player-page .player-official-profile{padding:16px 14px}#player-page .player-profile-fields{gap:0 12px}}

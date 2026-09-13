@@ -45,6 +45,7 @@ async function bootstrap(){
     if(typeof gameRoute==='function')await gameRoute();
     if(typeof diamondRoute==='function')diamondRoute();
     if(typeof analysisRoute==='function')await analysisRoute();
+    if(typeof comparisonRoute==='function')await comparisonRoute();
   }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
 }
 
@@ -75,7 +76,7 @@ async function loadCatalog(){
 }
 function syncRoomNavigation(){
   const hash=location.hash,params=new URLSearchParams(hash.slice(1));
-  const route=hash==='#analysis'||params.has('analysis')?'analysis':hash==='#diamond'?'diamond':hash==='#games'||params.has('game')?'games':!hash||hash==='#'||hash==='#home'?'home':hash==='#records'?'records':null;
+  const route=hash==='#comparison'||params.has('comparison')?'comparison':hash==='#analysis'||params.has('analysis')?'analysis':hash==='#diamond'?'diamond':hash==='#games'||params.has('game')?'games':!hash||hash==='#'||hash==='#home'?'home':hash==='#records'?'records':null;
   document.querySelectorAll('.room').forEach(button=>{
     const selected=route==='records'?button.dataset.room===state.room:!!route&&button.dataset.route===route;
     button.classList.toggle('active',selected);button.setAttribute('aria-current',selected?'page':'false');
@@ -289,13 +290,70 @@ window.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDe
 // Player pages use the existing server session and retain the record-room draft.
 const playerState={code:null,role:'batter',section:'summary',year:null,view:'basic',page:1,sort:'',descending:true,sequence:0,controller:null,profileSequence:0,profileController:null,profile:null,table:null};
 const playerTabs=[['summary','종합'],['years','연도별'],['trend','그래프'],['games','날짜별'],['situations','상황별'],['opponents','상대별'],['plays','플레이로그'],['pitches','구종별']];
+function resetPlayerOfficialProfile(){
+  playerState.profile=null;
+  const fallback=text('span','KBO','player-photo-fallback');fallback.setAttribute('aria-hidden','true');
+  $('player-portrait').replaceChildren(fallback);$('player-portrait').classList.remove('has-photo');
+  $('player-official-profile').replaceChildren();$('player-official-profile').hidden=true;
+}
+function renderPlayerOfficialProfile(official,name){
+  if(!official)return;
+  const panel=$('player-official-profile');panel.hidden=false;
+  const heading=text('div','','player-profile-heading'),title=text('h2','공식 선수 프로필');
+  heading.append(title);
+  const season=Number(official.profileSeason),hasSeason=Number.isInteger(season)&&season>=1982&&season<=2100;
+  heading.append(text('span',hasSeason?`${season} 프로필`:'최근 수집 프로필','player-profile-season'));
+  panel.append(heading,text('p','최근 수집한 KBO 공식 소개입니다. 아래에서 선택하는 기록 시즌과 기준 시점이 다를 수 있습니다.','player-profile-caption'));
+  const fields=text('dl','','player-profile-fields');
+  const value=v=>v===null||v===undefined||String(v).trim()===''?'—':String(v).trim();
+  const add=(label,detail,wide=false)=>{
+    const row=text('div','','player-profile-field');if(wide)row.classList.add('player-profile-field-wide');
+    const dd=text('dd','');dd.append(detail instanceof Node?detail:document.createTextNode(value(detail)));
+    row.append(text('dt',label),dd);fields.append(row);
+  };
+  const size=(v,unit)=>Number(v)>0?`${Number(v)}${unit}`:'—';
+  const number=value(official.uniformNumber);
+  add('소속팀',official.teamName?teamNamesNode(official.teamName):'—');
+  add('등번호',number==='—'?number:`No.${number.replace(/^No\.?\s*/i,'')}`);
+  add('생년월일',official.birthDate);
+  add('포지션',official.position);
+  add('투타',official.batsThrows);
+  add('신장 / 체중',`${size(official.heightCm,'cm')} / ${size(official.weightKg,'kg')}`);
+  add('입단 계약금',official.signingBonusText);
+  add(hasSeason?`연봉 (${season})`:'연봉 · 수집 시점',official.salaryText);
+  add('입단년도',official.entryYearText);
+  add('지명순위',official.draftText,true);
+  add('경력',official.career,true);
+  panel.append(fields);
+  const source=text('div','','player-profile-source');
+  const fetched=new Date(official.fetchedUtc??official.fetchedAt??'');
+  source.append(text('span',Number.isNaN(fetched.getTime())?'미제공 항목은 —로 표시합니다.':`${fetched.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'})} 수집 · 미제공 항목은 —로 표시합니다.`));
+  try{
+    const url=new URL(official.sourceUrl);
+    if(url.protocol==='https:'&&['www.koreabaseball.com','koreabaseball.com'].includes(url.hostname)){
+      const link=text('a','KBO 공식 기록실 ↗','player-link');link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';source.append(link);
+    }
+  }catch{}
+  panel.append(source);
+  if(official.photoUrl){
+    try{
+      const url=new URL(official.photoUrl,location.origin);
+      if(url.origin!==location.origin)return;
+      const portrait=$('player-portrait'),img=document.createElement('img');
+      img.className='player-photo';img.alt=`${name} 선수 공식 사진`;img.width=180;img.height=220;img.decoding='async';img.hidden=true;
+      img.addEventListener('load',()=>{if(!img.isConnected)return;portrait.querySelector('.player-photo-fallback')?.remove();img.hidden=false;portrait.classList.add('has-photo');},{once:true});
+      img.addEventListener('error',()=>img.remove(),{once:true});portrait.append(img);img.src=url.href;
+    }catch{}
+  }
+}
 function initPlayerPage(){
   const root=text('main','','player-page');root.id='player-page';root.hidden=true;
-  root.innerHTML=`<div class="player-breadcrumb"><a href="#records">← 기록실로 돌아가기</a><span>PLAYER PROFILE</span></div>
-    <header class="player-hero"><div class="player-monogram" aria-hidden="true">KBO</div><div><p class="player-eyebrow">선수 정보</p><h1 id="player-title" tabindex="-1">선수 불러오는 중…</h1><p id="player-bio"></p><p id="player-history" class="muted"></p></div><div class="player-hero-tag">KBO<br><strong>SABERMETRICS</strong></div></header>
+  root.innerHTML=`<div class="player-breadcrumb"><a href="#records">← 기록실로 돌아가기</a><a id="player-compare-link" href="#comparison" hidden>타자 비교실 →</a><span>PLAYER PROFILE</span></div>
+    <header class="player-hero"><div class="player-monogram player-portrait" id="player-portrait"><span class="player-photo-fallback" aria-hidden="true">KBO</span></div><div><p class="player-eyebrow">선수 정보</p><h1 id="player-title" tabindex="-1">선수 불러오는 중…</h1><p id="player-bio"></p><p id="player-history" class="muted"></p></div><div class="player-hero-tag">KBO<br><strong>SABERMETRICS</strong></div></header>
+    <section id="player-official-profile" class="player-official-profile" aria-label="KBO 공식 선수 프로필" hidden></section>
     <nav id="player-tabs" class="player-tabs" aria-label="선수 기록 분류"></nav>
     <form id="player-controls" class="player-controls"><label>선수 구분<select id="pp-role"><option value="batter">타자</option><option value="pitcher">투수</option></select></label><label id="pp-year-label">시즌<select id="pp-year"></select></label><label>경기<select id="pp-competition"><option>정규시즌</option><option>포스트시즌</option><option>시범경기</option><option>전체</option></select></label><label id="pp-view-label">기록<select id="pp-view"></select></label><label id="pp-opponent-label">상대 팀<select id="pp-opponent"></select></label><label id="pp-start-label">시작일<input type="date" id="pp-start"></label><label id="pp-end-label">종료일<input type="date" id="pp-end"></label><button class="button primary" type="submit">조회</button><button class="button outline" id="pp-reset" type="button">조건 초기화</button></form>
-    <div id="player-status" role="status" aria-live="polite"></div><div id="player-content"></div><div class="player-pagination" id="player-pagination" hidden><button type="button" class="button outline" id="pp-prev">이전</button><span id="pp-page"></span><button type="button" class="button outline" id="pp-next">다음</button></div><p class="player-source">수집된 경기 DB 기준 · 연봉·수상·등번호·선수 사진은 제공 자료가 없어 표시하지 않습니다.</p>`;
+    <div id="player-status" role="status" aria-live="polite"></div><div id="player-content"></div><div class="player-pagination" id="player-pagination" hidden><button type="button" class="button outline" id="pp-prev">이전</button><span id="pp-page"></span><button type="button" class="button outline" id="pp-next">다음</button></div><p class="player-source">경기 통계는 수집된 중계·박스스코어 DB 기준입니다. 공식 선수 소개와 사진은 KBO 기록실에서 수집된 자료가 있는 경우 표시합니다.</p>`;
   $('workspace').after(root);
   for(const [id,label] of playerTabs){const b=text('button',label);b.type='button';b.dataset.section=id;b.onclick=()=>{playerState.section=id;playerState.page=1;playerState.sort='';playerState.view='basic';configurePlayerControls();loadPlayerSection();};$('player-tabs').append(b);}
   $('player-controls').onsubmit=e=>{e.preventDefault();playerState.year=Number($('pp-year').value)||null;playerState.view=$('pp-view').value;playerState.page=1;playerState.sort='';loadPlayerSection();};
@@ -314,16 +372,20 @@ async function playerRoute(keep=false){
   if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='KBO Sabermetrics';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
   abortQuery();$('workspace').hidden=true;$('player-page').hidden=false;playerState.code=code;
   if(!keep){playerState.section='summary';playerState.view='basic';playerState.role=params.get('role')==='pitcher'?'pitcher':'batter';$('pp-competition').value='정규시즌';$('pp-opponent').value='';$('pp-start').value=$('pp-end').value='';}
-  playerState.page=1;$('player-content').replaceChildren();$('player-pagination').hidden=true;$('player-status').textContent='선수 정보를 불러오는 중…';$('player-title').textContent='선수 불러오는 중…';$('player-bio').textContent=$('player-history').textContent='';
+  playerState.page=1;$('player-content').replaceChildren();$('player-pagination').hidden=true;$('player-compare-link').hidden=true;$('player-status').textContent='선수 정보를 불러오는 중…';$('player-title').textContent='선수 불러오는 중…';$('player-bio').textContent=$('player-history').textContent='';resetPlayerOfficialProfile();
   const controller=new AbortController();playerState.profileController=controller;
   try{
     const data=await api('/api/player',{code,section:'profile',competition:$('pp-competition').value,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25)},controller.signal);
     if(seq!==playerState.profileSequence)return;playerState.profile=data;
     const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | KBO Sabermetrics`;
     $('player-bio').replaceChildren(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
-    $('player-history').textContent=`생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
+    $('player-history').textContent=`경기 DB · 생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
     if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
+    renderPlayerOfficialProfile(data.officialProfile,p.name);
     const roles=[...new Set(data.seasons.map(s=>s.Role))];$('pp-role').replaceChildren(...roles.map(role=>new Option(role==='batter'?'타자':'투수',role)));
+    const comparisonYear=Math.max(...data.seasons.filter(s=>s.Role==='batter').map(s=>Number(s.Year)));
+    $('player-compare-link').hidden=!roles.includes('batter')||!/^\d{4,10}$/.test(code);
+    $('player-compare-link').href=`#comparison=${encodeURIComponent(code)}&year=${comparisonYear}&minPa=1`;
     if(!roles.includes(playerState.role))playerState.role=roles[0]??'batter';$('pp-role').value=playerState.role;
     options($('pp-opponent'),(state.catalog?.teams??[]).map(t=>[t,teamNames[t]??t]));
     setPlayerYears();configurePlayerControls();$('player-title').focus({preventScroll:true});await loadPlayerSection();
@@ -491,9 +553,24 @@ function renderTeamOverview(d){
 }
 function renderTeamScores(d){const root=$('tp-content'),grid=text('div','','team-grid');root.append(grid);for(const [key,title] of [['scored','득점 분포 및 승률'],['allowed','실점 분포 및 승률']])grid.append(teamCard(title,['점수','G','W','D','L','PCT'],d[key].map(x=>({'점수':x.score,...x.record}))));for(const side of ['득점','실점'])grid.append(teamCard(`이닝별 ${side}`,['이닝','경기','점수','평균'],d.innings.filter(x=>x.side===side).map(x=>({'이닝':x.inning,'경기':x.games,'점수':x.runs,'평균':x.average}))));for(const side of ['득점','실점'])grid.append(teamCard('이닝별 '+side+' 빈도',['이닝','0점','1점','2점','3점','4점','5점 이상'],d.inningDistribution.filter(x=>x.side===side).map(x=>({'이닝':x.inning,'0점':x.bins[0],'1점':x.bins[1],'2점':x.bins[2],'3점':x.bins[3],'4점':x.bins[4],'5점 이상':x.bins[5]}))));root.append(teamCard('이닝 시작 상황에 따른 경기 승률',['이닝','상황','G','W','D','L','PCT'],d.states.map(x=>({'이닝':x.inning,'상황':x.state,...x.record}))),text('p',d.note,'player-note'));}
 const homeState={seq:0,controller:null};
+function homeTeamLogo(code){
+  const team=canonicalTeam(code);if(!team)return null;
+  const img=document.createElement('img');img.className='team-logo';img.src=`/assets/teams/${team}.png`;img.alt='';img.width=64;img.height=41;img.decoding='async';
+  img.addEventListener('error',()=>{img.hidden=true;},{once:true});return img;
+}
+function homeTeamLink(code,year){
+  const link=markTeamName(text('a','','player-link home-team-link'),code);link.href=`#team=${encodeURIComponent(code)}&year=${year}`;
+  const logo=homeTeamLogo(code);if(logo)link.append(logo);link.append(text('span',teamNames[code]??code));return link;
+}
+function renderHomeTeams(year,codes=state.catalog?.teams??[]){
+  const nav=$('home-teams');nav.replaceChildren();
+  for(const code of [...new Set(codes)].filter(code=>canonicalTeam(code))){
+    const link=homeTeamLink(code,year);link.classList.add('home-team-tile');link.setAttribute('aria-label',`${year} ${teamNames[code]??code} 팀 기록 보기`);nav.append(link);
+  }
+}
 function initHome(){
   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
-  home.innerHTML='<div class="home-heading"><div><p class="player-eyebrow">KBO SABERMETRICS</p><h1>오늘의 리그</h1><p>팀과 선수의 현재 기록, 득실점으로 바라본 남은 시즌</p></div><label>시즌 <select id="home-year"></select></label></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산 안내</summary><p id="home-model-note"></p><p><a href="https://m.koreabaseball.com/About/GameManage.aspx" target="_blank" rel="noopener">KBO 경기 운영 방식</a> · <a href="https://www.baseball-reference.com/bullpen/Pythagorean_W-L" target="_blank" rel="noopener">피타고리안 승률 설명</a></p></details>';
+  home.innerHTML='<div class="home-heading"><div class="home-heading-copy"><p class="player-eyebrow">KBO SABERMETRICS</p><h1>오늘의 리그</h1><p>팀과 선수의 현재 기록, 득실점으로 바라본 남은 시즌</p><label>시즌 <select id="home-year"></select></label></div><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><span>로고를 눌러 팀 기록 보기</span></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산 안내</summary><p id="home-model-note"></p><p><a href="https://m.koreabaseball.com/About/GameManage.aspx" target="_blank" rel="noopener">KBO 경기 운영 방식</a> · <a href="https://www.baseball-reference.com/bullpen/Pythagorean_W-L" target="_blank" rel="noopener">피타고리안 승률 설명</a></p></details>';
   const results=text('section','','player-card');results.id='home-results';results.append(text('h2','최근 경기 결과'));home.querySelector('.home-top-grid').prepend(results);
   const monthly=text('section','','player-card');monthly.id='home-monthly';monthly.append(text('h2','월간 승률 순위'));home.querySelector('.home-top-grid').append(monthly);
   $('workspace').before(home);$('home-year').onchange=loadHome;
@@ -515,16 +592,18 @@ async function loadHome(){
   $('home-monthly').replaceChildren(text('h2','월간 승률 순위'),text('p','불러오는 중…','muted'));
   $('home-results').replaceChildren(text('h2','최근 경기 결과'),text('p','불러오는 중…','muted'));
   homeState.controller?.abort();const controller=new AbortController();homeState.controller=controller;const seq=++homeState.seq;const year=Number($('home-year').value);$('home-status').textContent='리그 기록을 불러오는 중…';
+  renderHomeTeams(year);
   for(const [id,title] of [['home-war','WAR TOP 10'],['home-standings','팀 순위 · 피타고리안 전망'],['home-batters','타자 주요 순위'],['home-pitchers','투수 주요 순위']])$(id).replaceChildren(text('h2',title),text('p','불러오는 중…','muted'));$('home-model-note').textContent='';
   const results=await Promise.allSettled(['standings','leaders'].map(async section=>{const data=await api('/api/home',{year,section},controller.signal);if(seq!==homeState.seq)return;if(section==='standings')renderHomeStandings(data,year);else renderHomeLeaders(data);}));
   if(seq!==homeState.seq)return;const errors=results.filter(x=>x.status==='rejected'&&x.reason.name!=='AbortError');$('home-status').textContent=errors.length?errors.map(x=>x.reason.message).join(' · '):`${year} 정규시즌 · 수집된 종료 경기 기준`;
   for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-results','home-standings','home-monthly']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
 }
 function renderHomeStandings(d,year){
+  renderHomeTeams(year,d.rows.map(r=>r.team));
   renderHomeResults(d,year);
-  const monthly=$('home-monthly');monthly.replaceChildren(text('h2',`${d.month??''} 월간 승률 순위`));monthly.append(homeTable(['순위','팀','승','무','패','승률'],(d.monthlyRows??[]).map(r=>{const a=markTeamName(text('a',teamNames[r.team]??r.team,'player-link'),r.team);a.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;return [r.rank,a,r.w,r.d,r.l,r.pct==null?'—':r.pct.toFixed(3)];})),text('p',`${d.month??'—'}-01 ~ ${d.asOf?.slice(0,10)??'—'} · 정규시즌 · 승률 = 승 / (승 + 패)`,'player-note'));if(!d.monthlyRows?.length)monthly.append(text('p','수집된 월간 기록이 없습니다.'));
+  const monthly=$('home-monthly');monthly.replaceChildren(text('h2',`${d.month??''} 월간 승률 순위`));monthly.append(homeTable(['순위','팀','승','무','패','승률'],(d.monthlyRows??[]).map(r=>[r.rank,homeTeamLink(r.team,year),r.w,r.d,r.l,r.pct==null?'—':r.pct.toFixed(3)])),text('p',`${d.month??'—'}-01 ~ ${d.asOf?.slice(0,10)??'—'} · 정규시즌 · 승률 = 승 / (승 + 패)`,'player-note'));if(!d.monthlyRows?.length)monthly.append(text('p','수집된 월간 기록이 없습니다.'));
   const card=$('home-standings');card.replaceChildren(text('h2',`${year} 팀 순위 · 피타고리안 전망`));const pct=x=>x==null?'—':(x*100).toFixed(1)+'%';
-  const rows=d.rows.map(r=>{const link=markTeamName(text('a',teamNames[r.team]??r.team,'player-link'),r.team);link.href=`#team=${encodeURIComponent(r.team)}&year=${year}`;const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
+  const rows=d.rows.map(r=>{const link=homeTeamLink(r.team,year);const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
   card.append(text('p','↔ 좌우로 밀어 승률·득실점·시즌 전망을 확인하세요.','scroll-hint'),homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
   card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님':d.reason}`,'player-note'));$('home-model-note').textContent=d.note;
 }
@@ -536,10 +615,10 @@ function renderHomeResults(d,year){
     const scoreline=text('div','','home-scoreline');
     for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
-      const link=markTeamName(text('a',teamNames[code]??code,'player-link'),code);link.href=`#team=${encodeURIComponent(code)}&year=${year}`;link.title=side==='Away'?'원정':'홈';
+      const link=homeTeamLink(code,year);link.title=side==='Away'?'원정':'홈';
       const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
-      if(side==='Away')scoreline.append(link,result,text('span',d.asOf?.slice(5,10).replace('-','.')??'','home-game-date'));else scoreline.append(result,link);
-    }game.append(scoreline);const detail=text('a','상세','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;scoreline.append(detail);
+      if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
+    }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · 종료`));const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);game.append(meta,scoreline);
     const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';const row=text('div');row.title=p.label;row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
   }
   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
