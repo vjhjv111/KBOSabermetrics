@@ -245,8 +245,11 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    @SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
+        // API 26-32 fallback only. API 33+ uses the registered platform callback above;
+        // its root callback is removed so Android can perform the predictive exit animation.
         if (fullscreenView != null) hideFullscreen();
         else if (canNavigateBack()) navigateBack();
         else super.onBackPressed();
