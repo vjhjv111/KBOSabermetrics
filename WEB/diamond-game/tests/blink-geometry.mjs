@@ -16,10 +16,10 @@ function compile(source,file,overrides={}){
  new Function('require','module','exports',js)(id=>overrides[id]??(id==='three'?three:id.startsWith('.')?load(path.resolve(path.dirname(file),id+'.ts')):require(id)),mod,mod.exports);return mod.exports;
 }
 const api=compile(candidateSource+'\nexport const auditRig=(head:THREE.Object3D)=>rigs.get(head);',candidatePath);
-const headAPI=compile(headSource+'\nexport {eyeGeometry,eyeBounds,faceZ};',headPath);
+const headAPI=compile(headSource+'\nexport {eyeGeometry,eyeBounds,faceZ,PLAYER_EYE_CENTER_X};',headPath);
 const {joined}=load(path.join(web,'lib/player-geometry.ts'));
 const eyes=joined([-1,1].map(sign=>headAPI.eyeGeometry(sign)));
-const lashPaths=[-1,1].map(sign=>Array.from({length:9},(_,i)=>{const t=i/4-1,x=sign*(.044+t*.0145),y=headAPI.eyeBounds(t)[1];return[x,y-.00045,headAPI.faceZ(x,y)+.00125];}));
+const lashPaths=[-1,1].map(sign=>Array.from({length:9},(_,i)=>{const t=i/4-1,x=sign*(headAPI.PLAYER_EYE_CENTER_X+t*.0145),y=headAPI.eyeBounds(t)[1];return[x,y-.00045,headAPI.faceZ(x,y)+.00125];}));
 const skin=new T.MeshPhysicalMaterial({color:'#c89675'}),features=new T.MeshPhysicalMaterial({color:'#684f42'});
 function make(input=eyes){const head=new T.Group();api.createPlayerBlink(head,input,skin,features,lashPaths);return{head,rig:api.auditRig(head)};}
 const first=make(),second=make(),rig=first.rig;
@@ -90,7 +90,9 @@ api.fitPlayerBlink(first.head,1,1);api.setPlayerBlink(first.head,0);
 const openPoints=vertices(rig.lash);let maxOpenCenterError=0,maxOpenWidthError=0,maxOpenDepthChange=0;
 for(const path of lashPaths)for(const target of path.slice(1,-1)){
  let minY=Infinity,maxY=-Infinity,z=NaN;
- for(let i=0;i<openPoints.length;i+=3){const face=openPoints.slice(i,i+3);if(inside(face,target))z=plane(face,target);for(let edge=0;edge<3;edge++){const a=face[edge],b=face[(edge+1)%3];if(target[0]<Math.min(a[0],b[0])-1e-9||target[0]>Math.max(a[0],b[0])+1e-9)continue;if(Math.abs(b[0]-a[0])<1e-12){minY=Math.min(minY,a[1],b[1]);maxY=Math.max(maxY,a[1],b[1]);continue;}const t=(target[0]-a[0])/(b[0]-a[0]),y=a[1]+(b[1]-a[1])*t;minY=Math.min(minY,y);maxY=Math.max(maxY,y);}}
+ // Clipped Float32 edges can miss an authored x by a few nanometres. Clamp
+ // edge interpolation so that tolerance never extrapolates a vertical edge.
+ for(let i=0;i<openPoints.length;i+=3){const face=openPoints.slice(i,i+3);if(inside(face,target))z=plane(face,target);for(let edge=0;edge<3;edge++){const a=face[edge],b=face[(edge+1)%3];if(target[0]<Math.min(a[0],b[0])-5e-9||target[0]>Math.max(a[0],b[0])+5e-9)continue;if(Math.abs(b[0]-a[0])<1e-12){minY=Math.min(minY,a[1],b[1]);maxY=Math.max(maxY,a[1],b[1]);continue;}const t=Math.max(0,Math.min(1,(target[0]-a[0])/(b[0]-a[0]))),y=a[1]+(b[1]-a[1])*t;minY=Math.min(minY,y);maxY=Math.max(maxY,y);}}
  maxOpenCenterError=Math.max(maxOpenCenterError,Math.abs((minY+maxY)*.5-target[1]));maxOpenWidthError=Math.max(maxOpenWidthError,Math.abs(maxY-minY-.0009));maxOpenDepthChange=Math.max(maxOpenDepthChange,Math.abs(z-target[2]));check(Number.isFinite(z),'Open lash path is still inside the continuous ribbon');
 }
 check(maxOpenCenterError<1e-7&&maxOpenWidthError<1e-7,'Open centerline and original 0.9mm tube silhouette width are retained away from tapered corners');

@@ -122,13 +122,18 @@ for(const height of [155,185,215])for(const hand of [1,-1])for(const aim of [{x:
  check(Math.max(toeDrift,heelDrift)<.015,`${height}/${hand}/${JSON.stringify(aim)}: swing lead shoe slipped ${Math.max(toeDrift,heelDrift).toFixed(4)} m`);
  const continuity=rotationMotion(frames);
  check(continuity.radiansPerStep<.42,`${height}/${hand}/${JSON.stringify(aim)}: swing joint flip ${continuity.joint}: ${continuity.radiansPerStep.toFixed(3)} rad/5ms`);
+ // Recovery is slower than the strike itself. Check the resulting arm joints:
+ // a smooth bat curve can still whip a folded elbow around its shoulder.
+ const recoveryContinuity=rotationMotion(frames.filter(f=>f.time>=560));
+ check(recoveryContinuity.metresPerStep<.035*scale,`${height}/${hand}: recovery elbow jumped ${recoveryContinuity.metresPerStep.toFixed(3)} m/5ms at ${recoveryContinuity.positionJoint}`);
+ check(recoveryContinuity.radiansPerStep<.18,`${height}/${hand}: recovery arm turned ${recoveryContinuity.radiansPerStep.toFixed(3)} rad/5ms at ${recoveryContinuity.joint}`);
  const target=V(aim.x*.5,1.05+aim.y*.55,0),impact=motion.swingPose(motion.SWING_CONTACT_MS,localAim,hand,0,1);
  check(V(...impact.barrel).multiplyScalar(scale).distanceTo(target)<1e-9,'Swing preparation changed the physical contact point');
  // The bat must travel through contact instead of stopping at an exact target.
  const before=motion.swingPose(motion.SWING_CONTACT_MS-2,localAim,hand,0,1).barrel,after=motion.swingPose(motion.SWING_CONTACT_MS+2,localAim,hand,0,1).barrel;
  const impactSpeed=distance(before,after)*scale/.004;
  check(impactSpeed>4&&impactSpeed<70,`${height}/${hand}/${JSON.stringify(aim)}: implausible stopped/explosive impact speed ${impactSpeed.toFixed(2)} m/s`);
- metrics.swing.push({height,hand,aim,pelvisPeak:pelvis,torsoPeak:torso,toeDrift,heelDrift,impactSpeed,continuity});
+ metrics.swing.push({height,hand,aim,pelvisPeak:pelvis,torsoPeak:torso,toeDrift,heelDrift,impactSpeed,continuity,recoveryContinuity});
  dispose(model);
 }
 console.log(JSON.stringify({pass:failures.length===0,failures,metrics},null,2));

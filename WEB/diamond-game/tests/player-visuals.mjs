@@ -198,10 +198,16 @@ for(const {decal,material} of model.lettering){
  if(decal.isSkinnedMesh){assert.equal(decal.scale.x,1);assert.equal(material.map.repeat.x,-1);assert.equal(material.map.offset.x,1,'Skinned printing mirrors its UVs without detaching from cloth');}
  else assert.equal(decal.scale.x,-1,'Rigid cap lettering reverses its local transform');
 }
-const actorMaps=resources(model.root).textures,bumpMaps=[...actorMaps].filter(texture=>texture.image.pixels);
-assert(bumpMaps.length>=3,'Uniform cloth, skin and glove leather have their own material detail');
-for(const texture of bumpMaps){
- assert.equal(texture.colorSpace,THREE.NoColorSpace,'Surface height maps must not be gamma transformed');
+const actorMaps=resources(model.root).textures,surfaceMaps=[...actorMaps].filter(texture=>texture.image.pixels),diffuseMaps=new Set(),dataMaps=new Set();
+model.root.traverse(object=>{for(const material of object.material?(Array.isArray(object.material)?object.material:[object.material]):[]){if(material.map?.image.pixels)diffuseMaps.add(material.map);for(const slot of ['bumpMap','roughnessMap'])if(material[slot])dataMaps.add(material[slot]);}});
+assert(dataMaps.size>=3,'Uniform cloth, skin and glove leather have their own material detail');
+assert(diffuseMaps.has(model.jersey.map),'Jerseys include a neutral cloth diffuse map');
+assert.equal(model.accent.map,model.jersey.map,'Uniform trim shares the same cloth diffuse map');
+const trouserMesh=model.root.getObjectByName('Continuous tailored trousers');
+assert.equal(trouserMesh.material.map,model.jersey.map,'Shirt and trousers share one cloth diffuse texture per player');
+for(const texture of surfaceMaps){
+ assert.equal(texture.colorSpace,diffuseMaps.has(texture)?THREE.SRGBColorSpace:THREE.NoColorSpace,'Diffuse maps use sRGB while height/roughness maps remain linear');
+ assert(!(diffuseMaps.has(texture)&&dataMaps.has(texture)),'Pigment and scalar surface data do not share the same texture');
  assert.equal(texture.wrapS,THREE.RepeatWrapping);assert.equal(texture.wrapT,THREE.RepeatWrapping);
  assert(texture.image.width<=256&&texture.image.height<=256,'Actor surface details stay within a small mobile texture budget');
  const pixels=texture.image.pixels,values=new Set();
@@ -217,10 +223,18 @@ assert([...disposed.values()].every(count=>count===0));
 const oldLetters=model.lettering.map(slot=>slot.material.map);painted=[];dressPlayer(model,playerAppearance('SS','이승현'));
 assert.equal(canvases,steadyCanvases+3,'Only the three uniform labels change with a player');
 assert(oldLetters.every(texture=>disposed.get(texture)===1),'Changing players releases every old uniform label');
-assert(bumpMaps.every(texture=>disposed.get(texture)===0),'Player changes retain surface detail maps');
+assert(surfaceMaps.every(texture=>disposed.get(texture)===0),'Player changes retain surface detail maps');
 assert(!painted.some(text=>/^\d+$/.test(text)),'A missing jersey number stays absent');
 
 const second=player('#224466');dressPlayer(second,playerAppearance('HT','김도영'));
+assert.equal(second.cap.map,second.jersey.map,'Cloth caps share the uniform diffuse texture');
+for(const team of ['OB','LG','SS','HH','HT','KT','LT','NC','SK','WO']){
+ const appearance=playerAppearance(team,'검증선수');dressPlayer(second,appearance);
+ const capLetter=second.lettering.find(slot=>slot.area==='cap').material.map.image.getContext('2d').fillStyle;
+ const luminance=color=>{const c=new THREE.Color(color);return c.r*.2126+c.g*.7152+c.b*.0722;},ink=luminance(capLetter),cloth=luminance(appearance.cap);
+ assert((Math.max(ink,cloth)+.05)/(Math.min(ink,cloth)+.05)>=3,`${team}: cap letters remain visible on the team cap`);
+ for(const slot of second.lettering.filter(slot=>slot.area!=='cap'))assert.equal(slot.material.map.image.getContext('2d').fillStyle,appearance.letter,'Chest/back retain their original team lettering');
+}
 const secondMaps=resources(second.root).textures;assert([...secondMaps].every(texture=>!actorMaps.has(texture)),'Players own independent texture lifetimes');
 const scene=new THREE.Scene();scene.add(model.root);createBat(scene);createMitt(scene);
 const cleanupResources=resources(scene),cleanupDisposals=new Map();

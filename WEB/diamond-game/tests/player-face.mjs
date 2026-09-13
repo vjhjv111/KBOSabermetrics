@@ -12,6 +12,20 @@ function isNostrilPart(mesh,part){const p=mesh.geometry.attributes.position;let 
 function parts(root){return meshes(root).flatMap(mesh=>(mesh.userData.playerBatchParts??[{name:mesh.name,vertexStart:0,vertexCount:mesh.geometry.attributes.position.count,indexStart:0,indexCount:mesh.geometry.index.count}]).map(part=>({mesh,...part})));}
 const raw=new T.Group();headDetails(raw,new T.MeshPhysicalMaterial({color:'#c89675'}),new T.MeshPhysicalMaterial(),null,false);
 const rawParts=parts(raw),face=rawParts.find(p=>p.name==='Sculpted face'),nose=rawParts.find(p=>p.name==='Nasal bridge and tip'),nostrils=rawParts.find(p=>isNostrilPart(p.mesh,p));assert(face&&nose&&nostrils);
+const eyes=raw.getObjectByName('Recessed almond eyes').geometry.attributes.position;
+for(const sign of[-1,1]){
+ const points=Array.from({length:eyes.count},(_,i)=>V().fromBufferAttribute(eyes,i)).filter(p=>Math.sign(p.x)===sign);
+ const bounds=new T.Box3().setFromPoints(points).getSize(V());
+ const centre=new T.Box3().setFromPoints(points).getCenter(V());assert(Math.abs(centre.x-sign*.036)<1e-8,'The paired eye centres retain their balanced 72mm spacing');
+ assert(bounds.y>.0075&&bounds.y<.009,'Eyes remain readable below the bill without an exaggerated opening');
+ assert(bounds.x>.028&&bounds.x<.030,'Opening the lids cannot widen or move the eyes');
+}
+const skinColors=face.mesh.geometry.attributes.color;
+assert(skinColors&&[...skinColors.array].every(value=>value>.65&&value<=1),'Face-plane shading stays subtle and valid for every custom skin tone');
+assert(Math.min(...Array.from({length:skinColors.count},(_,i)=>skinColors.getX(i)))<.88,'Socket shading must survive flat daylight illumination');
+const hair=raw.getObjectByName('Custom hair'),hairColors=hair.geometry.attributes.color;
+assert(hair.material.vertexColors&&hairColors,'Hair shading is carried by the existing geometry');
+for(let row=0;row<=12;row++)for(let channel=0;channel<3;channel++)assert(Math.abs(hairColors.array[(row*33)*3+channel]-hairColors.array[(row*33+32)*3+channel])<1e-7,'Hair pigment closes without a forehead seam');
 assert.equal(nose.indexCount/3,1008,'The original nose tessellation budget is retained');assert.equal(nostrils.indexCount/3,72,'Clipped nostril surfaces replace the former 336-triangle ellipsoids');
 for(const mesh of meshes(raw)){for(const attr of Object.values(mesh.geometry.attributes))assert([...attr.array].every(Number.isFinite));assert([...mesh.geometry.index.array].every(i=>i>=0&&i<mesh.geometry.attributes.position.count));}
 const noseFront=frontSampler(faces(nose.mesh.geometry,nose)),np=nostrils.mesh.geometry.attributes.position,ni=nostrils.mesh.geometry.index;let samples=0,minPatchGap=Infinity,maxPatchGap=-Infinity;
@@ -35,5 +49,5 @@ for(const role of['batter','pitcher','catcher']){
  }
  cleanup(model.root);
 }
-console.log('PASS nasal attachment, exact conforming nostril triangles, outward faces, finite geometry, body/height/mirror contracts, unchanged rig/material ownership and cleanup');
+console.log('PASS readable eye openings, face/hair shading, nasal attachment, exact conforming nostril triangles, outward faces, finite geometry, body/height/mirror contracts, unchanged rig/material ownership and cleanup');
 console.log(JSON.stringify({models,samples,nostrilGapMm:[minPatchGap*1000,maxPatchGap*1000],attachmentMm:[minAttachment*1000,maxAttachment*1000],maxTriangles}));

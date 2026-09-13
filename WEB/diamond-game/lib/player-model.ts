@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import {v,object,add,material,profileAt,loft,joined,oval,tube,seams,gauss,restoreSeamNormals,type Profile,type SurfaceMaterial} from "./player-geometry";
 import {capProfile,hairGeometry,headDetails} from "./player-head";
-import {shoe,hand,mitt} from "./player-equipment";
+import {shoe,hand,mitt,mittPalette} from "./player-equipment";
 export {createBat,createMitt} from "./player-equipment";
 import {PlayerAppearance,PlayerCustomization,normalizePlayerCustomization,playerDimensions} from "./player-appearance";
-import {createPlayerSurface,createPlayerRoughness} from "./player-surfaces";
+import {createPlayerSurface,createPlayerRoughness,createPlayerAlbedo} from "./player-surfaces";
 import {bindUniform} from "./player-uniform";
 import {batchStaticPlayerMeshes} from "./player-batching";
 import {equipCatcher as fitCatcherEquipment} from "./player-catcher";
@@ -28,13 +28,25 @@ const shirtProfile:Profile[]=[
  [.27,.207,.15,.006],[.4,.225,.151,.002],[.51,.236,.146,-.001],
  [.605,.237,.134,-.007],[.651,.208,.115,-.009],[.706,.116,.077,-.01],[.731,.083,.068,-.009]
 ];
+function jerseyTailoring(height:number,angle:number){
+ const side=Math.abs(Math.sin(angle)),back=Math.max(0,-Math.cos(angle));
+ // Broad tension folds stay inside the garment. The collar and tucked edge
+ // retain their original positions, as do every attachment and motion pivot.
+ const interior=THREE.MathUtils.smoothstep(height,.07,.105)*(1-THREE.MathUtils.smoothstep(height,.6,.645));
+ const lateral=THREE.MathUtils.smoothstep(side,.16,.4);
+ const waist=.0036*side*lateral*(gauss(height,.145+.032*Math.cos(angle*2),.026)-.72*gauss(height,.179+.032*Math.cos(angle*2),.026));
+ const underarm=-.0032*side*side*lateral*gauss(height,.465-.052*side,.029);
+ const shoulder=.0024*back*gauss(height,.566-.035*side,.038);
+ return interior*(waist+underarm+shoulder);
+}
 function jerseyRelief(height:number,angle:number){
  const front=Math.max(0,Math.cos(angle)),back=Math.max(0,-Math.cos(angle));
  return .007*gauss(height,.13,.12)*Math.sin(angle*7+height*24)
   +.0035*gauss(height,.34,.19)*Math.sin(angle*5-height*13)
   +.005*gauss(height,.535,.075)*Math.sin(angle*6+height*22)
   +.007*front*gauss(height,.515,.1)*gauss(Math.abs(Math.sin(angle)),.48,.3)
-  -.0035*back*gauss(Math.sin(angle),0,.22)*gauss(height,.43,.19);
+  -.0035*back*gauss(Math.sin(angle),0,.22)*gauss(height,.43,.19)
+  +jerseyTailoring(height,angle);
 }
 function jerseyGeometry(){
  const geometry=loft(shirtProfile,32,4,jerseyRelief),positions=geometry.getAttribute('position');
@@ -48,6 +60,22 @@ function jerseyGeometry(){
  }
  geometry.computeVertexNormals();restoreSeamNormals(geometry);return geometry;
 }
+function fittedJerseySeams(torso:THREE.Object3D,paths:number[][][],mat:THREE.Material,radius:number){
+ const pieces=paths.map(path=>{
+  const geometry=tube(path,radius),positions=geometry.getAttribute('position');
+  // Translate each existing tube ring onto the cloth, retaining its round
+  // cross-section, vertex heights and therefore its exact garment skin weights.
+  for(let start=0;start<positions.count;start+=6){
+   let x=0,y=0,z=0;for(let i=0;i<5;i++){x+=positions.getX(start+i)/5;y+=positions.getY(start+i)/5;z+=positions.getZ(start+i)/5;}
+   const [,width,depth,forward=0]=profileAt(shirtProfile,y),angle=Math.atan2(x/width,(z-forward)/depth);
+   const relief=jerseyRelief(y,angle)+radius+.001;
+   const dx=Math.sin(angle)*(width+relief)-x,dz=forward+Math.cos(angle)*(depth+relief)-z;
+   for(let i=0;i<6;i++)positions.setXYZ(start+i,positions.getX(start+i)+dx,positions.getY(start+i),positions.getZ(start+i)+dz);
+  }
+  geometry.computeVertexNormals();restoreSeamNormals(geometry);return geometry;
+ });
+ return add(joined(pieces),mat,torso);
+}
 function jerseyDetails(torso:THREE.Object3D,jersey:THREE.Material,pants:THREE.Material,belt:THREE.Material,accent:THREE.Material,button:THREE.Material){
  // The narrow, flatter belt sits at the waist instead of a circular waist ring.
  add(loft([[.027,.185,.133,.008],[.032,.192,.138,.008],[.06,.193,.139,.008],[.066,.183,.131,.008]],28,1),belt,torso);
@@ -58,7 +86,7 @@ function jerseyDetails(torso:THREE.Object3D,jersey:THREE.Material,pants:THREE.Ma
  for(const side of [-1,1]){
   paths.push([[side*.156,.558,-.107],[side*.201,.546,-.087],[side*.228,.506,-.035]]);
  }
- seams(torso,paths,accent,.0028);
+ fittedJerseySeams(torso,paths,accent,.0028);
  const collarPositions:number[]=[],collarUV:number[]=[],collarIndices:number[]=[],segments=40;
  for(let row=0;row<2;row++)for(let i=0;i<=segments;i++){
   const angle=i/segments*Math.PI*2,y=.723-.057*Math.pow(Math.max(0,Math.cos(angle)),6)+(row-.5)*.009;
@@ -95,7 +123,7 @@ function jerseyDetails(torso:THREE.Object3D,jersey:THREE.Material,pants:THREE.Ma
   stitchPaths.push([[sign*.08,.707,-.068],[sign*.142,.675,-.094],[sign*.204,.609,-.105]]);
   stitchPaths.push([[sign*.171,.09,-.075],[sign*.198,.24,-.055],[sign*.215,.42,-.045]]);
  }
- seams(torso,stitchPaths,stitch,.0011).name='Jersey panel stitching';
+ fittedJerseySeams(torso,stitchPaths,stitch,.0011).name='Jersey panel stitching';
  const backYoke:number[][]=[];for(let i=0;i<=20;i++){
   const angle=(i/20-.5)*1.9+Math.PI,y=.584-Math.cos(angle-Math.PI)*.018;
   const [,w,d,z=0]=profileAt(shirtProfile,y),relief=jerseyRelief(y,angle)+.002;
@@ -130,7 +158,11 @@ function arm(parent:THREE.Object3D,side:number,jersey:THREE.Material,skin:THREE.
  const body=new THREE.SkinnedMesh(anatomy,armSkin);body.name="Continuous anatomical arm";body.castShadow=body.receiveShadow=true;body.frustumCulled=false;
  upper.add(body);body.bind(new THREE.Skeleton(bones));
  const sleeveProfile:Profile[]=[[-.195,.08,.076,-.004],[-.174,.083,.078,-.003],[-.085,.091,.08,-.005],[.004,.087,.076,-.005],[.052,.055,.052],[.07,.011,.014]];
- const sleeveRelief=(y:number,a:number)=>.003*gauss(y,-.117,.08)*Math.sin(a*5+y*20);
+ const sleeveRelief=(y:number,a:number)=>{
+  const interior=THREE.MathUtils.smoothstep(y,-.174,-.145)*(1-THREE.MathUtils.smoothstep(y,.005,.04));
+  const tension=.0025*(gauss(y,-.105+.024*Math.cos(a),.025)-.7*gauss(y,-.074+.024*Math.cos(a),.025));
+  return .003*gauss(y,-.117,.08)*Math.sin(a*5+y*20)+interior*tension;
+ };
  add(loft(sleeveProfile,24,2,sleeveRelief),jersey,upper).name='Fitted jersey sleeve';
  const hem=[-.195,-.188,-.181].map(y=>{const [,w,d,z=0]=profileAt(sleeveProfile,y);return [y,w+.0012,d+.0012,z] as Profile;});
  add(loft(hem,24,1,sleeveRelief),accent,upper).name='Sewn sleeve cuff';
@@ -259,14 +291,32 @@ function trousers(root:THREE.Group,hips:THREE.Group,left:{thigh:THREE.Group;knee
   smoothIndices.push(a,ab,ca,b,bc,ab,c,ca,bc,ab,bc,ca);
  }
  positions=smoothPositions;uvs=smoothUvs;boneIndices=smoothBones;weights=smoothWeights;indices=smoothIndices;
+ // Form shallow knee and ankle creases after subdivision. Only the existing
+ // rest vertices move: topology, skin weights, waist and open hems are stable.
+ const clothColors:number[]=[];
+ for(let i=0;i<positions.length;i+=3){
+  const x=positions[i],height=positions[i+1],z=positions[i+2],side=x>=0?1:-1;
+  const angle=Math.atan2(x-side*.115,z),front=Math.max(0,Math.cos(angle)),back=Math.max(0,-Math.cos(angle));
+  const interior=THREE.MathUtils.smoothstep(height,.116,.145)*(1-THREE.MathUtils.smoothstep(height,.74,.79));
+  const knee=front*(.0028*gauss(height,.534-.018*Math.sin(angle),.043)-.003*gauss(height,.482-.015*Math.sin(angle),.025))
+   -.0028*back*gauss(height,.484,.027);
+  const ankle=(.0028*gauss(height,.157+.009*Math.sin(angle),.024)-.0018*gauss(height,.19+.009*Math.sin(angle),.019))*(.45+.55*Math.abs(Math.sin(angle)));
+  const thigh=.0022*front*(gauss(height,.711-.028*Math.sin(angle),.038)-.65*gauss(height,.666-.028*Math.sin(angle),.031));
+  const fold=interior*(knee+ankle+thigh);
+  positions[i]+=Math.sin(angle)*fold;positions[i+2]+=Math.cos(angle)*fold;
+  const inseam=Math.max(0,-side*Math.sin(angle));
+  const shade=1-.055*inseam*inseam*gauss(height,.67,.19)-.055*Math.max(0,-fold)/.0032-.035*gauss(height,.974,.03);
+  clothColors.push(shade,shade,shade);
+ }
  const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
  geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));geometry.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(boneIndices,4));
+ geometry.setAttribute("color",new THREE.Float32BufferAttribute(clothColors,3));
  geometry.setAttribute("skinWeight",new THREE.Float32BufferAttribute(weights,4));geometry.setIndex(indices);geometry.computeVertexNormals();
  const bones=[hips,left.thigh,right.thigh,left.knee,right.knee].map((pivot,index)=>{
   const bone=new THREE.Bone();bone.name=["Pants waist","Left thigh","Right thigh","Left knee","Right knee"][index];pivot.add(bone);return bone;
  });
  root.updateMatrixWorld(true);
- const tailored=mat.clone();
+ const tailored=mat.clone();tailored.vertexColors=true;
  // Sew the colored piping into the same cloth surface. Separate rigid tubes
  // drift away from the hip and shin when their neighbouring skin weights bend.
  tailored.onBeforeCompile=shader=>{
@@ -290,7 +340,14 @@ function uniformTexture(appearance:PlayerAppearance,area:"front"|"back"|"cap"){
  if(typeof document==="undefined")return null;
  const canvas=document.createElement("canvas");canvas.width=512;canvas.height=512;
  const context=canvas.getContext("2d");if(!context)return null;
- context.textAlign="center";context.textBaseline="middle";context.fillStyle=appearance.letter;
+ let letter=appearance.letter;
+ if(area==="cap"){
+  // Shirt lettering may be dark on white uniforms; cap printing needs its own contrast.
+  const luminance=(hex:string)=>{const c=new THREE.Color(hex);return c.r*.2126+c.g*.7152+c.b*.0722;};
+  const background=luminance(appearance.cap),contrast=(hex:string)=>{const foreground=luminance(hex);return (Math.max(background,foreground)+.05)/(Math.min(background,foreground)+.05);};
+  if(contrast(letter)<3)letter=contrast("#f5f2e8")>=3?"#f5f2e8":"#172535";
+ }
+ context.textAlign="center";context.textBaseline="middle";context.fillStyle=letter;
  context.lineJoin="round";context.strokeStyle=appearance.cap;context.lineWidth=3;
  const text=(value:string,x:number,y:number,width:number)=>{context.strokeText(value,x,y,width);context.fillText(value,x,y,width);};
  if(area==="front"){
@@ -324,19 +381,21 @@ function decalGeometry(area:"front"|"back"|"cap"){
 
 export function createPlayer(color:string,isBatter=false):PlayerModel{
  const root=new THREE.Group();root.name=isBatter?"Athletic batter":"Athletic pitcher";
- const cloth=createPlayerSurface("cloth"),skinTexture=createPlayerSurface("skin"),leather=createPlayerSurface("leather");
+ const cloth=createPlayerSurface("cloth"),clothAlbedo=createPlayerAlbedo("cloth"),skinTexture=createPlayerSurface("skin"),leather=createPlayerSurface("leather");
  const clothRough=createPlayerRoughness("cloth"),skinRough=createPlayerRoughness("skin"),leatherRough=createPlayerRoughness("leather");
- const jersey=new THREE.MeshPhysicalMaterial({color,roughness:.92,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0015,sheen:.42,sheenRoughness:.9,sheenColor:"#a7acb2"});
- const pants=new THREE.MeshPhysicalMaterial({color:"#e5e3dc",roughness:.96,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0014,sheen:.23,sheenRoughness:.94});
+ const jersey=new THREE.MeshPhysicalMaterial({color,map:clothAlbedo,roughness:.92,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0015,sheen:.42,sheenRoughness:.9,sheenColor:"#a7acb2"});
+ const pants=new THREE.MeshPhysicalMaterial({color:"#e5e3dc",map:clothAlbedo,roughness:.96,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0014,sheen:.23,sheenRoughness:.94});
  const skin=new THREE.MeshPhysicalMaterial({color:"#c89675",roughness:.72,roughnessMap:skinRough,clearcoat:.07,clearcoatRoughness:.52,bumpMap:skinTexture,bumpScale:.0006});skin.userData.playerSurface="skin";
  const dark=material("#172027",.72,leather,.0025),white=material("#dfdfd5",.86),accent=material("#dedccf",.9,cloth,.002);
+ accent.map=clothAlbedo;
  dark.roughnessMap=leatherRough;dark.userData.playerSurface="cleats";
- const cap=new THREE.MeshPhysicalMaterial({color,roughness:isBatter?.26:.87,clearcoat:isBatter?.66:0,clearcoatRoughness:.2,bumpMap:isBatter?null:cloth,bumpScale:.003});
+ const cap=new THREE.MeshPhysicalMaterial({color,map:isBatter?null:clothAlbedo,roughness:isBatter?.26:.87,clearcoat:isBatter?.66:0,clearcoatRoughness:.2,bumpMap:isBatter?null:cloth,bumpScale:.003});
  const hips=object(root,0,.93),torso=object(root,0,.95),head=object(torso,0,.82);
  add(jerseyGeometry(),jersey,torso).name="Flexible tailored jersey";
  jerseyDetails(torso,jersey,pants,dark,accent,white);
  const uniformPanels=torso.children.filter((child):child is THREE.Mesh=>child instanceof THREE.Mesh);
  const undershirt=material('#25313a',.96,cloth,.001);undershirt.userData.playerSurface='undershirt';
+ undershirt.map=clothAlbedo;
  add(loft([[.662,.113,.091,-.011],[.68,.099,.083,-.011],[.699,.089,.078,-.012],[.713,.084,.075,-.012]],28,2),undershirt,torso).name='Fitted undershirt neckline';
  add(loft([[.657,.108,.09,-.01],[.693,.086,.074,-.011],[.738,.072,.064,-.012],[.788,.063,.057,-.009],[.821,.05,.052,.003]],24,3,(y,a)=>{
   const front=Math.max(0,Math.cos(a));
@@ -375,6 +434,22 @@ export function createPlayer(color:string,isBatter=false):PlayerModel{
  const clothLettering=lettering.filter(slot=>slot.area!=="cap");
  const bound=bindUniform(root,hips,torso,[...uniformPanels,...clothLettering.map(slot=>slot.decal)]);
  clothLettering.forEach((slot,index)=>{slot.decal=bound[uniformPanels.length+index];});
+ // Low-frequency cloth occlusion remains visible at playing distance. Sharing
+ // this attribute across every jersey surface keeps the static batches intact.
+ jersey.vertexColors=true;
+ root.traverse(object=>{
+  if(!(object instanceof THREE.Mesh)||object.material!==jersey)return;
+  const geometry=object.geometry,positions=geometry.getAttribute('position'),colors:number[]=[];
+  const sleeve=object.parent===left||object.parent===right;
+  for(let i=0;i<positions.count;i++){
+   const x=positions.getX(i),y=positions.getY(i)+object.position.y,z=positions.getZ(i),angle=Math.atan2(x,z);
+   const shade=sleeve
+    ?1-.06*gauss(y,-.08,.085)*Math.pow(Math.abs(Math.sin(angle)),2)-.035*gauss(y,-.176,.013)
+    :1-.065*Math.pow(Math.abs(Math.sin(angle)),4)*gauss(y,.438,.09)-.052*Math.max(0,-jerseyTailoring(y,angle))/.0038-.026*gauss(y,.078,.023);
+   colors.push(shade,shade,shade);
+  }
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ });
  const detailMeshes:THREE.Mesh[]=[];
  root.traverse(o=>{if(!(o instanceof THREE.Mesh)||isPlayerBlinkMesh(o)||(o instanceof THREE.SkinnedMesh&&!o.userData.uniformPanel))return;o.geometry.computeBoundingBox();const size=o.geometry.boundingBox!.getSize(v());if(Math.max(size.x,size.y,size.z)<.085&&!lettering.some(slot=>slot.decal===o))detailMeshes.push(o);});
  batchStaticPlayerMeshes(root,detailMeshes,lettering.map(slot=>slot.decal));
@@ -401,7 +476,7 @@ export function dressPlayer(model:PlayerModel,appearance:PlayerAppearance,handed
  if(key!==model.appearanceKey){
   model.appearanceKey=key;model.jersey.color.set(appearance.jersey);model.cap.color.set(appearance.cap);model.accent.color.set(appearance.accent);
   const look=normalizePlayerCustomization(appearance),previousLook=model.appearance;model.appearance=look;
-  const colors:Record<string,string>={skin:look.skinTone,hair:look.hairColor,glove:look.gloveColor,cleats:look.cleatColor,equipment:look.equipmentColor,jerseyStitch:appearance.jersey,undershirt:appearance.cap};
+  const colors:Record<string,string>={skin:look.skinTone,hair:look.hairColor,...mittPalette(look.gloveColor),cleats:look.cleatColor,equipment:look.equipmentColor,jerseyStitch:appearance.jersey,undershirt:appearance.cap};
   model.root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){const surface=material as SurfaceMaterial,color=colors[material.userData.playerSurface];if(color&&surface.color)surface.color.set(color).multiplyScalar(material.userData.playerSurface==='jerseyStitch'?.85:material.userData.skinToneFactor??1);}
    if(mesh.name==="Custom hair"){mesh.visible=look.hairStyle!=="bald";if(previousLook.hairStyle!==look.hairStyle){const old=mesh.geometry;mesh.geometry=hairGeometry(look.hairStyle);old.dispose();}}

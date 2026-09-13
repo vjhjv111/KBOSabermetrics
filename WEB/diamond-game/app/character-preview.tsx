@@ -17,13 +17,14 @@ type Form={hand:"L"|"R";style:DeliveryStyle};
 const FORM_NAMES:Record<DeliveryStyle,string>={overhand:"오버핸드",sidearm:"사이드암",underhand:"언더핸드"};
 const FORMS:Form[]=["R","L"].flatMap(hand=>(["overhand","sidearm","underhand"] as const).map(style=>({hand:hand as "L"|"R",style})));
 const previewDuration=(role:CharacterPreviewProps['role'])=>role==='batter'?1100+SWING_DURATION_MS+250:PITCH_WINDUP_MS+PITCH_RECOVERY_MS+300;
+const previewAngle=(role:CharacterPreviewProps['role'],bats:CharacterPreviewProps['bats'])=>role==='batter'?(bats==='L'?-2.58:2.58):.58;
 
 /** A standalone avatar stage using exactly the same rig and poses as live play. */
 export default function CharacterPreview(props:CharacterPreviewProps){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
- const action=useRef({at:-Infinity,blinkAt:-Infinity,blinkEnd:-Infinity,angle:.58,form:null as Form|null,switchHand:false});
- const [playing,setPlaying]=useState(false),[unavailable,setUnavailable]=useState(false),[sample,setSample]=useState<Form|null>(null);
- useEffect(()=>{action.current.form=null;action.current.at=-Infinity;action.current.switchHand=false;setSample(null);setPlaying(false);},[props.role,props.throws,props.delivery,props.bats]);
+ const action=useRef({at:-Infinity,blinkAt:-Infinity,blinkEnd:-Infinity,angle:previewAngle(props.role,props.bats),closeup:false,form:null as Form|null,switchHand:false});
+ const [playing,setPlaying]=useState(false),[unavailable,setUnavailable]=useState(false),[sample,setSample]=useState<Form|null>(null),[closeup,setCloseup]=useState(false);
+ useEffect(()=>{action.current.form=null;action.current.at=-Infinity;action.current.switchHand=false;action.current.angle=previewAngle(props.role,props.bats);setSample(null);setPlaying(false);},[props.role,props.throws,props.delivery,props.bats]);
  useEffect(()=>{action.current.blinkAt=action.current.blinkEnd=-Infinity;},[props.role]);
  const play=(form:Form|null=null)=>{const settings=action.current,now=performance.now();settings.form=form;settings.at=now;if(now>settings.blinkEnd)settings.blinkAt=now;settings.blinkEnd=Math.max(settings.blinkEnd,now+previewDuration(live.current.role));setSample(form);setPlaying(true);};
  useEffect(()=>{
@@ -34,8 +35,8 @@ export default function CharacterPreview(props:CharacterPreviewProps){
   const camera=new THREE.PerspectiveCamera(35,1,.03,200),lighting=stadiumLighting(renderer,scene,true);lighting.focus("batter");
   const actor=new THREE.Group(),mirror=new THREE.Group();scene.add(actor);actor.add(mirror);
   const model=createPlayer(props.appearance.jersey,props.role==="batter");mirror.add(model.root);const bat=createBat(actor);bat.visible=props.role==="batter";
-  const floor=new THREE.Mesh(new THREE.CylinderGeometry(1.65,1.7,.08,64),new THREE.MeshStandardMaterial({color:"#334654",roughness:.92}));floor.position.y=-.075;floor.receiveShadow=true;scene.add(floor);
-  const rim=new THREE.Mesh(new THREE.TorusGeometry(1.64,.009,5,72),new THREE.MeshBasicMaterial({color:"#6d9a9c"}));rim.rotation.x=-Math.PI/2;rim.position.y=-.03;scene.add(rim);
+  const floor=new THREE.Mesh(new THREE.CylinderGeometry(1.65,1.7,.08,64),new THREE.MeshStandardMaterial({color:"#334654",roughness:.92}));floor.position.y=-.04;floor.receiveShadow=true;scene.add(floor);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(1.64,.009,5,72),new THREE.MeshBasicMaterial({color:"#6d9a9c"}));rim.rotation.x=-Math.PI/2;rim.position.y=.003;scene.add(rim);
   const heldBall=new THREE.Mesh(new THREE.SphereGeometry(PITCH_GRIP_BALL_RADIUS,16,12),new THREE.MeshStandardMaterial({color:"#f1eee2",roughness:.65}));
   if(props.role==='pitcher')attachPitchGripBall(equipPitchGrip(model),heldBall);else{heldBall.position.set(0,-.34,0);model.re.add(heldBall);}heldBall.visible=props.role==="pitcher";
   const resize=()=>{const w=Math.max(1,node.clientWidth),h=Math.max(1,node.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=camera.aspect<.85?42:35;camera.updateProjectionMatrix();};
@@ -69,7 +70,8 @@ export default function CharacterPreview(props:CharacterPreviewProps){
    blinkWindows[0].start=settings.blinkAt;blinkWindows[0].end=settings.blinkEnd;
    setPlayerBlink(model.head,samplePlayerBlink(now,blinkSeed,blinkWindows,settings.blinkAt));
    if(settings.at!==-Infinity&&age>=duration){settings.at=-Infinity;setPlaying(false);}
-   const angle=settings.angle;camera.position.set(Math.sin(angle)*5.3,1.72,Math.cos(angle)*5.3);camera.lookAt(0,1.12,0);
+   const angle=settings.angle,distance=(settings.closeup?2.45:4.8)*scale;
+   camera.position.set(Math.sin(angle)*distance,(settings.closeup?1.7:1.72)*scale,Math.cos(angle)*distance);camera.lookAt(0,(settings.closeup?1.45:1.12)*scale,0);
    renderer.render(scene,camera);frame=requestAnimationFrame(render);
   };frame=requestAnimationFrame(render);
   return()=>{
@@ -85,8 +87,9 @@ export default function CharacterPreview(props:CharacterPreviewProps){
   <div className="character-preview__canvas" ref={mount} aria-label="선수 모델. 좌우로 드래그해 회전합니다."/>
   {unavailable&&<p className="character-preview__fallback">이 브라우저에서는 3D 미리보기를 표시할 수 없습니다. 선수 설정은 그대로 저장됩니다.</p>}
   <div className="character-preview__tools"><button type="button" onClick={()=>{action.current.angle+=.45;}} aria-label="선수를 왼쪽으로 회전">↶</button><span>좌우로 드래그해 회전</span><button type="button" onClick={()=>{action.current.angle-=.45;}} aria-label="선수를 오른쪽으로 회전">↷</button></div>
+  <button className="character-preview__zoom" type="button" disabled={unavailable} aria-pressed={closeup} onClick={()=>{const next=!closeup;action.current.closeup=next;setCloseup(next);}}>{closeup?"전신 보기":"얼굴·장비 확대"}</button>
   <button className="character-preview__play" type="button" disabled={unavailable} onClick={()=>play(sample)}>{playing?"처음부터 다시 재생":props.role==="batter"?"스윙 미리보기":"투구 미리보기"}<span aria-hidden="true">▶</span></button>
   {props.role==="pitcher"&&<div className="character-preview__forms"><span>다른 폼 둘러보기</span><div>{FORMS.map(form=><button type="button" key={form.hand+form.style} disabled={unavailable} aria-pressed={activeForm.hand===form.hand&&activeForm.style===form.style} onClick={()=>play(form)}>{form.hand==="L"?"좌":"우"} {FORM_NAMES[form.style]}</button>)}</div>{sample&&<button type="button" className="character-preview__reset" onClick={()=>play(null)}>설정한 투구 폼으로 돌아가기</button>}</div>}
-  {props.role==="batter"&&props.bats==="S"&&<button className="character-preview__reset" type="button" onClick={()=>{action.current.switchHand=!action.current.switchHand;play(null);}}>반대 타석에서 스윙</button>}
+  {props.role==="batter"&&props.bats==="S"&&<button className="character-preview__reset" type="button" onClick={()=>{action.current.switchHand=!action.current.switchHand;action.current.angle*=-1;play(null);}}>반대 타석에서 스윙</button>}
  </section>;
 }

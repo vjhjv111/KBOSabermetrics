@@ -86,7 +86,7 @@ const cagePart=parts(model.root,'Catcher open sightline face cage')[0],cage=head
 // Both pupil centres, plus a small visual window around each, see through the cage.
 let sightRays=0;
 for(const sign of [-1,1])for(const dx of [-.012,0,.012])for(const dy of [-.006,0,.006]){
- const ray=new THREE.Raycaster(V(sign*.044+dx,.061+dy,.105),V(0,0,1));
+ const ray=new THREE.Raycaster(V(sign*.036+dx,.061+dy,.105),V(0,0,1));
  assert.equal(ray.intersectObjects([cage,foam],false).length,0,'Cage and foam must leave each eye window open');sightRays++;
 }
 // Compute actual cage-to-cap triangle distance, not merely intersecting AABBs.

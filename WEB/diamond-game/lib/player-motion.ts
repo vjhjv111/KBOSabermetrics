@@ -118,6 +118,13 @@ export function swingPose(age:number,aim:{x:number;y:number},hand:1|-1,idleMs=0,
   // On a high inside pitch, the knob passes in front of the rear shoulder,
   // not through it. The short arc has zero value and velocity at contact.
   if(active&&age>20&&age<SWING_CONTACT_MS)grip[2]-=highInside*.22*Math.sin(Math.PI*(age-20)/(SWING_CONTACT_MS-20))**2;
+  // Lower the bat around the shoulder after the follow-through. A straight
+  // return passes too close to the shoulder and makes the folded elbow whip
+  // around. This arc joins the original recovery with zero offset and velocity.
+  if(active&&age>560&&age<780){
+    const recoveryArc=Math.sin(Math.PI*(age-560)/220)**2;
+    grip[0]-=.16*hand*recoveryArc;grip[2]-=.12*recoveryArc;
+  }
   // Breathing fades as the hitter loads. Never add a waggle during the contact path.
   if(!active&&idleMs){
     const breath=Math.sin(idleMs/870)*.006*(1-load),waggle=Math.sin(idleMs/390)*.012*(1-load);

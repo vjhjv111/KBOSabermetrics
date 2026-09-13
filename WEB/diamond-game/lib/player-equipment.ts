@@ -1,12 +1,20 @@
 import * as THREE from "three";
-import {createPlayerSurface} from "./player-surfaces";
+import {createPlayerSurface,createPlayerRoughness,createPlayerAlbedo} from "./player-surfaces";
 import {object,loft,joined,oval,tube,seams,material,add,restoreSeamNormals,type Profile} from "./player-geometry";
 import {buildCatcherMitt} from './player-mitt';
 import {normalizePlayerCustomization,playerDimensions,type PlayerCustomization} from './player-appearance';
 
 export type MittStyle='fielding'|'catcher';
-type MittState={style:MittStyle;leather:THREE.MeshPhysicalMaterial;trim:THREE.Material;pocket:THREE.Material};
+type MittState={style:MittStyle;leather:THREE.MeshPhysicalMaterial;trim:THREE.MeshStandardMaterial;pocket:THREE.MeshStandardMaterial};
 const mittStates=new WeakMap<THREE.Object3D,MittState>();
+
+/** One leather dye, with lighter raised welting and a worn, shaded pocket. */
+export function mittPalette(color:string){
+ const base=new THREE.Color(color),hsl={h:0,s:0,l:0};base.getHSL(hsl);
+ const trim=base.clone().setHSL(hsl.h,hsl.s*.78,Math.min(.9,hsl.l+.065));
+ const pocket=base.clone().setHSL(hsl.h,hsl.s*.94,hsl.l*.6);
+ return {glove:color,gloveTrim:'#'+trim.getHexString(),glovePocket:'#'+pocket.getHexString()};
+}
 
 /** Join a rounded dome to the loft's existing ring; no open leather tube ends. */
 function cappedLoft(profile:Profile[],around:number,steps:number,top:number,bottom=0){
@@ -50,14 +58,18 @@ function stitchMesh(parent:THREE.Object3D,paths:number[][][],mat:THREE.Material,
  return add(joined(paths.map(p=>tube(p,radius,Math.max(3,Math.min(12,Math.floor(p.length*density)))))),mat,parent);
 }
 
+// Shoe construction has only two fixed medial shapes. Keep their small numeric
+// fitting offsets private; no geometry, material or disposable resource is shared.
+const cleatStitchOffsets:(Float64Array[]|undefined)[]=[undefined,undefined];
+
 export function shoe(parent:THREE.Object3D,dark:THREE.Material,accent:THREE.Material,sole:THREE.Material){
  // The outsole and stud contacts retain the existing ankle/toe plant envelope.
  // A higher heel collar, medial arch and broad, low toe separate cleats from boots.
  const medial=parent.parent?.name==="Left ankle"?-1:1;
  const upper=cappedLoft([
   [-.09,.045,.043],[-.079,.062,.059],[-.039,.064,.064],
-  [.007,.076,.055,0,medial*.002],[.075,.083,.043,0,medial*.003],
-  [.151,.079,.031,0,medial*.004],[.189,.052,.022,0,medial*.003]
+  [.007,.076,.055,.004,medial*.002],[.075,.083,.043,.012,medial*.003],
+  [.151,.079,.031,.019,medial*.004],[.189,.052,.022,.027,medial*.003]
  ],16,2,.015,.013).rotateX(Math.PI/2).translate(0,-.39,.054);
  add(upper,dark,parent).name="Shaped cleat upper";
  const bottom=cappedLoft([[-.104,.036,.007],[-.098,.061,.009],[-.015,.081,.011],[.091,.086,.011],[.181,.073,.009],[.203,.034,.004]],16,2,.008,.007).rotateX(Math.PI/2).translate(0,-.443,.054);
@@ -81,8 +93,10 @@ export function shoe(parent:THREE.Object3D,dark:THREE.Material,accent:THREE.Mate
   lacePaths.push([onUpper(.025,z),onUpper(-.002,z+.008,.0035),onUpper(-.025,z+.019)]);
   for(const sign of [-1,1])eyelets.push([onUpper(sign*.028-.003,z,.001),onUpper(sign*.028,z-.003,.0025),onUpper(sign*.028+.003,z,.001)]);
  }
- // A tied bow and short loose ends sit above the instep instead of floating off it.
- lacePaths.push([[0,-.317,.023],[-.023,-.307,.006],[-.027,-.311,.033],[0,-.317,.023]],[[0,-.317,.023],[.022,-.308,.009],[.025,-.31,.034],[0,-.317,.023]],[[0,-.317,.023],[-.014,-.319,.048]],[[0,-.317,.023],[.016,-.322,.05]]);
+ // Place the knot on the fitted tongue, keeping its loops above that surface.
+ const bowHeight=onUpper(0,.023,.004)[1];
+ const bowPaths=[[[0,0,.023],[-.023,.010,.006],[-.027,.006,.033],[0,0,.023]],[[0,0,.023],[.022,.009,.009],[.025,.007,.034],[0,0,.023]],[[0,0,.023],[-.014,-.002,.048]],[[0,0,.023],[.016,-.005,.05]]];
+ lacePaths.push(...bowPaths.map(points=>points.map(([x,y,z])=>[x,bowHeight+y,z])));
  const studs=[-.049,.049].flatMap(x=>[-.015,.125,.205].map(z=>new THREE.CylinderGeometry(.009,.006,.016,5).translate(x,-.461,z)));
  add(joined(studs),dark,parent).name="Cleat contact studs";
  for(const sign of [-1,1]){
@@ -92,7 +106,36 @@ export function shoe(parent:THREE.Object3D,dark:THREE.Material,accent:THREE.Mate
  const toe:number[][]=[];for(let i=0;i<=12;i++){const a=-Math.PI*.47+i/12*Math.PI*.94;toe.push([Math.sin(a)*.067,-.37-Math.abs(Math.sin(a))*.031,.158+Math.cos(a)*.071]);}stitches.push(toe);
  stitchMesh(parent,lacePaths,sole,.0018).name="Crossed cleat laces";
  stitchMesh(parent,eyelets,accent,.0013,1).name="Cleat eyelets";
- stitchMesh(parent,stitches,sole,.0009,1.5).name="Cleat stitched panels";
+ // Fit every sampled stitch ring, including the curve between its anchors.
+ // The tapered toe is lower than the quarter, so a fixed-height seam floats.
+ const cacheIndex=medial===-1?0:1,cachedOffsets=cleatStitchOffsets[cacheIndex],fittedOffsets:Float64Array[]=cachedOffsets??[];
+ const upperPositions=upper.getAttribute('position'),upperIndices=upper.index!,triangles:THREE.Triangle[]=[];
+ if(!cachedOffsets)for(let i=0;i<upperIndices.count;i+=3)triangles.push(new THREE.Triangle(
+  new THREE.Vector3().fromBufferAttribute(upperPositions,upperIndices.getX(i)),
+  new THREE.Vector3().fromBufferAttribute(upperPositions,upperIndices.getX(i+1)),
+  new THREE.Vector3().fromBufferAttribute(upperPositions,upperIndices.getX(i+2))));
+ const fittedStitches=stitches.map((path,pathIndex)=>{
+  const geometry=tube(path,.0009,Math.max(3,Math.min(12,Math.floor(path.length*1.5)))),positions=geometry.getAttribute('position');
+  const offsets=cachedOffsets?.[pathIndex]??new Float64Array(positions.count/6*3);
+  const centre=new THREE.Vector3(),point=new THREE.Vector3(),closest=new THREE.Vector3(),normal=new THREE.Vector3(),delta=new THREE.Vector3();
+  // TubeGeometry uses five radial segments plus the repeated seam vertex.
+  for(let start=0;start<positions.count;start+=6){
+   const offsetIndex=start/2;
+   if(cachedOffsets)delta.set(offsets[offsetIndex],offsets[offsetIndex+1],offsets[offsetIndex+2]);
+   else{
+    centre.set(0,0,0);for(let j=0;j<5;j++)centre.add(point.fromBufferAttribute(positions,start+j));centre.multiplyScalar(.2);
+    let nearest=Infinity;
+    for(const triangle of triangles){triangle.closestPointToPoint(centre,point);const distance=point.distanceToSquared(centre);if(distance<nearest){nearest=distance;closest.copy(point);triangle.getNormal(normal);}}
+    delta.copy(closest).addScaledVector(normal,.00045).sub(centre);
+    offsets[offsetIndex]=delta.x;offsets[offsetIndex+1]=delta.y;offsets[offsetIndex+2]=delta.z;
+   }
+   for(let j=0;j<6;j++)positions.setXYZ(start+j,positions.getX(start+j)+delta.x,positions.getY(start+j)+delta.y,positions.getZ(start+j)+delta.z);
+  }
+  if(!cachedOffsets)fittedOffsets.push(offsets);
+  geometry.computeVertexNormals();return restoreSeamNormals(geometry);
+ });
+ if(!cachedOffsets)cleatStitchOffsets[cacheIndex]=fittedOffsets;
+ add(joined(fittedStitches),sole,parent).name="Cleat stitched panels";
 }
 
 export function hand(parent:THREE.Object3D,mat:THREE.Material){
@@ -113,8 +156,11 @@ export function hand(parent:THREE.Object3D,mat:THREE.Material){
 /** Cupped mitt mesh, with separate finger channels and a woven web. */
 export function mitt(parent:THREE.Object3D,size:number,bump:THREE.Texture|null){
  const root=object(parent);root.scale.setScalar(size);
- const leather=new THREE.MeshPhysicalMaterial({color:"#915b31",roughness:.74,clearcoat:.12,clearcoatRoughness:.58,bumpMap:bump,bumpScale:.0034});leather.userData.playerSurface="glove";
- const trim=material("#c69b66",.85,bump,.002),pocket=material("#5f3e29",.89,bump,.003);
+ const palette=mittPalette('#915b31'),roughness=createPlayerRoughness('leather'),albedo=createPlayerAlbedo('leather');
+ const leather=new THREE.MeshPhysicalMaterial({color:palette.glove,map:albedo,roughness:.82,roughnessMap:roughness,clearcoat:.12,clearcoatRoughness:.58,bumpMap:bump,bumpScale:.0034});leather.userData.playerSurface="glove";
+ const trim=material(palette.gloveTrim,.9,bump,.002),pocket=material(palette.glovePocket,.98,bump,.003);
+ trim.userData.playerSurface='gloveTrim';pocket.userData.playerSurface='glovePocket';
+ trim.roughnessMap=pocket.roughnessMap=roughness;trim.map=pocket.map=albedo;
  buildFieldingMitt(root,leather,trim,pocket);mittStates.set(root,{style:'fielding',leather,trim,pocket});return root;
 }
 function buildFieldingMitt(root:THREE.Object3D,leather:THREE.Material,trim:THREE.Material,pocket:THREE.Material){
@@ -159,7 +205,8 @@ function buildFieldingMitt(root:THREE.Object3D,leather:THREE.Material,trim:THREE
 /** Swap only owned geometry. Rig roots, post-batch mesh slots and materials stay live. */
 export function setMittStyle(root:THREE.Object3D,style:MittStyle,appearance:PlayerCustomization={}){
  const state=mittStates.get(root);if(!state)throw new Error('Mitt style requires a root created by mitt or createMitt.');
- const look=normalizePlayerCustomization(appearance),dims=playerDimensions(look);state.leather.color.set(look.gloveColor);
+ const look=normalizePlayerCustomization(appearance),dims=playerDimensions(look),palette=mittPalette(look.gloveColor);
+ state.leather.color.set(palette.glove);state.trim.color.set(palette.gloveTrim);state.pocket.color.set(palette.glovePocket);
  if(state.style===style){
   root.traverse(object=>{if(!(object instanceof THREE.Mesh))return;const geometry=object.geometry,p=geometry.getAttribute('position'),rest=geometry.userData.restShape??(geometry.userData.restShape=Float32Array.from(p.array));let changed=false;
    for(let i=0;i<p.count;i++){const x=Math.fround(rest[i*3]*dims.widthScale),z=Math.fround(rest[i*3+2]*dims.depthScale);if(p.getX(i)!==x||p.getZ(i)!==z){p.setXYZ(i,x,rest[i*3+1],z);changed=true;}}
@@ -202,7 +249,7 @@ const BATTING_PALM_OFFSET_X=.028;
 
 export function createBat(parent:THREE.Object3D){
  const root=object(parent),wood=createPlayerSurface("wood"),cloth=createPlayerSurface("cloth");
- const barrel=new THREE.MeshPhysicalMaterial({color:"#bc8b52",roughness:.42,clearcoat:.35,clearcoatRoughness:.3,bumpMap:wood,bumpScale:.0015});
+ const barrel=new THREE.MeshPhysicalMaterial({color:"#bc8b52",map:createPlayerAlbedo('wood'),roughness:.48,roughnessMap:createPlayerRoughness('wood'),clearcoat:.35,clearcoatRoughness:.3,bumpMap:wood,bumpScale:.0015});
  barrel.userData.playerSurface="bat";
  const grip=material("#212a2b",.83,cloth,.0025),glove=material("#e3e3d9",.8,cloth,.0013),trim=material("#848c89",.88);
  // These grip heights belong to the hands; their wrist openings sit off-axis.

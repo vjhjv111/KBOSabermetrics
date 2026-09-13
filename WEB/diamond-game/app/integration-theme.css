@@ -53,7 +53,8 @@
 .career-growth progress::-webkit-progress-bar{background:#e4eaf0}
 .career-growth progress::-webkit-progress-value{background:#b94017}
 .career-rewards li{border-top-color:#e5eaf0;color:#596779}.career-rewards small,.career-rewards b{color:#a63816}
-.season-app .character-preview button{background:#20343f;border-color:#597183;color:#e5eef4}
+.season-app .character-preview button{background:#20343f;border-color:#597183;color:#e5eef4;min-height:44px}
+.season-app .character-preview__tools button{padding:0;font-size:21px}
 .season-app .character-preview button:hover:not(:disabled){background:#304c5e}
 .season-app .character-preview button[aria-pressed=true]{background:#743117;border-color:#ffb18f;color:#fff}
 .exhibition-join{background:#fff}.exhibition-join>span{color:#a63816;font-size:11px}

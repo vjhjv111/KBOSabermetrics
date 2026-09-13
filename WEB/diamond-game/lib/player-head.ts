@@ -4,6 +4,8 @@ import {createPlayerBlink} from './player-blink';
 import type {PlayerHairStyle} from "./player-appearance";
 import {v,loft,joined,oval,seams,material,add,profileAt,gauss,restoreSeamNormals,type Profile,type SurfaceMaterial} from "./player-geometry";
 
+const PLAYER_EYE_CENTER_X=.036;
+
 const headProfile:Profile[]=[
   [-.07,.035,.042,.04],[-.055,.061,.053,.034],[-.027,.087,.071,.017],
   [.014,.103,.095,.002],[.049,.109,.104,-.002],[.084,.11,.104,-.005],
@@ -15,8 +17,8 @@ export const capProfile:Profile[]=[
 ];
 function faceRelief(height:number,angle:number){
  const front=Math.max(0,Math.cos(angle)),side=Math.abs(Math.sin(angle));
- const socket=gauss(height,.062,.012)*gauss(side,.40,.19);
- const brow=gauss(height,.081,.012)*gauss(side,.40,.25);
+ const socket=gauss(height,.062,.012)*gauss(side,PLAYER_EYE_CENTER_X/.11,.19);
+ const brow=gauss(height,.081,.012)*gauss(side,PLAYER_EYE_CENTER_X/.11,.25);
  const cheek=gauss(height,.022,.021)*gauss(side,.61,.24);
  const jaw=gauss(height,-.024,.025)*gauss(side,.76,.25);
  const muzzle=gauss(height,-.023,.017)*gauss(side,0,.39);
@@ -39,19 +41,25 @@ function headGeometry(){
   const n=v(normals.getX(i)+normals.getX(i+48),normals.getY(i)+normals.getY(i+48),normals.getZ(i)+normals.getZ(i+48)).normalize();
   normals.setXYZ(i,n.x,n.y,n.z);normals.setXYZ(i+48,n.x,n.y,n.z);
  }
- // A very slight warm cheek and cooler jaw shade supplies face planes without a painted-on smile.
+ // Soft skin-plane shading keeps the sockets and cheekbones readable beneath
+ // the bill, without adding geometry or making a fixed directional shadow.
  const positions=geometry.getAttribute("position"),colors:number[]=[],color=new THREE.Color();
  for(let i=0;i<positions.count;i++){
   const y=positions.getY(i),x=positions.getX(i),z=positions.getZ(i);
-  const cheek=gauss(y,.015,.025)*gauss(Math.abs(x),.076,.028)*Math.max(0,z/.1);
-  const jaw=gauss(y,-.035,.026)*Math.max(0,z/.1),temple=gauss(y,.067,.03)*gauss(Math.abs(x),.083,.027);
-  color.setRGB(1-temple*.012,.992-cheek*.035-jaw*.01-temple*.018,.985-cheek*.048-jaw*.006-temple*.017);colors.push(color.r,color.g,color.b);
+  const front=Math.max(0,z/.1),side=Math.abs(x);
+  const cheek=gauss(y,.015,.025)*gauss(side,.076,.028)*front;
+  const jaw=gauss(y,-.035,.026)*front,temple=gauss(y,.067,.03)*gauss(side,.083,.027);
+  const socket=gauss(y,.063,.012)*gauss(side,PLAYER_EYE_CENTER_X,.018)*front;
+  const noseSide=gauss(y,.023,.022)*gauss(side,.020,.010)*front;
+  const lowerLip=gauss(y,-.035,.006)*gauss(side,0,.025)*front;
+  const shade=socket*.21+temple*.085+noseSide*.095+lowerLip*.055+jaw*.035;
+  color.setRGB(1-shade,.992-shade-cheek*.040,.985-shade-cheek*.055);colors.push(color.r,color.g,color.b);
  }
  geometry.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));return geometry;
 }
 
 export function hairGeometry(style:PlayerHairStyle="short"){
- const geometry=loft([[0,.1,.1],[1,.1,.1]],32,12),positions=geometry.getAttribute("position");
+ const geometry=loft([[0,.1,.1],[1,.1,.1]],32,12),positions=geometry.getAttribute("position"),colors:number[]=[];
  for(let row=0;row<=12;row++)for(let col=0;col<=32;col++){
   const angle=col/32*Math.PI*2,front=Math.max(0,Math.cos(angle));
   // A hairline follows the temples and nape, staying above the eyebrows under the bill.
@@ -59,8 +67,12 @@ export function hairGeometry(style:PlayerHairStyle="short"){
   const [,w,d,z=0]=profileAt(headProfile,y);
   const layer=style==="buzz"?.0006:style==="flow"?.005+back*.003:.0018;
   positions.setXYZ(row*33+col,Math.sin(angle)*(w+layer),y,z+Math.cos(angle)*(d+layer));
+  // Existing hair vertices carry a quiet strand variation and a softer edge.
+  // Matching both seam columns avoids a bright stripe at the forehead.
+  const strand=.96+.045*Math.sin(angle*11+row*.45)+.025*Math.cos(angle*7-row*.22);
+  const value=strand+.10*(1-THREE.MathUtils.smoothstep(row/12,0,.28));colors.push(value,value,value);
  }
- geometry.computeVertexNormals();return restoreSeamNormals(geometry);
+ geometry.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();return restoreSeamNormals(geometry);
 }
 
 /** A thin inset patch follows the helmet instead of floating ellipsoids above its curved shell. */
@@ -140,9 +152,9 @@ function nostrilGeometry(nose:THREE.BufferGeometry){
 }
 
 /** A small curved surface opens inside the sculpted socket, below its bony rim. */
-function eyeBounds(t:number){const arch=Math.pow(Math.max(0,1-t*t),.7);return [.061-.0028*arch+.0006*t,.061+.0035*arch+.0006*t];}
+function eyeBounds(t:number){const arch=Math.pow(Math.max(0,1-t*t),.7);return [.061-.0035*arch+.0006*t,.061+.0046*arch+.0006*t];}
 function eyeZ(x:number,y:number){
- const t=(Math.abs(x)-.044)/.0145,[low,high]=eyeBounds(t),arch=Math.pow(Math.max(0,1-t*t),.7),f=THREE.MathUtils.clamp((y-low)/Math.max(.0001,high-low),0,1);
+ const t=(Math.abs(x)-PLAYER_EYE_CENTER_X)/.0145,[low,high]=eyeBounds(t),arch=Math.pow(Math.max(0,1-t*t),.7),f=THREE.MathUtils.clamp((y-low)/Math.max(.0001,high-low),0,1);
  return faceZ(x,y)+.0005+.004*arch*Math.sin(Math.PI*f);
 }
 function eyePigment(x:number,y:number){
@@ -173,7 +185,7 @@ function eyeGeometry(sign:number){
  const positions:number[]=[],indices:number[]=[],uv:number[]=[],colors:number[]=[],columns=24,rows=8,color=new THREE.Color();
  for(let row=0;row<=rows;row++)for(let col=0;col<=columns;col++){
   const u=col/columns,t=u*2-1,f=row/rows,[low,high]=eyeBounds(t);
-  const x=sign*(.044+t*.0145),y=THREE.MathUtils.lerp(low,high,f),z=eyeZ(x,y);
+  const x=sign*(PLAYER_EYE_CENTER_X+t*.0145),y=THREE.MathUtils.lerp(low,high,f),z=eyeZ(x,y);
   positions.push(x,y,z);uv.push(u,(y-.055)/.012);
   const pigment=eyePigment(t*.0145,y);color.setRGB(pigment[0]/255,pigment[1]/255,pigment[2]/255).convertSRGBToLinear();colors.push(color.r,color.g,color.b);
   if(row<rows&&col<columns){const a=row*(columns+1)+col,b=a+1,c=b+columns+1,d=a+columns+1;indices.push(...(sign>0?[a,b,d,b,c,d]:[a,d,b,b,d,c]));}
@@ -184,7 +196,7 @@ function eyeGeometry(sign:number){
 function upperLidGeometry(sign:number){
  const positions:number[]=[],uv:number[]=[],indices:number[]=[],columns=16,rows=3;
  for(let row=0;row<=rows;row++)for(let col=0;col<=columns;col++){
-  const t=col/columns*2-1,arch=Math.pow(Math.max(0,1-t*t),.7),f=row/rows,x=sign*(.044+t*.0145),[,edge]=eyeBounds(t);
+  const t=col/columns*2-1,arch=Math.pow(Math.max(0,1-t*t),.7),f=row/rows,x=sign*(PLAYER_EYE_CENTER_X+t*.0145),[,edge]=eyeBounds(t);
   const y=edge+f*.007*arch,z=faceZ(x,y)+.00025+arch*(.0013*(1-f)+.0014*Math.sin(Math.PI*f));
   positions.push(x,y,z);uv.push(col/columns,f);
   if(row<rows&&col<columns){const a=row*(columns+1)+col,b=a+1,c=b+columns+1,d=a+columns+1;indices.push(...(sign>0?[a,b,d,b,c,d]:[a,d,b,b,d,c]));}
@@ -195,7 +207,7 @@ function upperLidGeometry(sign:number){
 function browGeometry(sign:number){
  const positions:number[]=[],indices:number[]=[],uv:number[]=[],columns=16;
  for(let row=0;row<2;row++)for(let col=0;col<=columns;col++){
-  const t=col/columns,x=sign*(.027+t*.041),curve=Math.sin(t*Math.PI),y=.079+.0045*curve-.001*t+(row-.5)*(.0012+curve*.003);
+  const t=col/columns,x=sign*(PLAYER_EYE_CENTER_X-.017+t*.041),curve=Math.sin(t*Math.PI),y=.079+.0045*curve-.001*t+(row-.5)*(.0012+curve*.003);
   positions.push(x,y,faceZ(x,y)+.0007);uv.push(t,row);
   if(row===0&&col<columns){const a=col,b=a+1,c=b+columns+1,d=a+columns+1;indices.push(...(sign>0?[a,b,d,b,c,d]:[a,d,b,b,d,c]));}
  }
@@ -231,7 +243,7 @@ function brimGeometry(){
 export function headDetails(head:THREE.Object3D,skin:SurfaceMaterial,cap:SurfaceMaterial,cloth:THREE.Texture|null,isBatter:boolean){
  const faceMaterial=skin.clone();faceMaterial.vertexColors=true;
  const face=headGeometry(),nose=noseGeometry(face);add(face,faceMaterial,head).name="Sculpted face";add(nose,skin,head).name="Nasal bridge and tip";
- const hair=material("#242421",.94,cloth,.0008),features=material("#684f42",.91),eyeWhite=material("#ffffff",.4);hair.userData.playerSurface="hair";
+ const hair=material("#242421",.94,cloth,.0008),features=material("#684f42",.91),eyeWhite=material("#ffffff",.4);hair.userData.playerSurface="hair";hair.vertexColors=true;
  eyeWhite.map=eyeTexture();eyeWhite.vertexColors=!eyeWhite.map;
  const ears=[-1,1].map(sign=>loft([[-.006,.004,.006],[.003,.007,.013],[.025,.009,.018],[.043,.007,.014],[.05,.002,.005]],16,3).translate(sign*.109,0,-.013));
  add(joined(ears),skin,head);
@@ -250,7 +262,7 @@ export function headDetails(head:THREE.Object3D,skin:SurfaceMaterial,cap:Surface
   for(const upper of [false,true]){
    const points:number[][]=[];
    for(let i=0;i<=8;i++){
-    const t=i/4-1,x=sign*(.044+t*.0145),bounds=eyeBounds(t),y=bounds[upper?1:0];
+    const t=i/4-1,x=sign*(PLAYER_EYE_CENTER_X+t*.0145),bounds=eyeBounds(t),y=bounds[upper?1:0];
     points.push([x,y,faceZ(x,y)+.001]);
    }
    lids.push(points);if(upper)lashPaths.push(points.map(([x,y,z])=>[x,y-.00045,z+.00025]));
