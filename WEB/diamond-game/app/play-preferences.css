@@ -1,0 +1,10 @@
+.season-play-preferences{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:13px 15px;margin-bottom:14px;border:1px solid #d5dccb;border-radius:10px;background:#f7f9f1;color:#283529}
+.season-play-preference-title{display:flex;align-items:center;gap:8px;font-size:13px}.season-play-preference-title>span{padding:3px 6px;border-radius:4px;background:#e4edcd;color:#4d6038;font-size:10px}
+.season-play-switches{display:flex;flex:1;justify-content:flex-end;gap:8px}
+.season-play-switches button{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:9px 11px;border:1px solid #aebda3;border-radius:7px;background:#fff;color:#394a35;font-size:12px;touch-action:manipulation}
+.season-play-switches button>b{font-size:10px;padding:4px 6px;border-radius:4px;background:#e3e7df;color:#596553}
+.season-play-switches button[aria-checked=true]{border-color:#697e38;background:#eef5dc}.season-play-switches button[aria-checked=true]>b{background:#476020;color:#fff}
+.season-play-switches button:focus-visible{outline:3px solid #72883d;outline-offset:2px}
+.season-play-preferences>p{width:100%;margin:0;font-size:11px;line-height:1.5;color:#63705b}
+.season-field-sim .season-field-swing-hint small{max-width:230px;line-height:1.5}
+@media(max-width:600px){.season-play-preferences{padding:11px;gap:9px}.season-play-switches{flex-basis:100%;justify-content:stretch}.season-play-switches button{flex:1;gap:6px;padding:8px;font-size:11px}.season-play-preferences>p{font-size:10px}.season-field-sim .season-field-swing-hint small{max-width:160px}}

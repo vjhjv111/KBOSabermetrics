@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import {sameAutoHalfBoundary} from './use-play-preferences';
 import {createSeasonRequestQueue,acceptSeasonSnapshot,sameSeasonInputTarget} from './season-client';
 import {registerRoster,pinMatchRoster} from './roster';
 import {createClockSync,localNow} from './game-clock';
@@ -33,9 +34,13 @@ export function useMatchClient(active=true){
  const post=useCallback(async(body:Record<string,unknown>)=>{try{return await request(body);}catch(e){const p=e as {status?:number;code?:string};if(p.status&&p.code!=='CSRF')throw e;return request(body);}},[request]);
  const command=useCallback((body:Record<string,unknown>)=>{
   const captured:Record<string,unknown>={...body,...(body.aim&&typeof body.aim==='object'?{aim:{...body.aim}}:{})};const gen=generation.current;pending.current++;setBusy(true);setError('');
+  const expectedHalf=captured._autoHalfBoundary&&typeof captured._autoHalfBoundary==='object'?{...captured._autoHalfBoundary}:captured._autoHalfBoundary;
+  delete captured._autoHalfBoundary;
   return queue.current.run(async()=>{
    try{
-    const before=current.current;const base:Record<string,unknown>={...captured,...(captured.op==='create'||captured.op==='join'?{}:{code:before?.match.code,version:before?.match.version}),requestId:crypto.randomUUID()};
+    const before=current.current;
+    if(expectedHalf!==undefined&&!sameAutoHalfBoundary(expectedHalf,before))throw new Error('자동 진행할 공수가 바뀌었습니다. 화면을 확인한 뒤 재개해 주세요.');
+    const base:Record<string,unknown>={...captured,...(captured.op==='create'||captured.op==='join'?{}:{code:before?.match.code,version:before?.match.version}),requestId:crypto.randomUUID()};
     let next:FullMatchResponse;
     try{next=await post(base);}catch(e){if((e as {status?:number}).status!==409||!before)throw e;const updated=await request(undefined,before.match.code);apply(updated,gen);if(!sameSeasonInputTarget(captured,before,updated))throw e;next=await post({...base,version:updated.match.version,requestId:crypto.randomUUID()});}
     apply(next,gen);return next;

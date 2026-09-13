@@ -1,7 +1,8 @@
 import * as THREE from "three";
+import {koreaTimeOfDay, type StadiumTimeOfDay} from "./korea-daylight";
 
-/** Fixed floodlight directions persist across batting, pitching and tracking cameras. */
-export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scene, compact: boolean) {
+/** Sunlight or fixed stadium floodlights, shared by all gameplay cameras. */
+export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scene, compact: boolean, timeOfDay: StadiumTimeOfDay = koreaTimeOfDay()) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
@@ -37,9 +38,15 @@ export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scen
     card.position.set(x,y,z); card.lookAt(0,1,0); surroundings.add(card); cards.push(card);
   }
   const generator = new THREE.PMREMGenerator(renderer);
-  const reflection = generator.fromScene(surroundings, .06, .1, 30);
-  scene.environment = reflection.texture;
-  scene.environmentIntensity = .34;
+  const nightReflection = generator.fromScene(surroundings, .06, .1, 30);
+  // Precompute both environments once. A clock transition never rebuilds the field
+  // or allocates reflections in the middle of a pitch.
+  surroundings.background.set("#b3d4ee");
+  for (const card of cards) card.visible = false;
+  const sunCard = cards[0]; sunCard.visible = true;
+  sunCard.position.set(-5,8,3);sunCard.scale.set(.55,.55,.55);sunCard.lookAt(0,1,0);
+  (sunCard.material as THREE.MeshBasicMaterial).color.setRGB(4,3.7,3.2);
+  const dayReflection = generator.fromScene(surroundings, .06, .1, 30);
   generator.dispose();
   for (const card of cards) { card.geometry.dispose(); (card.material as THREE.Material).dispose(); }
 
@@ -50,5 +57,25 @@ export function stadiumLighting(renderer: THREE.WebGLRenderer, scene: THREE.Scen
   };
   focus("batter");
   let disposed=false;
-  return {focus, dispose: () => { if(disposed)return;disposed=true;reflection.dispose();key.shadow.dispose();for(const light of [sky,key,fill,rim])light.removeFromParent();for(const light of [key,fill,rim])light.target.removeFromParent();if(scene.environment===reflection.texture)scene.environment=null; }};
+  let current: StadiumTimeOfDay | undefined;
+  const setTimeOfDay = (phase: StadiumTimeOfDay) => {
+    if (disposed || phase === current) return;
+    current = phase;
+    const day = phase === 'day';
+    sky.name = 'Stadium ambient sky'; key.name = 'Stadium primary light';
+    sky.color.set(day ? '#c3e1ff' : '#a7c5ed');
+    sky.groundColor.set(day ? '#6e714c' : '#4a4634');
+    sky.intensity = day ? 1.5 : .48;
+    key.color.set(day ? '#fff5de' : '#fff2dc');
+    key.intensity = day ? 3.1 : 2.8;
+    key.position.set(day ? -48 : -57, day ? 82 : 38, day ? 20 : 7);
+    key.updateMatrixWorld(true);
+    fill.intensity = day ? .3 : 1.15;
+    rim.intensity = day ? 0 : 1.8;
+    scene.environment = (day ? dayReflection : nightReflection).texture;
+    scene.environmentIntensity = day ? .48 : .34;
+    renderer.toneMappingExposure = day ? .98 : 1.08;
+  };
+  setTimeOfDay(timeOfDay);
+  return {focus, setTimeOfDay, dispose: () => { if(disposed)return;disposed=true;nightReflection.dispose();dayReflection.dispose();key.shadow.dispose();for(const light of [sky,key,fill,rim])light.removeFromParent();for(const light of [key,fill,rim])light.target.removeFromParent();if(scene.environment===nightReflection.texture||scene.environment===dayReflection.texture)scene.environment=null; }};
 }

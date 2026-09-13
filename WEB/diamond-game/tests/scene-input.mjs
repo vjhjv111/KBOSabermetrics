@@ -103,6 +103,13 @@ try{
    }
    assert.equal(h.commands.length,0,'Sound/fullscreen overlay clicks never swing or pitch');
    assert.equal(h.scene().props.charging,false);
+   if(role==='batter'){
+    const pause=find(h.tree,n=>n.type==='button'&&n.props['aria-label']==='자동 투구 일시정지');assert(pause,'Automatic pitching has a field pause control');
+    bubble(pause,'onPointerDown');bubble(pause,'onPointerUp');bubble(pause,'onClick');h.render();
+    assert(find(h.tree,n=>n.type==='button'&&n.props['aria-label']==='자동 투구 재개'),'Pause click updates the automatic control');
+    key('keydown',{tagName:'BUTTON'},'Space');key('keyup',{tagName:'BUTTON'},'Space');
+    assert.equal(h.commands.length,0,'Pause/resume controls never leak a swing or charge into the field');
+   }
    const group=find(stage.node,n=>n.props.role==='group'&&n.props['aria-label']==='구종 선택');
    if(role==='batter')assert(!group,'Batting screen does not expose opponent pitch-selection controls');
    else{

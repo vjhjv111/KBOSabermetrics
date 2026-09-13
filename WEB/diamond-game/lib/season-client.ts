@@ -1,4 +1,5 @@
 import {useState,useRef,useCallback,useEffect,useLayoutEffect} from 'react';
+import {sameAutoHalfBoundary} from './use-play-preferences';
 import {parseRoster,registerRoster,pinMatchRoster,type RosterResponse} from './roster';
 import {localNow,createClockSync} from './game-clock';
 import type {SeasonResponse} from './season-types';
@@ -84,9 +85,12 @@ export function useSeasonClient(active:boolean){
   pending.current++;setBusy(true);setError('');
   // Copy nested aim at capture time; later pointer motion cannot alter queued input.
   const captured:Record<string,unknown>={...body,...(body.aim&&typeof body.aim==='object'?{aim:{...body.aim}}:{})};
+  const expectedHalf=captured._autoHalfBoundary&&typeof captured._autoHalfBoundary==='object'?{...captured._autoHalfBoundary}:captured._autoHalfBoundary;
+  delete captured._autoHalfBoundary;
   return queue.current.run(async()=>{
    const before=current.current;let payload={...captured,requestId:crypto.randomUUID(),...(captured.op==='create'?{}:{version:before?.save?.version})};
    try{
+    if(expectedHalf!==undefined&&!sameAutoHalfBoundary(expectedHalf,before))throw new Error('자동 진행할 공수가 바뀌었습니다. 화면을 확인한 뒤 재개해 주세요.');
     let next:SeasonResponse;
     try{next=await post<SeasonResponse>('season',payload);}catch(e){
      if((e as {status?:number}).status!==409)throw e;

@@ -76,7 +76,7 @@ var relief=Command(state,"change-pitcher");relief["playerId"]=guestTeam.Pitchers
 
 var pitch=Command(state,"pitch");pitch["previousPitch"]=0;pitch["type"]="fastball";pitch["aim"]=new{x=0,y=0};pitch["quality"]=1;
 var both=await Task.WhenAll(Request(host,pitch),Request(host,pitch));state=Decode(both[0]);Check(Decode(both[1]).Action!.PitchCount==1&&state.Action!.PitchCount==1,"concurrent identical pitch requests commit once");
-Check(state.Action!.Pitch is{AiBatterSwing:null,AiBatterSwingPrepared:false}&&state.Action.Pitch.ReleaseAt==now+1900,"PvP has no AI choice and synchronized windup");
+Check(state.Action!.Pitch is{AiBatterSwing:null,AiBatterSwingPrepared:false}&&state.Action.Pitch.ReleaseAt==now+2600,"PvP has no AI choice and synchronized windup");
 using(var request=new HttpRequestMessage(HttpMethod.Get,"/api/diamond/match?code="+code)){request.Headers.IfNoneMatch.ParseAdd(etag);using var r=await host.SendAsync(request);Check(r.IsSuccessStatusCode&&r.Headers.ETag!.ToString()!=etag,"new pitch invalidates conditional poll");}
 await Request(host,Command(joined,"tick"),409);
 var ball=state.Action.Pitch!;now=(long)Math.Ceiling(ball.ReleaseAt+ball.FlightMs-95);

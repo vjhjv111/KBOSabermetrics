@@ -1,8 +1,9 @@
 import * as THREE from "three";
+import {koreaTimeOfDay,type StadiumTimeOfDay} from "./korea-daylight";
 
 export const FIELD_DIMENSIONS={basePath:27.432,moundDistance:18.44,moundHeight:.254,moundRadius:2.7432,centreField:122,foulLine:99} as const;
-export type StadiumScore={home?:string;away?:string;homeScore?:number;awayScore?:number;inning?:number;half?:string};
-export type StadiumWorld={root:THREE.Group;field:{home:THREE.Vector3;mound:THREE.Vector3;first:THREE.Vector3;second:THREE.Vector3;third:THREE.Vector3};update:(seconds:number)=>void;setScoreboard:(score:StadiumScore)=>void;dispose:()=>void};
+export type StadiumScore={home?:string;away?:string;homeScore?:number;awayScore?:number;inning?:number;half?:string;hidden?:boolean};
+export type StadiumWorld={root:THREE.Group;field:{home:THREE.Vector3;mound:THREE.Vector3;first:THREE.Vector3;second:THREE.Vector3;third:THREE.Vector3};update:(seconds:number)=>void;setScoreboard:(score:StadiumScore)=>void;setTimeOfDay:(phase:StadiumTimeOfDay)=>void;dispose:()=>void};
 const TAU=Math.PI*2;
 const V=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 function seeded(seed:number){return()=>{seed=(Math.imul(seed,1664525)+1013904223)|0;return (seed>>>0)/4294967296;};}
@@ -28,6 +29,24 @@ function turfTextures(compact:boolean){
  }
  const texture=(data:Uint8Array,color=false)=>{const t=new THREE.DataTexture(data,size,size);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=color?THREE.SRGBColorSpace:THREE.NoColorSpace;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=compact?4:8;t.needsUpdate=true;return t;};
  return {map:texture(diffuse,true),normalMap:texture(normal),roughnessMap:texture(rough)};
+}
+/** A small seamless sky is generated once, with no geometry or runtime assets. */
+function daylightSky(compact:boolean){
+ const width=compact?256:512,height=width/2,data=new Uint8Array(width*height*4);
+ const smooth=(a:number,b:number,n:number)=>{const t=Math.max(0,Math.min(1,(n-a)/(b-a)));return t*t*(3-2*t);};
+ for(let y=0;y<height;y++){
+  // Equirectangular textures sample +Y at v=1. DataTexture uses flipY=false.
+  const elevation=Math.sin((y/(height-1)-.5)*Math.PI),blue=Math.pow(Math.max(0,elevation),.5);
+  for(let x=0;x<width;x++){
+   const angle=x/width*TAU,band=smooth(.05,.2,elevation)*(1-smooth(.72,.94,elevation));
+   const billow=Math.sin(angle*3+elevation*17)*.47+Math.sin(angle*7-elevation*31)*.29+Math.cos(angle*13+elevation*19)*.15+Math.cos(angle*23-elevation*43)*.09;
+   const cloud=smooth(.16,.65,billow)*band*.76;
+   const sky=[190-117*blue,219-65*blue,234-15*blue];
+   for(let channel=0;channel<3;channel++)data[(y*width+x)*4+channel]=Math.round(sky[channel]+(248-sky[channel])*cloud);
+   data[(y*width+x)*4+3]=255;
+  }
+ }
+ const texture=new THREE.DataTexture(data,width,height);texture.name="Daytime sky and clouds";texture.mapping=THREE.EquirectangularReflectionMapping;texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearFilter;texture.wrapS=THREE.RepeatWrapping;texture.needsUpdate=true;return texture;
 }
 function surfaceShape(points:[number,number][],metres=1,holes:[number,number][][]=[]){
  const shape=new THREE.Shape();points.forEach(([x,z],i)=>i?shape.lineTo(x,-z):shape.moveTo(x,-z));shape.closePath();
@@ -64,7 +83,7 @@ function batchArchitecture(root:THREE.Group,owned:Set<THREE.BufferGeometry>){
 }
 
 /** A complete world in metres. No camera-facing stadium image is used. */
-export function createStadiumWorld(scene:THREE.Scene,{compact=false,assetBase="/diamond/assets/stadium/"}:{compact?:boolean;assetBase?:string}={}):StadiumWorld{
+export function createStadiumWorld(scene:THREE.Scene,{compact=false,assetBase="/diamond/assets/stadium/",timeOfDay=koreaTimeOfDay()}:{compact?:boolean;assetBase?:string;timeOfDay?:StadiumTimeOfDay}={}):StadiumWorld{
  const root=new THREE.Group();root.name="Regulation baseball stadium";scene.add(root);
  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();
  const ownMaterial=<T extends THREE.Material>(m:T)=>{materials.add(m);return m;};
@@ -195,11 +214,11 @@ diffuseColor.rgb *= mix(0.95,1.045,stripe)+turfPatch*0.23+fine*0.28;`);
   add(new THREE.CylinderGeometry(.48,.9,38,8),steel,x,19,z);const bank=new THREE.Group();bank.position.set(x,38,z);bank.lookAt(0,2,-35);root.add(bank);add(new THREE.BoxGeometry(7.4,4.4,.4),dark,0,0,-.2,bank);
   bank.updateMatrixWorld(true);for(let row=0;row<6;row++)for(let col=0;col<8;col++){transform.position.set((col-3.5)*.87,(row-2.5)*.66,.04);transform.rotation.set(0,0,0);transform.scale.setScalar(1);transform.updateMatrix();lamps.setMatrixAt(lamp++,new THREE.Matrix4().multiplyMatrices(bank.matrixWorld,transform.matrix));}
  }
- // A restrained night sky, with distant city silhouettes and a handful of bright stars.
- scene.background=new THREE.Color("#09182b");scene.fog=new THREE.Fog("#16263a",145,390);
+ // Keep both backgrounds alive so crossing dawn/dusk swaps no world geometry.
+ const previousBackground=scene.background,previousFog=scene.fog,nightSky=new THREE.Color("#09182b"),daySky=daylightSky(compact),atmosphere=new THREE.Fog("#16263a",145,390);textures.add(daySky);
  const starPositions:number[]=[],starRandom=seeded(938);
  for(let i=0;i<110;i++){const a=starRandom()*TAU,h=.22+starRandom()*.7,r=Math.sqrt(1-h*h);starPositions.push(Math.cos(a)*r*340,80+h*240,Math.sin(a)*r*340-50);}
- const starsGeo=new THREE.BufferGeometry().setAttribute("position",new THREE.Float32BufferAttribute(starPositions,3));geometries.add(starsGeo);const starsMat=ownMaterial(new THREE.PointsMaterial({color:"#bfd5f0",size:.32,transparent:true,opacity:.64,fog:false}));root.add(new THREE.Points(starsGeo,starsMat));
+ const starsGeo=new THREE.BufferGeometry().setAttribute("position",new THREE.Float32BufferAttribute(starPositions,3));geometries.add(starsGeo);const starsMat=ownMaterial(new THREE.PointsMaterial({color:"#bfd5f0",size:.32,transparent:true,opacity:.64,fog:false})),stars=new THREE.Points(starsGeo,starsMat);stars.name="Night sky stars";root.add(stars);
  const cityMat=ownMaterial(mat("#172537")),cityWindows:THREE.Matrix4[]=[];
  for(let i=0;i<30;i++){
   const angle=i/30*TAU,p=radialPoint(angle,115+starRandom()*45),height=12+starRandom()*28,width=9+starRandom()*10,depth=9+starRandom()*8;
@@ -213,12 +232,17 @@ diffuseColor.rgb *= mix(0.95,1.045,stripe)+turfPatch*0.23+fine*0.28;`);
  const windowGeo=new THREE.PlaneGeometry(.65,1.0);geometries.add(windowGeo);const windowMat=ownMaterial(new THREE.MeshBasicMaterial({color:'#c1ab7c',transparent:true,opacity:.45})),windows=new THREE.InstancedMesh(windowGeo,windowMat,cityWindows.length);windows.name='Distant city windows';cityWindows.forEach((matrix,i)=>windows.setMatrixAt(i,matrix));root.add(windows);
  // Canvas is used only for the scoreboard face; it is attached to a physical screen.
  const boardMat=ownMaterial(new THREE.MeshBasicMaterial({color:"#102536",toneMapped:false}));box(27,13,.8,dark,0,17,-129);add(new THREE.PlaneGeometry(25.8,11.6),boardMat,0,17,-128.55);
- let boardContext:CanvasRenderingContext2D|null=null,boardTexture:THREE.CanvasTexture|null=null,scoreKey="";
+ let boardContext:CanvasRenderingContext2D|null=null,boardTexture:THREE.CanvasTexture|null=null,scoreKey="",lastScore:StadiumScore={},phase:StadiumTimeOfDay|undefined,disposed=false;
  if(typeof document!=="undefined"){const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=512;boardContext=canvas.getContext("2d");if(boardContext){boardTexture=new THREE.CanvasTexture(canvas);boardTexture.colorSpace=THREE.SRGBColorSpace;textures.add(boardTexture);boardMat.map=boardTexture;boardMat.color.set("#ffffff");}}
  const setScoreboard=(score:StadiumScore)=>{
-  const key=JSON.stringify(score);if(key===scoreKey||!boardContext)return;scoreKey=key;const c=boardContext;c.fillStyle="#091824";c.fillRect(0,0,1024,512);c.fillStyle="#61c1a7";c.font="700 43px Arial";c.textAlign="left";c.fillText("DIAMOND  /  NIGHT GAME",50,75);c.fillStyle="#edf1e8";c.font="700 65px Arial";c.fillText((score.away??"AWAY").slice(0,13),52,202);c.fillText((score.home??"HOME").slice(0,13),52,328);c.textAlign="right";c.font="700 94px Arial";c.fillText(String(score.awayScore??0),950,211);c.fillText(String(score.homeScore??0),950,337);c.textAlign="left";c.fillStyle="#a6bbc7";c.font="32px Arial";c.fillText(`${score.inning??1} ${score.half??"INNING"}`,54,455);boardTexture!.needsUpdate=true;
- };setScoreboard({});
+  if(disposed)return;lastScore={...score};const key=`${phase}:${JSON.stringify(score)}`;if(key===scoreKey||!boardContext)return;scoreKey=key;const c=boardContext;c.fillStyle="#091824";c.fillRect(0,0,1024,512);c.fillStyle="#61c1a7";c.font="700 43px Arial";c.textAlign="left";c.fillText(`DIAMOND  /  ${phase==='day'?'DAY':'NIGHT'} GAME`,50,75);c.fillStyle="#edf1e8";c.font="700 65px Arial";c.fillText((score.away??"AWAY").slice(0,13),52,202);c.fillText((score.home??"HOME").slice(0,13),52,328);c.textAlign="right";c.font="700 94px Arial";c.fillText(score.hidden?"—":String(score.awayScore??0),950,211);c.fillText(score.hidden?"—":String(score.homeScore??0),950,337);c.textAlign="left";c.fillStyle="#a6bbc7";c.font="32px Arial";c.fillText(score.hidden?"PLAY IN PROGRESS":`${score.inning??1} ${score.half??"INNING"}`,54,455);boardTexture!.needsUpdate=true;
+ };
+ const setTimeOfDay=(next:StadiumTimeOfDay)=>{
+  if(disposed||phase===next)return;phase=next;const day=next==='day';
+  scene.background=day?daySky:nightSky;scene.fog=atmosphere;atmosphere.color.set(day?'#b9d4e1':'#16263a');atmosphere.near=day?190:145;atmosphere.far=day?530:390;
+  cityMat.color.set(day?'#6f8592':'#172537');lamps.visible=stars.visible=windows.visible=!day;root.userData.timeOfDay=next;
+  setScoreboard(lastScore);
+ };setTimeOfDay(timeOfDay);
  batchArchitecture(root,geometries);
- let disposed=false;
- return {root,field,setScoreboard,update:(_seconds:number)=>{},dispose:()=>{if(disposed)return;disposed=true;root.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());root.clear();}};
+ return {root,field,setScoreboard,setTimeOfDay,update:(_seconds:number)=>{},dispose:()=>{if(disposed)return;disposed=true;root.removeFromParent();if(scene.background===daySky||scene.background===nightSky)scene.background=previousBackground;if(scene.fog===atmosphere)scene.fog=previousFog;geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());root.clear();}};
 }

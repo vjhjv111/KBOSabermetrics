@@ -13,6 +13,7 @@ for(const name of ['김주원','레이예스']){assert(engine.batsLeft(byName(na
 assert(engine.isUnderhand(byName('고영표')));assert(!engine.throwsLeft(byName('폰세')));assert(engine.throwsLeft(byName('양현종')));
 const {createPlayer:player}=load('lib/player-model.ts');
 const {poseBatter,posePitcher}=load('lib/player-pose.ts');
+const {playerDimensions}=load('lib/player-appearance.ts');
 const V=(...n)=>new THREE.Vector3(...n);let worstWrist=0,skinPoseChecks=0,worstPitchWrist=0,worstPlantedFoot=0;
 function inspectSkinPose(model){
  model.root.updateWorldMatrix(true,true);model.root.updateMatrixWorld(true);
@@ -29,9 +30,11 @@ function inspectSkinPose(model){
 }
 for(const hand of [1,-1]){
  const b=player('#224466',true),mirror=new THREE.Group(),bat=new THREE.Group();mirror.scale.x=hand;mirror.add(b.root);b.root.position.z=.06;
- for(const x of [-1,-.5,0,.5,1])for(const y of [-1,-.5,0,.5,1])for(let age=0;age<=980;age+=5){
-  const pose=motion.swingPose(age,{x,y},hand),wrists=poseBatter(b,mirror,bat,pose);
-  for(const [arm,target] of [[b.le,wrists.leftWrist],[b.re,wrists.rightWrist]]){const error=arm.localToWorld(V(0,-.34,0)).distanceTo(target);worstWrist=Math.max(worstWrist,error);assert(error<.01,`Detached wrist: ${JSON.stringify({hand,x,y,age,error})}`);}
+ for(const anticipation of [0,1])for(const x of [-1,-.5,0,.5,1])for(const y of [-1,-.5,0,.5,1])for(let age=0;age<=motion.SWING_DURATION_MS;age+=5){
+  const pose=motion.swingPose(age,{x,y},hand,0,anticipation),wrists=poseBatter(b,mirror,bat,pose);
+  // The arm's skin wrist ring is below/forward of the elbow pivot. Its centre
+  // must meet the modeled glove cuff, rather than the old bat-axis placeholder.
+  for(const [arm,target] of [[b.le,wrists.leftWrist],[b.re,wrists.rightWrist]]){const error=arm.localToWorld(V(0,-.341,.006*playerDimensions(b.appearance).depthScale)).distanceTo(target);worstWrist=Math.max(worstWrist,error);assert(error<.01,`Detached wrist: ${JSON.stringify({hand,x,y,age,error})}`);}
   assert(Math.abs(Math.hypot(...pose.axis)-1)<1e-10);
   if(age===motion.SWING_CONTACT_MS)assert(V(...pose.barrel).distanceTo(V(x*.5,1.05+y*.55,0))<1e-10);
   if(age===motion.SWING_CONTACT_MS){
@@ -51,7 +54,7 @@ for(const name of ['폰세','고영표','양현종']){
  posePitcher(p,pose,hand,underhand);const actual=p.re.localToWorld(V(0,-.34,0));
  const pitch=engine.createPitch({pitcher:id,pitchCount:0,pace:'practice',mode:'ai'},engine.arsenal(id)[0].type,{x:0,y:0},1,0),release=engine.ballPosition(pitch,pitch.releaseAt);
  assert(actual.distanceTo(V(release.x,release.y,release.z))<1e-10);assert.equal(Math.sign(release.x),-hand);
- for(let time=-900;time<=640;time+=5){
+ for(let time=-motion.PITCH_WINDUP_MS;time<=motion.PITCH_RECOVERY_MS;time+=5){
   const delivery=motion.pitchingPose(time,underhand);posePitcher(p,delivery,hand,underhand);
   for(const [arm,position] of [[p.re,delivery.hand],[p.le,delivery.glove]]){
    const error=arm.localToWorld(V(0,-.34,0)).distanceTo(p.root.localToWorld(V(...position)));
@@ -62,9 +65,9 @@ for(const name of ['폰세','고영표','양현종']){
    const error=p.lf.getWorldPosition(V()).distanceTo(p.root.localToWorld(V(...delivery.lead)));
    worstPlantedFoot=Math.max(worstPlantedFoot,error);assert(error<.01,'The lead shoe stays planted through release and follow-through');
   }
-  if([-900,-440,-145,0,180,350,640].includes(time))inspectSkinPose(p);
+  if([-motion.PITCH_WINDUP_MS,-1000,-560,-150,0,210,350,motion.PITCH_RECOVERY_MS].includes(time))inspectSkinPose(p);
  }
- for(const time of [-900,-710,-440,-145,0,180,350,500,640]){
+ for(const time of [-motion.PITCH_WINDUP_MS,-1570,-1270,-1000,-800,-560,-330,-150,-65,0,85,210,350,550,770,motion.PITCH_RECOVERY_MS]){
   const before=motion.pitchingPose(time-h,underhand),at=motion.pitchingPose(time,underhand),after=motion.pitchingPose(time+h,underhand);
   for(const track of ['hand','glove','lead','trail']){
    const from=V(...at[track]).sub(V(...before[track])).divideScalar(h/1000),to=V(...after[track]).sub(V(...at[track])).divideScalar(h/1000);

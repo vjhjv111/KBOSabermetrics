@@ -43,7 +43,7 @@ assert.notEqual(clientFns.completedGameKey(snapshot(10,'g1',true)),clientFns.com
 
 // Exercise the actual hook with delayed HTTP and a deterministic hook scheduler.
 const original={fetch:globalThis.fetch,document:globalThis.document,window:globalThis.window,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval};
-globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};globalThis.window={addEventListener(){},removeEventListener(){}};globalThis.setInterval=()=>1;globalThis.clearInterval=()=>{};
+globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};globalThis.window={addEventListener(){},removeEventListener(){}};globalThis.window.parent=globalThis.window;globalThis.setInterval=()=>1;globalThis.clearInterval=()=>{};
 const h=hookHarness(),rosterStub={parseRoster:v=>v,registerRoster(){},pinMatchRoster(){}};
 const hookLoad=moduleLoader({react:h.hooks,'./roster':rosterStub}),{useSeasonClient}=hookLoad('lib/season-client.ts');
 let serverState=snapshot(10),careerGets=0,posts=[],conditionalGets=0,postHandler=async body=>({...serverState,save:{...serverState.save,version:body.version+1}});
@@ -133,18 +133,29 @@ const live=game();const liveMarkup=renderToStaticMarkup(React.createElement(Team
 const end={...game(),inning:9,complete:true,endReason:'home-ahead',homeLine:Array(8).fill(0),awayLine:Array(9).fill(0)};assert.equal(lineScoreValue(end,'home',8),'X');assert.equal(lineScoreValue({...end,endReason:'walkoff',homeLine:Array(9).fill(0)},'home',8),0);assert.equal(lineScoreValue(end,'away',9),'–');
 const changed={...snapshot(3),save:{...save,game:{...game(),half:'bottom',homeOrder:2,awayPitcher:'p2'},teams:[t]},action:{...snapshot(3).action,batter:'a0',pitcher:'p0',pitch:{id:1,resolved:true,releaseAt:0,flightMs:1000,reaction:{at:1000}}}};
 assert.deepEqual(nextMatchup(changed.save.game),{batter:'b2',pitcher:'p2'});assert.equal(seasonDisplayAction(changed,1500).pitcher,'p0','Finished play retains original player during animation');assert.equal(seasonDisplayAction(changed,5000).pitcher,'p2','Next half binds the current pitcher after animation');assert.equal(seasonDisplayAction(changed,5000).pitch,null);
-const thirdOut={...changed,action:{...changed.action,role:'batter',roster:{batter:{id:'a0',team:'OB'},pitcher:{id:'p0',team:'LG'}},pitch:{...changed.action.pitch,reaction:{at:1000,contact:{at:1000}}}}};
-assert.equal(seasonDisplayAction(thirdOut,3500).role,'pitcher','Third-out ball flight keeps its originating camera and player roles');assert.equal(seasonDisplayAction(thirdOut,4200).role,'batter','The next half changes camera after the play animation');assert.equal(thirdOut.action.role,'batter','Visual hold never changes authoritative input state');
+const thirdOut={...changed,action:{...changed.action,role:'batter',roster:{batter:{id:'a0',team:'OB'},pitcher:{id:'p0',team:'LG'}},pitch:{...changed.action.pitch,reaction:{at:1000,contact:{at:1000,position:{x:0,y:1.05,z:0}},exitSpeed:140,launchAngle:25,outcome:'OUT',trajectory:'fly'}}}};
+const thirdOutEnd=uiLoad('lib/pitch-cycle.ts').pitchPresentationEnd(thirdOut.action.pitch);
+assert.equal(seasonDisplayAction(thirdOut,thirdOutEnd-1).role,'pitcher','Third-out ball flight keeps its originating camera and player roles through its fielding animation');assert.equal(seasonDisplayAction(thirdOut,thirdOutEnd+1).role,'batter','The next half changes camera after the play animation');assert.equal(thirdOut.action.role,'batter','Visual hold never changes authoritative input state');
+const clockDocument=globalThis.document;globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};
+const visualClock={current:0};let clockWall=20000,clockState={...thirdOut,action:{...thirdOut.action,pitch:{...thirdOut.action.pitch,reaction:undefined}}};const priorClockState=clockState;
+const visualHarness=hookHarness(),visualLoad=moduleLoader({react:visualHarness.hooks,'./game-clock':{localNow:()=>clockWall}}),useVisual=visualLoad('lib/season-presentation.ts').useSeasonPresentation;
+visualHarness.run(()=>useVisual(clockState,visualClock));visualClock.current=-10000;clockState={...clockState,action:{...clockState.action,pitch:{...clockState.action.pitch,reaction:{...thirdOut.action.pitch.reaction,outcome:'FOUL',trajectory:'foul',contact:{at:11000,position:{x:0,y:1.05,z:0}}}}}};
+let clockView=visualHarness.flush();assert(clockView.pending&&clockView.state===priorClockState,'A negative server-clock correction cannot be overridden by the initial local clock and reveal a future result');
+clockWall=24000;clockView=visualHarness.flush();assert(!clockView.pending&&clockView.state===clockState,'The snapshot publishes when the synchronized server clock reaches reveal');visualHarness.dispose();globalThis.document=clockDocument;
 
 // The first tap during the windup must animate and submit once, even while another write is queued.
 const source=fs.readFileSync('app/season-match.tsx','utf8'),part=source.slice(source.indexOf('const swing=useCallback'),source.indexOf('const begin=useCallback'));
-let submitted=[],animated=[],local=[];const current={current:{action:{role:'batter',code:'game',done:false,pitch:{id:1,resolved:false,releaseAt:2200}},command:async body=>{submitted.push(body);}}};
+let submitted=[],animated=[],local=[];const current={current:{active:true,suspended:false,directRole:true,action:{role:'batter',code:'game',done:false,pitch:{id:1,resolved:false,releaseAt:2200}},command:async body=>{submitted.push(body);}}};
 const swingAction=new Function('useCallback','current','clock','localNow','swung','aim','setSwingTime','setLocalSwing','tone','SWING_CONTACT_MS',ts.transpileModule(part,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText+';return swing;')(f=>f,current,{current:0},()=>1000,{current:''},{current:{x:.2,y:.1}},v=>animated.push(v),v=>local.push(v),()=>{},95);
 swingAction();swingAction();assert.equal(submitted.length,1);assert.equal(submitted[0].inputAt,1000);assert.equal(animated[0],1000);assert.equal(local[0].at,1095);
 current.current.action.waiting=true;current.current.action.pitch.id=2;swingAction();assert.equal(submitted.length,1,'A room waiting for its opponent cannot swing');
+current.current.action.waiting=false;current.current.active=false;swingAction();assert.equal(submitted.length,1,'A hidden parent tab cannot swing');current.current.active=true;current.current.suspended=true;swingAction();assert.equal(submitted.length,1,'An open save panel cannot swing');
 globalThis.document={hidden:false};
 const matchProps={state:{...changed,action:{...changed.action,mode:'pvp',waiting:true,pitch:null,balls:0,strikes:0,pace:'practice'}},busy:false,clock:{current:0},command:async()=>{},appearances:{},friendly:true};
 const waitingMarkup=renderToStaticMarkup(React.createElement(SeasonMatch,matchProps));assert(!waitingMarkup.includes('자동 다음 공')&&!waitingMarkup.includes('>다음 투구<'));assert(waitingMarkup.includes('상대 참가를 기다리고'));assert(waitingMarkup.includes('게임 화면을 클릭 · 터치해 스윙'));assert(!/>스윙<\/button>/.test(waitingMarkup),'Swing uses the playing surface instead of a separate button');
+assert(!waitingMarkup.includes('자동 투구 일시정지'),'PvP never offers automatic opponent pitching');
+const aiMarkup=renderToStaticMarkup(React.createElement(SeasonMatch,{...matchProps,state:{...matchProps.state,action:{...matchProps.state.action,mode:'ai',waiting:false}}}));
+assert(aiMarkup.includes('자동 투구 일시정지')&&!aiMarkup.includes('>다음 투구<')&&!aiMarkup.includes('type="checkbox"'),'AI batting starts automatic with an in-field pause control instead of a next-pitch chore');
 const finalMarkup=renderToStaticMarkup(React.createElement(SeasonMatch,{...matchProps,state:{...matchProps.state,save:{...changed.save,complete:true,game:{...changed.save.game,complete:true}}}}));assert(finalMarkup.includes('새 친선 경기')&&!finalMarkup.includes('다음 경기 시작'));assert(!finalMarkup.includes('선수 경험치가 저장'));
 
 // Reproduce the actual friendly → season failure: a two-team registry, then a
@@ -163,7 +174,7 @@ useFriendlyRegistry();assert.throws(()=>engine.arsenal(homeTeam.pitchers[0].id),
 const renderReturningSeason=state=>renderToStaticMarkup(React.createElement(SeasonMatch,{...matchProps,state,friendly:false}));
 assert(renderReturningSeason(returnState).includes('149.7 km/h'),'First render obtains the current pitcher arsenal directly from the season snapshot');
 const transitionOriginal={fetch:globalThis.fetch,document:globalThis.document,window:globalThis.window,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval};
-globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};globalThis.window={addEventListener(){},removeEventListener(){}};globalThis.setInterval=()=>1;globalThis.clearInterval=()=>{};
+globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};globalThis.window={addEventListener(){},removeEventListener(){}};globalThis.window.parent=globalThis.window;globalThis.setInterval=()=>1;globalThis.clearInterval=()=>{};
 let returningActive=false,transitionServer=returnState,readGate=null,writeGate=null;
 globalThis.fetch=async(url,options={})=>{
  if(url==='/api/session')return response({csrfToken:'token'});
@@ -185,8 +196,27 @@ transition.dispose();Object.assign(globalThis,transitionOriginal);
 const oldLocation=globalThis.location;globalThis.location={search:'',pathname:'/diamond/',origin:'https://game.test'};
 const frozenAppearance={'2026:career_new':{...appearance,jerseyNumber:'17'}},liveAppearance={...appearance,jerseyNumber:'88'};
 const pageState={...changed,save:{...changed.save,day:1,totalDays:144,schedule:[],standings:[],appearances:frozenAppearance}};
-const pageLoad=moduleLoader({'../lib/season-client':{useSeasonClient:()=>({state:pageState,career:{player:{...player,appearance:liveAppearance}},roster:null,busy:false,loading:false,error:'',command:async()=>{},clock:{current:0}})},'./season-match':{__esModule:true,default:props=>React.createElement('span',{'data-saved-appearance':JSON.stringify(props.appearances)})},'./exhibition-page':{__esModule:true,default:()=>null}});
+const pageLoad=moduleLoader({'../lib/title-navigation':{initialSeasonTab:()=> 'game'},'../lib/season-client':{useSeasonClient:()=>({state:pageState,career:{player:{...player,appearance:liveAppearance}},roster:null,busy:false,loading:false,error:'',command:async()=>{},clock:{current:0}})},'./season-match':{__esModule:true,default:props=>React.createElement('span',{'data-saved-appearance':JSON.stringify(props.appearances)})},'./exhibition-page':{__esModule:true,default:()=>null}});
 const seasonMarkup=renderToStaticMarkup(React.createElement(pageLoad('app/season-page.tsx').default));assert(seasonMarkup.includes('jerseyNumber&quot;:&quot;17')&&!seasonMarkup.includes('jerseyNumber&quot;:&quot;88'),'An in-progress season renders its frozen server appearance, not a live career edit');assert(seasonMarkup.includes('내 선수 차례까지'));
+// Delayed field results also cover the enclosing records, league and sidebars.
+const beforePage={...pageState,save:{...pageState.save,seasonNumber:1,complete:false,day:12,previousSeasons:[],playerStats:{},standings:[{team:'LG',name:'LG',wins:9,losses:2,ties:0,played:11,pct:.818,gamesBehind:0}],schedule:[{id:'fixture',day:12,homeTeam:'LG',awayTeam:'OB',complete:false,homeRuns:0,awayRuns:0}],game:{...pageState.save.game,complete:false,homeOrder:2,events:['SAFE_PREVIOUS_EVENT']}}};
+const afterPage={...beforePage,save:{...beforePage.save,complete:true,day:13,standings:[{...beforePage.save.standings[0],wins:10}],schedule:[{...beforePage.save.schedule[0],complete:true,homeRuns:77}],game:{...beforePage.save.game,complete:true,homeOrder:3,homeRuns:77,events:['FUTURE_WALKOFF_EVENT']}}};
+function enclosingPage(present,tab='game'){
+ const react={...React,useState(initial){const value=typeof initial==='function'?initial():initial;return React.useState(typeof initial==='function'&&value==='title'?tab:value);}};
+ const load=moduleLoader({react,'../lib/season-presentation':{useSeasonPresentation:()=>present,seasonPitchKey:()=>null},'../lib/season-client':{useSeasonClient:()=>({state:afterPage,career:{player:{...player,level:99,games:999,trainingPoints:777}},roster:null,busy:false,loading:false,error:'',command:async()=>afterPage,clock:{current:0}})},'./season-match':{__esModule:true,default:()=>React.createElement('span',null,'FIELD')},'./team-management':{TeamManagement:props=>React.createElement('span',null,'LINEUP_ORDER_'+props.save.game.homeOrder)},'./exhibition-page':{__esModule:true,default:()=>null}});
+ return renderToStaticMarkup(React.createElement(load('app/season-page.tsx').default));
+}
+const warmPage=enclosingPage({state:beforePage,pending:true,masked:false});
+assert(warmPage.includes('SAFE_PREVIOUS_EVENT')&&warmPage.includes('LINEUP_ORDER_2'));assert(!warmPage.includes('FUTURE_WALKOFF_EVENT')&&!warmPage.includes('LINEUP_ORDER_3'),'Game events and lineup keep the pre-contact snapshot');
+assert(!warmPage.includes('LV 99')&&!warmPage.includes('999경기')&&!warmPage.includes('777 PT'),'Career rewards cannot announce an unrevealed game finish');
+assert(/disabled=""[^>]*>이번 경기 자동 진행/.test(warmPage),'A simulation cannot skip the result being presented');
+const warmLeague=enclosingPage({state:beforePage,pending:true,masked:false},'league');assert(!warmLeague.includes('시즌 종료')&&!warmLeague.includes('다음 시즌 시작')&&!warmLeague.includes('77 :'),'League completion and fixture scores remain frozen');
+const coldPage=enclosingPage({state:afterPage,pending:true,masked:true});assert(coldPage.includes('수비 플레이 중'));assert(!coldPage.includes('FUTURE_WALKOFF_EVENT')&&!coldPage.includes('LINEUP_ORDER_3')&&!coldPage.includes('10승'),'Unknown prior record/lineup values are masked on a cold reconnect');
+const coldLeague=enclosingPage({state:afterPage,pending:true,masked:true},'league');assert(coldLeague.includes('수비 플레이 중')&&!coldLeague.includes('LEAGUE CHAMPION')&&!coldLeague.includes('개인 기록'),'Cold restore hides all league result surfaces until reveal');
+const revealedPage=enclosingPage({state:afterPage,pending:false,masked:false});assert(revealedPage.includes('FUTURE_WALKOFF_EVENT')&&revealedPage.includes('LINEUP_ORDER_3')&&revealedPage.includes('LV 99'),'Events, lineup and rewards are released together with the result');
+const friendlyState={...afterPage,match:{code:'FABCDEFG',mode:'ai',team:'LG',hostTeam:'LG',guestTeam:'OB',waiting:false},appearances:{}};
+const friendlyLoad=moduleLoader({'../lib/season-presentation':{useSeasonPresentation:()=>({state:beforePage,pending:true,masked:false}),seasonPitchKey:()=>null},'../lib/match-client':{rememberedMatch:()=>'',useMatchClient:()=>({state:friendlyState,busy:false,error:'',restoring:false,setError(){},command:async()=>friendlyState,clock:{current:0},reset(){}})},'./season-match':{__esModule:true,default:()=>React.createElement('span',null,'FIELD')},'./team-management':{TeamManagement:props=>React.createElement('span',null,'FRIENDLY_LINEUP_'+props.save.game.homeOrder)}});
+const friendlyHeld=renderToStaticMarkup(React.createElement(friendlyLoad('app/exhibition-page.tsx').default,{roster:null,loadRoster:async()=>({})}));assert(friendlyHeld.includes('FRIENDLY_LINEUP_2')&&!friendlyHeld.includes('FRIENDLY_LINEUP_3'),'Friendly team management also holds its previous lineup');assert(/disabled=""[^>]*>경기 자동 완료/.test(friendlyHeld));
 globalThis.location=oldLocation;
 globalThis.document=original.document;
 console.log('PASS season UI: queued first swing, exact retry, version recovery, conditional GET/304, stale-save guards, consecutive rewards, save-code queue and restore retry/failure/reload, career remount, pregame lineup, substitutions, line score, next-half snapshots and friendly waiting');

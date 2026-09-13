@@ -184,7 +184,7 @@ public sealed partial class DiamondSeasonService
             : new DiamondVec((left ? -1 : 1) * (1.15 + _random() * .65), (_random() - .5) * 1.8);
         var factor = d.Pace switch { "practice" => 1.85, "real" => 1.15, _ => 1d };
         var pitch = new DiamondPitch { Id = d.PitchCount + 1, Type = type, Velocity = actual.Velocity, Quality = .85,
-            Target = target, ReleaseAt = Now() + 1200, FlightMs = Math.Round(18.44 / (actual.Velocity / 3.6) * 1000 * factor) };
+            Target = target, ReleaseAt = Now() + 2200, FlightMs = Math.Round(18.44 / (actual.Velocity / 3.6) * 1000 * factor) };
         // The warehouse roster has no per-pitch HBP rate. This explicitly documented default
         // matches the duel AI's prior; automatic play does not evaluate a rendered 3D pose.
         var hbpRate = d.PitchingProfile is { TotalPitchCount: > 0, HitByPitchRate: not null } measured

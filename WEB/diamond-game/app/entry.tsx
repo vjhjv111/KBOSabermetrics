@@ -3,6 +3,7 @@ import { Component, type ReactNode } from "react";
 import Home from "./season-page";
 import "./globals.css";
 import "./site-theme.css";
+import "./integration-theme.css";
 
 const container = document.getElementById("diamond-root");
 if (!container) throw new Error("게임 화면을 표시할 위치를 찾지 못했습니다.");

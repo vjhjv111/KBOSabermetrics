@@ -1,4 +1,13 @@
 /* The pitch HUD is inside the playing surface and has its own reserved space. */
+.action-app .play-stage.batter[data-auto-pitch="true"]{--practice-auto-hud:78px;min-height:510px}
+.action-app .play-stage.batter[data-auto-pitch="true"] .field-world,.action-app .play-stage.batter[data-auto-pitch="true"] .field-vignette{bottom:var(--practice-auto-hud)}
+.action-app .play-stage.batter[data-auto-pitch="true"] .field-bottom{bottom:calc(var(--practice-auto-hud) + 12px)}
+.action-app .play-stage.batter[data-auto-pitch="true"] .pitch-hud{bottom:calc(var(--practice-auto-hud) + 82px)}
+.action-app .play-stage .practice-auto-controls{position:absolute;inset:auto 0 0;z-index:12;height:var(--practice-auto-hud);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#10221f;border-top:1px solid #658373;color:#edf5ed;pointer-events:none}
+.practice-auto-controls>div{min-width:0}.practice-auto-controls b{font-size:12px;line-height:1.5}.practice-auto-controls small{display:block;margin-top:5px;color:#b8cfb0;font-size:10px;line-height:1.4}
+.action-app .play-stage .practice-auto-controls button{pointer-events:auto;flex:none;min-height:44px;padding:9px 12px;border:1px solid #d6ee8b;border-radius:6px;background:#d6ee8b;color:#243021;font-size:12px;font-weight:700;touch-action:manipulation}
+.practice-auto-controls button:focus-visible{outline:2px solid #efffd4;outline-offset:2px}
+.action-app .field-play-shell:fullscreen .play-stage.batter[data-auto-pitch="true"]{min-height:0;max-height:none;height:100%}
 .action-app .play-stage.pitcher[data-pitch-controls="true"]{--practice-pitch-hud:calc(116px + env(safe-area-inset-bottom,0px));min-height:520px}
 .action-app .play-stage.pitcher[data-pitch-controls="true"] .field-world,.action-app .play-stage.pitcher[data-pitch-controls="true"] .field-vignette{bottom:var(--practice-pitch-hud)}
 .action-app .play-stage.pitcher[data-pitch-controls="true"] .field-bottom{bottom:calc(var(--practice-pitch-hud) + 12px)}
@@ -28,6 +37,9 @@
 .action-app .play-stage .practice-pitch-hud-head .field-release>small{margin-top:8px;font-size:10px;line-height:1.2;color:#c8deb6}
 .action-app .field-play-shell:fullscreen .play-stage.pitcher[data-pitch-controls="true"]{min-height:0;max-height:none;height:100%}
 @media(max-width:600px){
+ .action-app .play-stage.batter[data-auto-pitch="true"]{min-height:calc(350px + var(--practice-auto-hud));max-height:none}
+ .action-app .play-stage .practice-auto-controls{padding:8px;gap:7px}.practice-auto-controls b{font-size:10px}.practice-auto-controls small{font-size:9px}
+ .action-app .play-stage .practice-auto-controls button{padding:8px;font-size:11px}
  .action-app .play-stage.pitcher[data-pitch-controls="true"]{min-height:calc(350px + var(--practice-pitch-hud));max-height:none}
  .action-app .play-stage.pitcher[data-pitch-count="5"],.action-app .play-stage.pitcher[data-pitch-count="6"],.action-app .play-stage.pitcher[data-pitch-count="7"]{--practice-pitch-hud:calc(170px + env(safe-area-inset-bottom,0px))}
  .action-app .play-stage .practice-pitch-grid{grid-template-columns:repeat(var(--practice-pitch-mobile-columns,4),minmax(0,1fr))}

@@ -130,7 +130,7 @@ function inspectPlayer(model,label,maxMeshes=120){
  assert.equal(model.head.position.y,.82);assert.deepEqual(model.left.position.toArray(),[.27,.58,0]);assert.deepEqual(model.right.position.toArray(),[-.27,.58,0]);assert.equal(model.le.position.y,-.34);assert.equal(model.re.position.y,-.34);
  assert.equal(model.lf.parent,model.lk);assert.equal(model.rf.parent,model.rk);
  assert.equal(model.lf.position.y,-.43);assert.equal(model.rf.position.y,-.43);
- let meshes=0,triangles=0,skinned=0,skinnedArms=0,skinnedTrousers=0;
+ let meshes=0,triangles=0,skinned=0,skinnedArms=0,skinnedTrousers=0,skinnedUniform=0;
  model.root.updateMatrixWorld(true);
  model.root.traverse(object=>{
   if(!object.isMesh)return;meshes++;const geometry=object.geometry;triangles+=(geometry.index?.count??geometry.attributes.position.count)/3;
@@ -142,6 +142,7 @@ function inspectPlayer(model,label,maxMeshes=120){
    const hinges=[model.le,model.re,model.lk,model.rk].filter(joint=>object.skeleton.bones.some(bone=>bone.parent===joint));
    const isArm=hinges.some(joint=>joint===model.le||joint===model.re);
    if(isArm){skinnedArms++;assert.equal(object.skeleton.bones.length,2,`${label}: each continuous arm follows its shoulder and elbow`);assert.equal(hinges.length,1);}
+   else if(object.userData.uniformPanel){skinnedUniform++;assert.equal(object.skeleton.bones.length,2,`${label}: uniform follows separate pelvis and chest`);assert.equal(object.skeleton.bones[0].parent,model.hips);assert.equal(object.skeleton.bones[1].parent,model.torso);}
    else{skinnedTrousers++;assert(object.skeleton.bones.length>=5,`${label}: trousers follow the hips and both leg joints`);assert.equal(hinges.length,2);}
    object.skeleton.update();const original=new THREE.Vector3(),deformed=new THREE.Vector3();
    for(let vertex=0;vertex<positions.count;vertex++){
@@ -170,7 +171,8 @@ function inspectPlayer(model,label,maxMeshes=120){
    }
   }
  });
- assert.equal(skinned,3,`${label}: both arms and trousers have continuous skinning`);
+ assert.equal(skinned,3+skinnedUniform,`${label}: arms, trousers and uniform are the only skinned parts`);
+ assert(skinnedUniform>=4,`${label}: shirt, waist details and both wordmarks follow body rotation`);
  assert.equal(skinnedArms,2);assert.equal(skinnedTrousers,1);
  assert(meshes<=maxMeshes,`${label} must stay within its mobile draw-call budget: ${meshes}/${maxMeshes}`);
  assert(triangles<=50000,`${label} must stay within its mobile geometry budget: ${triangles}/50000`);
@@ -192,7 +194,10 @@ globalThis.document={createElement(tag){
 const model=player('#224466',true);dressPlayer(model,playerAppearance('HH','노시환',8),-1);
 assert.equal(model.jersey.color.getHexString(),'f15c22');assert.equal(model.cap.color.getHexString(),'20252c');
 assert(painted.includes('8'));
-for(const {decal} of model.lettering)assert.equal(decal.scale.x,-1,'Hand mirroring must not reverse uniform lettering');
+for(const {decal,material} of model.lettering){
+ if(decal.isSkinnedMesh){assert.equal(decal.scale.x,1);assert.equal(material.map.repeat.x,-1);assert.equal(material.map.offset.x,1,'Skinned printing mirrors its UVs without detaching from cloth');}
+ else assert.equal(decal.scale.x,-1,'Rigid cap lettering reverses its local transform');
+}
 const actorMaps=resources(model.root).textures,bumpMaps=[...actorMaps].filter(texture=>texture.image.pixels);
 assert(bumpMaps.length>=3,'Uniform cloth, skin and glove leather have their own material detail');
 for(const texture of bumpMaps){

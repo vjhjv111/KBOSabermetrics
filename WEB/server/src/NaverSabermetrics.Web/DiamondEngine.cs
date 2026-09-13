@@ -54,7 +54,7 @@ public sealed partial class DiamondEngine(DiamondData data, Func<double>? random
         var factor = game.Pace switch { "practice" => 1.85, "real" => 1.15, _ => 1d };
         var pitch = new DiamondPitch
         {
-            Id = game.PitchCount + 1, Type = type, Velocity = velocity, ReleaseAt = now + (game.Mode == "pvp" ? 1900 : 1200),
+            Id = game.PitchCount + 1, Type = type, Velocity = velocity, ReleaseAt = now + (game.Mode == "pvp" ? 2600 : 2200),
             FlightMs = Round(18.44 / (velocity / 3.6) * 1000 * factor), ReleaseX = release.X,
             ReleaseY = release.Y, ReleaseZ = release.Z,
             Target = target, BreakX = bend.X * hand, BreakY = bend.Y, Quality = quality, Resolved = false

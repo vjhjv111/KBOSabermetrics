@@ -2,9 +2,13 @@
 import {useEffect,useRef,useState} from "react";
 import * as THREE from "three";
 import {PlayerAppearance,playerDimensions} from "../lib/player-appearance";
-import {createPlayer,createBat,dressPlayer,dressBat} from "../lib/player-model";
-import {DeliveryStyle,pitchingPose,swingPose,SWING_DURATION_MS,MOUND_HEIGHT} from "../lib/player-motion";
+import {createPlayer,createBat,dressPlayer,dressBat,equipPitchGrip} from "../lib/player-model";
+import {PITCH_GRIP_BALL_RADIUS,attachPitchGripBall} from '../lib/player-pitch-grip';
+import {DeliveryStyle,pitchingPose,swingPose,SWING_DURATION_MS,PITCH_WINDUP_MS,PITCH_RECOVERY_MS,MOUND_HEIGHT} from "../lib/player-motion";
+import {battingLoad} from "../lib/batting-load";
 import {poseBatter,posePitcher} from "../lib/player-pose";
+import {setPlayerBlink} from '../lib/player-blink';
+import {samplePlayerBlink} from '../lib/blink-timing';
 import {stadiumLighting} from "../lib/scene-lighting";
 import "./character-preview.css";
 
@@ -12,14 +16,16 @@ export type CharacterPreviewProps={active?:boolean;appearance:PlayerAppearance;r
 type Form={hand:"L"|"R";style:DeliveryStyle};
 const FORM_NAMES:Record<DeliveryStyle,string>={overhand:"오버핸드",sidearm:"사이드암",underhand:"언더핸드"};
 const FORMS:Form[]=["R","L"].flatMap(hand=>(["overhand","sidearm","underhand"] as const).map(style=>({hand:hand as "L"|"R",style})));
+const previewDuration=(role:CharacterPreviewProps['role'])=>role==='batter'?1100+SWING_DURATION_MS+250:PITCH_WINDUP_MS+PITCH_RECOVERY_MS+300;
 
 /** A standalone avatar stage using exactly the same rig and poses as live play. */
 export default function CharacterPreview(props:CharacterPreviewProps){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
- const action=useRef({at:-Infinity,angle:.58,form:null as Form|null,switchHand:false});
+ const action=useRef({at:-Infinity,blinkAt:-Infinity,blinkEnd:-Infinity,angle:.58,form:null as Form|null,switchHand:false});
  const [playing,setPlaying]=useState(false),[unavailable,setUnavailable]=useState(false),[sample,setSample]=useState<Form|null>(null);
  useEffect(()=>{action.current.form=null;action.current.at=-Infinity;action.current.switchHand=false;setSample(null);setPlaying(false);},[props.role,props.throws,props.delivery,props.bats]);
- const play=(form:Form|null=null)=>{action.current.form=form;action.current.at=performance.now();setSample(form);setPlaying(true);};
+ useEffect(()=>{action.current.blinkAt=action.current.blinkEnd=-Infinity;},[props.role]);
+ const play=(form:Form|null=null)=>{const settings=action.current,now=performance.now();settings.form=form;settings.at=now;if(now>settings.blinkEnd)settings.blinkAt=now;settings.blinkEnd=Math.max(settings.blinkEnd,now+previewDuration(live.current.role));setSample(form);setPlaying(true);};
  useEffect(()=>{
   const node=mount.current;if(!node||props.active===false)return;let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"low-power"});}catch{setUnavailable(true);return;}
@@ -30,10 +36,12 @@ export default function CharacterPreview(props:CharacterPreviewProps){
   const model=createPlayer(props.appearance.jersey,props.role==="batter");mirror.add(model.root);const bat=createBat(actor);bat.visible=props.role==="batter";
   const floor=new THREE.Mesh(new THREE.CylinderGeometry(1.65,1.7,.08,64),new THREE.MeshStandardMaterial({color:"#334654",roughness:.92}));floor.position.y=-.075;floor.receiveShadow=true;scene.add(floor);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(1.64,.009,5,72),new THREE.MeshBasicMaterial({color:"#6d9a9c"}));rim.rotation.x=-Math.PI/2;rim.position.y=-.03;scene.add(rim);
-  const heldBall=new THREE.Mesh(new THREE.SphereGeometry(.0365,16,12),new THREE.MeshStandardMaterial({color:"#f1eee2",roughness:.65}));heldBall.position.set(0,-.34,0);model.re.add(heldBall);heldBall.visible=props.role==="pitcher";
+  const heldBall=new THREE.Mesh(new THREE.SphereGeometry(PITCH_GRIP_BALL_RADIUS,16,12),new THREE.MeshStandardMaterial({color:"#f1eee2",roughness:.65}));
+  if(props.role==='pitcher')attachPitchGripBall(equipPitchGrip(model),heldBall);else{heldBall.position.set(0,-.34,0);model.re.add(heldBall);}heldBall.visible=props.role==="pitcher";
   const resize=()=>{const w=Math.max(1,node.clientWidth),h=Math.max(1,node.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=camera.aspect<.85?42:35;camera.updateProjectionMatrix();};
   const observer=new ResizeObserver(resize);observer.observe(node);resize();
   let disposed=false,frame=0,lastLook="",lastSign=0,drag:{id:number;x:number;y:number;last:number;active:boolean}|null=null;
+  const blinkWindows=[{start:Infinity,end:-Infinity}],blinkSeed='preview:'+props.role;
   const down=(event:PointerEvent)=>{if(!event.isPrimary||event.button!==0)return;drag={id:event.pointerId,x:event.clientX,y:event.clientY,last:event.clientX,active:false};};
   const move=(event:PointerEvent)=>{if(!drag||drag.id!==event.pointerId)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
    if(!drag.active){if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){drag=null;return;}if(Math.abs(dx)<6)return;drag.active=true;node.setPointerCapture(event.pointerId);}
@@ -45,15 +53,21 @@ export default function CharacterPreview(props:CharacterPreviewProps){
    if(disposed)return;const p=live.current,settings=action.current,form=settings.form??{hand:p.throws,style:p.delivery},scale=playerDimensions(p.appearance).heightScale;
    const hand=(p.role==="pitcher"?form.hand:p.bats==="S"?(settings.switchHand?"L":"R"):p.bats)==="L"?-1:1;
    const look=JSON.stringify(p.appearance);if(look!==lastLook||hand!==lastSign){dressPlayer(model,p.appearance,hand);dressBat(bat,p.appearance);lastLook=look;lastSign=hand;}
-   const age=now-settings.at,duration=p.role==="batter"?SWING_DURATION_MS+250:2250;
+   const age=now-settings.at,loadTime=1100,duration=previewDuration(p.role);
    if(p.role==="batter"){
     mirror.scale.set(hand*scale,scale,scale);model.root.scale.setScalar(1);actor.position.set(.92*hand*scale,0,0);
     const localAim={x:0,y:(1.05/scale-1.05)/.55};
-    poseBatter(model,mirror,bat,swingPose(age<duration?age:-1,localAim,hand,now));
+    const swingAge=age<loadTime?-1:age-loadTime,load=age<loadTime?battingLoad(age,{releaseAt:1050,flightMs:500}):age<loadTime+SWING_DURATION_MS?1:0;
+    poseBatter(model,mirror,bat,swingPose(age<duration?swingAge:-1,localAim,hand,now,load));
    }else{
     mirror.scale.set(1,1,1);actor.position.set(0,-MOUND_HEIGHT,0);model.root.scale.set(hand*scale,scale,scale);
-    const relative=age<duration?age-1250:-1500;posePitcher(model,pitchingPose(relative,form.style),hand,false,age>=duration?Math.sin(now/850)*.006:0);heldBall.visible=relative<0;
+    const relative=age<duration?age-PITCH_WINDUP_MS:-PITCH_WINDUP_MS;posePitcher(model,pitchingPose(relative,form.style),hand,false,age>=duration?Math.sin(now/850)*.006:0);heldBall.visible=relative<0;
    }
+   // Keep the first interruption when replay is pressed during an action.
+   // A new pose may restart immediately while the eyes finish opening smoothly.
+   if(Number.isFinite(settings.at))settings.blinkEnd=Math.max(settings.blinkEnd,settings.at+duration);
+   blinkWindows[0].start=settings.blinkAt;blinkWindows[0].end=settings.blinkEnd;
+   setPlayerBlink(model.head,samplePlayerBlink(now,blinkSeed,blinkWindows,settings.blinkAt));
    if(settings.at!==-Infinity&&age>=duration){settings.at=-Infinity;setPlaying(false);}
    const angle=settings.angle;camera.position.set(Math.sin(angle)*5.3,1.72,Math.cos(angle)*5.3);camera.lookAt(0,1.12,0);
    renderer.render(scene,camera);frame=requestAnimationFrame(render);

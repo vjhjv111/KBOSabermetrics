@@ -26,7 +26,7 @@ for(const style of styles){const poses=[];
  for(const hand of[1,-1]){
   const id=`2025:${style}-${hand}`;assert.equal(engine.deliveryStyle(id),style);assert.equal(engine.throwsLeft(id),hand===-1);
   const model=createPlayer('#224466');model.root.position.z=-18.44;model.root.scale.set(hand,1,1);
-  for(let time=-1000;time<=740;time+=5){
+  for(let time=-motion.PITCH_WINDUP_MS-100;time<=motion.PITCH_RECOVERY_MS+100;time+=5){
    const pose=motion.pitchingPose(time,style);posePitcher(model,pose,hand,style==='underhand');
    for(const value of Object.values(pose))if(typeof value==='number')assert(Number.isFinite(value));else if(Array.isArray(value))assert(value.every(Number.isFinite));
    for(const [upper,lower,position]of[[model.right,model.re,pose.hand],[model.left,model.le,pose.glove]]){
@@ -48,7 +48,7 @@ for(const style of styles){const poses=[];
   const shoulder=model.root.worldToLocal(model.right.getWorldPosition(V()));const arm=V(...pose.hand).sub(shoulder);summaries.push({style,hand,release:pose.hand,armSlotDegrees:Math.atan2(arm.y,Math.hypot(arm.x,arm.z))*180/Math.PI});
  }
  assert.equal(poses[0].release[0],-poses[1].release[0]);assert.deepEqual(poses[0].release.slice(1),poses[1].release.slice(1));
- for(const time of[-900,-710,-440,-145,0,180,350,500,640]){
+ for(const time of[-motion.PITCH_WINDUP_MS,-1570,-1270,-1000,-800,-560,-330,-150,-65,0,85,210,350,550,770,motion.PITCH_RECOVERY_MS]){
   const h=.001,before=motion.pitchingPose(time-h,style),at=motion.pitchingPose(time,style),after=motion.pitchingPose(time+h,style);
   for(const track of['hand','glove','lead','trail','throwElbow','gloveElbow','lean','coil','hips','drop','forward','heel','sideBend']){
    const values=p=>Array.isArray(p[track])?p[track]:[p[track]],a=values(before),b=values(at),c=values(after);
@@ -56,7 +56,7 @@ for(const style of styles){const poses=[];
   }
  }
  for(const time of[-Infinity,Infinity,NaN])assert(motion.pitchingPose(time,style).hand.every(Number.isFinite));
- assert.deepEqual(motion.pitchingPose(-1000,style),motion.pitchingPose(740,style),'Every style returns to ready');
+ assert.deepEqual(motion.pitchingPose(-motion.PITCH_WINDUP_MS-100,style),motion.pitchingPose(motion.PITCH_RECOVERY_MS+100,style),'Every style returns to ready');
 }
 assert(motion.PITCH_RELEASE.overhand[1]>motion.PITCH_RELEASE.sidearm[1]&&motion.PITCH_RELEASE.sidearm[1]>motion.PITCH_RELEASE.underhand[1]);
 assert(motion.pitchingPose(0,'underhand').drop>motion.pitchingPose(0,'sidearm').drop&&motion.pitchingPose(0,'sidearm').drop>motion.pitchingPose(0,'overhand').drop);

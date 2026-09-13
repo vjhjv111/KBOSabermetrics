@@ -45,7 +45,7 @@ export function createPitch(g:ActionGame,type:PitchType,aim:Vec,quality:number,n
  const breaks:Record<PitchType,[number,number]>={fastball:[.02,.03],slider:[.42,.18],curve:[.12,.58],changeup:[-.25,.35],splitter:[-.08,.5],sinker:[-.3,.26],cutter:[.2,.1]};
  const [bx,by]=breaks[type];const hand=throwsLeft(g.pitcher)?-1:1;
  const [releaseX,releaseY,releaseZ]=pitchReleasePosition(deliveryStyle(g.pitcher),hand,playerProfile(g.pitcher,"pitcher")?.heightCm);
- const pitch:Pitch={id:g.pitchCount+1,type,velocity,releaseAt:now+(g.mode==="pvp"?1900:1200),flightMs:Math.round(18.44/(velocity/3.6)*1000*PACE_SETTINGS[g.pace].factor),releaseX,releaseY,releaseZ,target,breakX:bx*hand,breakY:by,quality,resolved:false};
+ const pitch:Pitch={id:g.pitchCount+1,type,velocity,releaseAt:now+(g.mode==="pvp"?2600:2200),flightMs:Math.round(18.44/(velocity/3.6)*1000*PACE_SETTINGS[g.pace].factor),releaseX,releaseY,releaseZ,target,breakX:bx*hand,breakY:by,quality,resolved:false};
  pitch.bodyHit=findBodyHit(g.batter,g.pitcher,pitch);return pitch;
 }
 export function ballPosition(p:Pitch,time:number){const u=clamp((time-p.releaseAt)/p.flightMs,0,1.35),bend=Math.sin(Math.PI*Math.min(1,u));return {x:(p.releaseX??-.33)*(1-u)+p.target.x*.5*u-p.breakX*bend,y:(p.releaseY??1.84)*(1-u)+(1.05+p.target.y*.55)*u+p.breakY*bend+.12*bend,z:(p.releaseZ??-18.44)*(1-u)}}

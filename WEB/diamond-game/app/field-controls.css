@@ -25,17 +25,22 @@
 .season-field-swing-hint{display:flex;align-items:center;gap:9px;min-width:0;pointer-events:none}.season-field-swing-hint svg{flex:none;color:#d6ee8b}
 .season-field-swing-hint b{display:block;font-size:12px;font-weight:650}.season-field-swing-hint small{display:block;color:#9cafb7;font-size:10px;margin-top:5px}
 .season-field-wait{font-size:10px;color:#ccdcb2;max-width:88px;line-height:1.5}
+.season-stage.with-field-controls[data-control-side=batter]{--field-controls-space:88px;min-height:498px}
+.season-field-auto{display:flex;flex-direction:column;align-items:center;gap:5px;flex:none;max-width:160px}
+.season-field-auto small{font-size:10px;line-height:1.3;color:#b8cfb0;text-align:center;pointer-events:none}
+.season-field-auto .season-field-next{min-height:44px;white-space:nowrap}
 .season-field-inputs button:disabled{opacity:.5;cursor:not-allowed}.season-field-inputs button:focus-visible{outline:2px solid #edffb0;outline-offset:-3px}
 .season-stage.with-field-controls:fullscreen{min-height:0;height:100dvh;max-height:none}
 @media(max-width:600px){
  .season-stage.with-field-controls{--field-controls-space:88px;min-height:438px}
- .season-stage.with-field-controls[data-control-side=batter]{--field-controls-space:66px;min-height:416px}
+ .season-stage.with-field-controls[data-control-side=batter]{--field-controls-space:88px;min-height:438px}
  .season-stage .season-field-inputs{padding:8px}
  .season-field-pitching{gap:7px}.season-field-pitches{gap:4px}.season-field-pitches button{min-width:62px;flex-basis:62px}
  .season-field-inputs .season-field-throw{min-width:80px;padding:7px!important}.season-field-throw b{font-size:11px}.season-field-throw small{font-size:9px}
  .season-field-control-title{font-size:9px}.season-field-control-title small{font-size:8px}
  .season-field-swing-hint{gap:6px}.season-field-swing-hint svg{width:15px}.season-field-swing-hint b{font-size:10px;line-height:1.5}.season-field-swing-hint small{font-size:8px;line-height:1.5;margin-top:2px}
  .season-field-inputs .season-field-next{font-size:11px;padding:8px;min-width:66px}
+ .season-field-auto{max-width:134px}.season-field-auto small{font-size:9px}
  .season-stage.with-field-controls .season-batter-tag,.season-stage.with-field-controls .season-pitcher-tag{bottom:calc(var(--field-controls-space) + 14px)}
  .season-stage.with-field-controls .season-speed{bottom:calc(var(--field-controls-space) + 88px)}
  .season-stage.with-field-controls .season-release{bottom:calc(var(--field-controls-space) + 16px);width:160px}

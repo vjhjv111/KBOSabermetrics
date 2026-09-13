@@ -1,0 +1,172 @@
+/* Shared record-room colors apply to menus; the field keeps its dark HUD. */
+.season-app{--season-bg:#f5f7fa;--season-panel:#fff;--season-line:#dfe5ec;--season-muted:#596779;--season-text:#263b50;--season-accent:#b94017;color-scheme:light}
+.season-header{background:#fff}
+.season-brand{color:#263b50}
+.season-header nav button{color:#596779;min-height:44px}
+.season-header nav button.active{background:#fff0e7;color:#a63816}
+.season-save-indicator{color:#596779}.season-save-indicator i{background:#b94017}
+.season-content button{background:#fff;border-color:#d6dfe8;color:#42576d;min-height:40px}
+.season-content button:hover:not(:disabled){background:#f0f4f8}
+.season-content button.season-primary{background:#b94017;border-color:#b94017;color:#fff}
+.season-content button.season-primary:hover:not(:disabled){background:#9d3716}
+.season-content button.selected,.season-content button[aria-pressed=true]{background:#fff0e7;border-color:#b94017;color:#a63816}
+.season-content label{color:#42576d;font-size:13px}
+.season-content select,.season-content input:not([type=checkbox]):not([type=range]):not([type=color]){background:#fff;border-color:#d6dfe8;color:#263b50;color-scheme:light}
+.season-content select:focus-visible,.season-content input:focus-visible{outline-color:#b94017}
+.season-content input::placeholder{color:#65788b;opacity:1}
+.season-panel{border-radius:7px;box-shadow:0 2px 8px #20354b05}
+.season-note,.season-section-heading p{font-size:13px}
+.season-section-heading>div>span,.season-section-heading>span{font-size:11px;letter-spacing:1.3px}
+.season-error{background:#fff0eb;border-color:#ebc8ba;color:#913a20}
+.season-error button{background:transparent;color:#913a20}
+.season-welcome p{color:#596779}.season-features{color:#42576d;font-size:12px}
+.season-welcome-diamond{background:radial-gradient(ellipse,#f4cdb94a,transparent 67%)}
+.season-welcome-diamond b{color:#b94017}.season-welcome-diamond small{color:#8d4a30}
+.season-welcome-diamond i{border-color:#d7a48d}
+.club-grid button{background:#fff}.club-grid button.selected{box-shadow:inset 0 0 0 1px #b9401722}
+.season-line-score{background:#fff}.season-line-score thead{background:#f0f3f7;color:#596779}
+.season-line-score tbody th{color:#30465b}.season-line-score tbody tr+tr{border-top-color:#e5eaf0}
+.season-line-score td.line-runs{background:#fff6f0}
+.season-stage{color:#fff;--season-accent:#ffb18f;--season-muted:#cedce6;--season-text:#fff;--season-line:#536b7f;border-color:#536b7f}
+.season-stage button{min-height:0}.season-stage-tools button{background:#0d1b27ac;border-color:#a1bac34d;color:#fff}
+.season-stage-tools button:hover:not(:disabled){background:#263b50}
+.season-count strong{color:#ffcbaf}.season-count span{color:#cedce6}
+.season-controls{background:#fff}.season-controls small{color:#596779;font-size:12px}
+.season-last{font-size:12px}.season-last b{color:#a63816}
+.season-events li{color:#596779;border-top-color:#e5eaf0}.season-events li:first-child{color:#30465b}
+.season-lineup li>span{color:#65788b}.season-lineup small{background:#fff0e7;color:#a63816;font-size:10px}
+.season-lineup button{background:transparent;color:#596779;min-height:30px}
+.season-match-intro{background:radial-gradient(ellipse at 50% 95%,#ffe3d254,transparent),linear-gradient(145deg,#fff,#edf2f7);border-color:#d6dfe8}
+.season-final{background:#fff6ef;border-color:#dcb7a3}.season-final p{color:#596779;font-size:13px}
+.season-table thead{background:#f0f3f7;color:#596779;font-size:11px}
+.season-table .my-team,.season-fixtures .my-team{background:#fff0e7;color:#a63816}
+.season-fixtures small{color:#65788b;font-size:11px}
+.season-champion{background:linear-gradient(120deg,#fff0e7,#fff);border-color:#dcb7a3}
+.season-champion svg,.season-champion small{color:#b94017}.season-champion p{color:#596779}
+.season-history>div{background:#f2f5f8}.season-footer{border-top-color:#dfe5ec;color:#596779;font-size:12px}
+.career-avatar{border-color:#d6dfe8}.career-player-card{background:#fff;border-top-color:#dfe5ec}
+.career-player-card small,.career-player-card p{color:#596779;font-size:12px}
+.career-level>div:first-child{background:#fff0e7;border-color:#ebc8ba}
+.career-level span,.career-level strong{color:#b94017}.career-level small{color:#596779}
+.career-skills span{color:#42576d}.career-skills button{color:#a63816}
+.career-growth progress{accent-color:#b94017;background:#e4eaf0}
+.career-growth progress::-webkit-progress-bar{background:#e4eaf0}
+.career-growth progress::-webkit-progress-value{background:#b94017}
+.career-rewards li{border-top-color:#e5eaf0;color:#596779}.career-rewards small,.career-rewards b{color:#a63816}
+.season-app .character-preview button{background:#20343f;border-color:#597183;color:#e5eef4}
+.season-app .character-preview button:hover:not(:disabled){background:#304c5e}
+.season-app .character-preview button[aria-pressed=true]{background:#743117;border-color:#ffb18f;color:#fff}
+.exhibition-join{background:#fff}.exhibition-join>span{color:#a63816;font-size:11px}
+.exhibition-join p{color:#596779;font-size:13px}
+.exhibition-match-bar{background:#fff;border-color:#dfe5ec}
+.exhibition-match-bar span{color:#596779;font-size:11px}
+.exhibition-match-bar strong small,.exhibition-match-bar code{color:#a63816}
+.exhibition-waiting{background:#fff7f0;border-color:#dcb7a3}
+.exhibition-waiting svg{color:#b94017}.exhibition-waiting span{color:#596779;font-size:12px}
+.season-header .save-code-header-button{background:#fff;border-color:#d6dfe8;color:#42576d;min-height:44px}
+.season-header .save-code-header-button:hover{background:#fff3eb;border-color:#b94017;color:#a63816}
+.save-code-notice{background:#fff7f0;border-color:#dcb7a3;color:#30465b}
+.save-code-notice-copy>svg,.save-code-notice code{color:#a63816}.save-code-notice p{color:#596779}
+.save-code-notice button,.save-code-dialog button{background:#fff;border-color:#d6dfe8;color:#42576d;min-height:44px}
+.save-code-notice button:hover:not(:disabled),.save-code-dialog button:hover:not(:disabled){background:#f0f4f8}
+.save-code-dialog{background:#fff;border-color:#d6dfe8;color:#263b50;color-scheme:light;box-shadow:0 24px 80px #18314940;border-radius:10px}
+.save-code-dialog::backdrop{background:#20354b70}
+.save-code-dialog .save-code-heading{background:#f5f7fa;border-bottom-color:#dfe5ec}
+.save-code-heading span,.save-code-dialog h3 svg{color:#a63816}.save-code-dialog h3{color:#263b50}
+.save-code-dialog #save-code-summary,.save-code-label,.save-code-dialog .save-code-muted,.save-code-code-actions>span,.save-code-footnotes{color:#596779}
+.save-code-dialog .save-code-value{background:#fff;border-color:#d6dfe8;color:#30465b}
+.save-code-dialog .save-code-value[readonly]{background:#f5f7fa}
+.save-code-value::placeholder{color:#65788b}
+.save-code-dialog button.save-code-primary{background:#b94017;border-color:#b94017;color:#fff}
+.save-code-dialog button.save-code-primary:hover:not(:disabled){background:#9d3716}
+.save-code-dialog .save-code-switch-note{background:#fff7f0;border-left-color:#b94017;color:#7e3d23}
+.save-code-dialog .save-code-error{background:#fff0eb;border-color:#ebc8ba;color:#913a20}
+.save-code-dialog .save-code-success{background:#edf7f0;border-color:#b5d9c0;color:#27613c}
+.guide[data-embedded-viewport]{top:var(--save-dialog-top);bottom:auto;max-height:var(--save-dialog-height);margin:0 auto;overflow-y:auto}
+.season-app.season-app--title:has(.title-screen){background:#f5f7fa}
+.season-app.season-app--title:has(.title-screen) .season-header{background:#fff;border-bottom-color:#dfe5ec}
+.season-app.season-app--title:has(.title-screen) .season-brand{color:#263b50}
+.season-app.season-app--title:has(.title-screen) .season-brand span,
+.season-app.season-app--title:has(.title-screen) .season-save-indicator{color:#596779}
+.season-app.season-app--title:has(.title-screen) .save-code-header-button{background:#fff;border-color:#d6dfe8;color:#42576d;min-height:44px;font-size:12px}
+.season-app.season-app--title:has(.title-screen) .save-code-header-button:hover{background:#fff3eb;border-color:#b94017;color:#a63816}
+.season-app.season-app--title:has(.title-screen) .season-brand:focus-visible,
+.season-app.season-app--title:has(.title-screen) .season-header button:focus-visible{outline-color:#b94017}
+.season-app .title-screen[data-time-of-day] .title-hero{border-color:#d6dfe8;background:#e7edf3;border-radius:10px;box-shadow:0 3px 16px #20354b0b}
+.season-app .title-screen[data-time-of-day] .title-hero-shade{background:linear-gradient(90deg,#fff 6%,#fffffff7 25%,#ffffffb8 44%,#ffffff00 75%),linear-gradient(0deg,#152f4638,transparent 40%)}
+.season-app .title-screen[data-time-of-day] .title-stadium{opacity:1}
+.season-app .title-screen[data-time-of-day] .title-eyebrow{color:#a63816;font-size:12px;letter-spacing:1.8px}
+.season-app .title-screen[data-time-of-day] .title-eyebrow>span{background:#b94017}
+.season-app .title-screen[data-time-of-day] .title-hero h1{color:#263b50}
+.season-app .title-screen[data-time-of-day] .title-hero h1 em{color:#b94017}
+.season-app .title-screen[data-time-of-day] .title-description{color:#42576d;font-size:15px}
+.season-app .title-screen[data-time-of-day] .title-primary{background:#b94017;border-color:#b94017;color:#fff;box-shadow:0 4px 14px #b9401724}
+.season-app .title-screen[data-time-of-day] .title-primary:hover:not(:disabled){background:#9d3716;border-color:#9d3716}
+.season-app .title-screen[data-time-of-day] .title-save-status{color:#596779;font-size:12px;line-height:1.6}
+.season-app .title-screen[data-time-of-day] .title-hero-caption{padding:10px 14px;border-radius:6px;background:#102127c9;color:#fff;text-shadow:none}
+.season-app .title-screen[data-time-of-day] .title-hero-caption span{color:#e2eaf0;font-size:10px;letter-spacing:2px}
+.season-app .title-screen[data-time-of-day] .title-hero-caption i{background:#ffb18f}
+.season-app .title-screen[data-time-of-day] .title-mode{background:#fff;border-color:#dfe5ec;color:#263b50;border-radius:8px;box-shadow:0 2px 8px #20354b05}
+.season-app .title-screen[data-time-of-day] .title-mode:hover{background:#fff8f4;border-color:#ca6a46}
+.season-app .title-screen[data-time-of-day] .title-mode-number{color:#65788b;font-size:12px}
+.season-app .title-screen[data-time-of-day] .title-mode-tag{color:#596779;font-size:12px}
+.season-app .title-screen[data-time-of-day] .title-mode-top>svg,
+.season-app .title-screen[data-time-of-day] .title-mode-bottom>svg{color:#b94017}
+.season-app .title-screen[data-time-of-day] .title-mode h2{color:#263b50}
+.season-app .title-screen[data-time-of-day] .title-mode p{color:#596779;font-size:13px}
+.season-app .title-screen[data-time-of-day] button:focus-visible{outline:3px solid #b94017;outline-offset:3px}
+.season-app .title-screen[data-time-of-day] .title-footer p{color:#596779;font-size:12px}
+.season-app .title-screen[data-time-of-day] .title-footer p>span{background:#b94017}
+.season-app .title-screen[data-time-of-day] .title-footer button{color:#a63816;font-size:13px}
+.season-app .title-screen[data-time-of-day] .title-footer button:hover{color:#7e2d15}
+.season-app .title-screen[data-time-of-day] .title-connection{border-color:#eccaba;background:#fff4ed}
+.season-app .title-screen[data-time-of-day] .title-connection p,
+.season-app .title-screen[data-time-of-day] .title-connection button{color:#913a20;font-size:13px}
+
+.season-play-preferences{background:#fff;border-color:#dfe5ec;color:#30465b;border-radius:6px}
+.season-play-preference-title>span{background:#fff0e7;color:#a63816;font-size:11px}
+.season-play-switches button{border-color:#d6dfe8;color:#42576d;font-size:13px}
+.season-play-switches button>b{background:#edf0f4;color:#596779;font-size:11px}
+.season-play-switches button[aria-checked=true]{background:#fff3eb;border-color:#b94017}
+.season-play-switches button[aria-checked=true]>b{background:#b94017;color:#fff}
+.season-play-switches button:focus-visible{outline-color:#b94017}
+.season-play-preferences>p{font-size:12px;color:#596779}
+
+.season-stage .season-field-inputs{background:#152635f5;border-top-color:#d7e0e84d;color:#fff}
+.season-field-control-title,.season-field-swing-hint svg{color:#ffb18f}
+.season-field-control-title small,.season-field-swing-hint small,.season-field-auto small{color:#cedce6}
+.season-field-pitches{scrollbar-color:#cd886b #152635}
+.season-field-pitches button{background:#263b50;border-color:#536b7f;color:#f1f5f8}
+.season-field-pitches button.selected{background:#743117;border-color:#ffb18f;color:#fff}
+.season-field-pitches button small,.season-field-pitches button.selected small{color:#e2eaf0}
+.season-field-inputs .season-field-throw,.season-field-inputs .season-field-next{background:#b94017;border-color:#f5a484;color:#fff}
+.season-field-inputs .season-field-throw.held{background:#8f3010;color:#fff;box-shadow:0 0 0 2px #ffb18f66}
+.season-field-inputs button:focus-visible{outline-color:#fff}
+.action-app .play-stage .practice-auto-controls,.action-app .play-stage .practice-field-controls{background:#152635;border-top-color:#536b7f;color:#fff}
+.practice-auto-controls small,.action-app .play-stage .practice-pitch-source{color:#cedce6}
+.action-app .play-stage .practice-auto-controls button,.action-app .play-stage .practice-throw-button{background:#b94017;border-color:#f5a484;color:#fff}
+.action-app .play-stage .practice-throw-button.held{background:#8f3010;color:#fff}
+.action-app .play-stage .practice-pitch-grid button{background:#263b50;border-color:#536b7f;color:#f1f5f8}
+.action-app .play-stage .practice-pitch-grid button>b{color:#cedce6}
+.action-app .play-stage .practice-pitch-grid button.selected{background:#743117;border-color:#ffb18f;color:#fff;box-shadow:inset 0 0 0 1px #ffb18f}
+.action-app .play-stage .practice-pitch-grid button.selected>b{color:#fff}
+.action-app .play-stage .practice-pitch-grid button:hover:not(:disabled){background:#3a4f62;border-color:#ffb18f}
+.action-app .play-stage .practice-pitch-grid button.selected:hover:not(:disabled){background:#8f3010}
+.action-app .play-stage .practice-pitch-grid button:focus-visible,.action-app .play-stage .practice-throw-button:focus-visible{outline-color:#fff}
+
+@media(max-width:650px){
+ .season-header nav{min-width:0;width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x pinch-zoom;scrollbar-width:thin}
+ .season-header nav button{flex-shrink:0;min-height:44px}
+ .season-content select,.season-content input:not([type=checkbox]):not([type=range]):not([type=color]){font-size:16px;min-height:44px}
+ .season-content .season-panel button,.season-content .season-settings button{min-height:44px}
+ .season-app .title-screen[data-time-of-day] .title-hero-shade{background:linear-gradient(180deg,#fff 0%,#fffffff7 24%,#ffffff63 64%,#ffffff00),linear-gradient(90deg,#ffffff65,transparent)}
+ .season-app .title-screen[data-time-of-day] .title-description{font-size:13px;max-width:290px}
+ .season-app .title-screen[data-time-of-day] .title-eyebrow{font-size:10px;letter-spacing:1.5px}
+ .season-app .title-screen[data-time-of-day] .title-save-status{font-size:11px;max-width:235px}
+ .season-app .title-screen[data-time-of-day] .title-hero-caption span{font-size:9px}
+ .season-app .title-screen[data-time-of-day] .title-mode-tag{font-size:11px}
+ .season-app .title-screen[data-time-of-day] .title-footer p{font-size:12px}
+ .season-play-switches button{font-size:12px}.season-play-preferences>p{font-size:12px}
+ .season-field-control-title{font-size:11px}.season-field-control-title small{font-size:9px}
+ .season-field-swing-hint b{font-size:11px}.season-field-swing-hint small{font-size:10px}
+}
