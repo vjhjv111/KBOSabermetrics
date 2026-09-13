@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../server/src/NaverSabermetrics.Web/PlayoffStrengthModel.cs" Link="PlayoffStrengthModel.cs" />
+    <Compile Include="../../server/src/NaverSabermetrics.Web/PlayoffModel.cs" Link="PlayoffModel.cs" />
+    <Compile Include="../../server/src/NaverSabermetrics.Web/PlayoffModel.Calibrated.cs" Link="PlayoffModel.Calibrated.cs" />
+    <Compile Include="../../server/src/NaverSabermetrics.Web/PlayoffSchedule2026.cs" Link="PlayoffSchedule2026.cs" />
+  </ItemGroup>
+</Project>

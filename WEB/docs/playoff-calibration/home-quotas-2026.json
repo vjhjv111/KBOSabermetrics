@@ -1,0 +1,544 @@
+{
+  "year": 2026,
+  "verification": "verified_full_official_preseason_schedule_including_45_undated_games",
+  "available_before_season": "2025-12-19",
+  "sources": [
+    {
+      "url": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11794",
+      "role": "2026 announcement and attached full season matchup allocation"
+    },
+    {
+      "url": "https://www.koreabaseball.com/Common/FileDownload.ashx?file=notice%2Ffiles%2F2025%2F12%2F%EB%B3%84%EC%B2%A8.+2026+KBO+%EC%A0%95%EA%B7%9C%EC%8B%9C%EC%A6%8C+%EA%B2%BD%EA%B8%B0+%EC%9D%BC%EC%A0%95.docx",
+      "role": "675 dated games plus45 explicitly listed unassigned home-away matchups"
+    },
+    {
+      "url": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=8590",
+      "role": "2023 explanation of7/9 pair games and alternating73/71 team home totals"
+    }
+  ],
+  "attachment_sha256": "ff7f95e462affbe2ce5329fd864b1f94e099868b3a9c7873c63299237dff4e38",
+  "team_code_mapping": {
+    "LG": "LG",
+    "KT": "KT",
+    "KIA": "HT",
+    "SSG": "SK",
+    "NC": "NC",
+    "두산": "OB",
+    "키움": "WO",
+    "한화": "HH",
+    "삼성": "SS",
+    "롯데": "LT"
+  },
+  "checks": {
+    "total_games": 720,
+    "directed_pairs": 90,
+    "unordered_pairs": 45,
+    "pair_totals": [
+      16
+    ],
+    "direction_totals": [
+      7,
+      9
+    ],
+    "2024_matrix_exact_match": true,
+    "2026_observed_within_quota": true,
+    "unknown_cells": [],
+    "tables": [
+      {
+        "table": 0,
+        "games": 145,
+        "kind": "dated_schedule"
+      },
+      {
+        "table": 1,
+        "games": 165,
+        "kind": "dated_schedule"
+      },
+      {
+        "table": 2,
+        "games": 135,
+        "kind": "dated_schedule"
+      },
+      {
+        "table": 3,
+        "games": 155,
+        "kind": "dated_schedule"
+      },
+      {
+        "table": 4,
+        "games": 75,
+        "kind": "dated_schedule"
+      },
+      {
+        "table": 5,
+        "games": 45,
+        "kind": "unassigned_games"
+      }
+    ],
+    "home_totals": {
+      "HH": 71,
+      "HT": 73,
+      "KT": 71,
+      "LG": 73,
+      "LT": 71,
+      "NC": 73,
+      "OB": 71,
+      "SK": 71,
+      "SS": 73,
+      "WO": 73
+    }
+  },
+  "rows": [
+    {
+      "away": "HH",
+      "home": "HT",
+      "games": 7
+    },
+    {
+      "away": "HH",
+      "home": "KT",
+      "games": 9
+    },
+    {
+      "away": "HH",
+      "home": "LG",
+      "games": 7
+    },
+    {
+      "away": "HH",
+      "home": "LT",
+      "games": 9
+    },
+    {
+      "away": "HH",
+      "home": "NC",
+      "games": 7
+    },
+    {
+      "away": "HH",
+      "home": "OB",
+      "games": 9
+    },
+    {
+      "away": "HH",
+      "home": "SK",
+      "games": 9
+    },
+    {
+      "away": "HH",
+      "home": "SS",
+      "games": 9
+    },
+    {
+      "away": "HH",
+      "home": "WO",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "HH",
+      "games": 9
+    },
+    {
+      "away": "HT",
+      "home": "KT",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "LG",
+      "games": 9
+    },
+    {
+      "away": "HT",
+      "home": "LT",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "NC",
+      "games": 9
+    },
+    {
+      "away": "HT",
+      "home": "OB",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "SK",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "SS",
+      "games": 7
+    },
+    {
+      "away": "HT",
+      "home": "WO",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "HH",
+      "games": 7
+    },
+    {
+      "away": "KT",
+      "home": "HT",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "LG",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "LT",
+      "games": 7
+    },
+    {
+      "away": "KT",
+      "home": "NC",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "OB",
+      "games": 7
+    },
+    {
+      "away": "KT",
+      "home": "SK",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "SS",
+      "games": 9
+    },
+    {
+      "away": "KT",
+      "home": "WO",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "HH",
+      "games": 9
+    },
+    {
+      "away": "LG",
+      "home": "HT",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "KT",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "LT",
+      "games": 9
+    },
+    {
+      "away": "LG",
+      "home": "NC",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "OB",
+      "games": 9
+    },
+    {
+      "away": "LG",
+      "home": "SK",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "SS",
+      "games": 7
+    },
+    {
+      "away": "LG",
+      "home": "WO",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "HH",
+      "games": 7
+    },
+    {
+      "away": "LT",
+      "home": "HT",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "KT",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "LG",
+      "games": 7
+    },
+    {
+      "away": "LT",
+      "home": "NC",
+      "games": 7
+    },
+    {
+      "away": "LT",
+      "home": "OB",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "SK",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "SS",
+      "games": 9
+    },
+    {
+      "away": "LT",
+      "home": "WO",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "HH",
+      "games": 9
+    },
+    {
+      "away": "NC",
+      "home": "HT",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "KT",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "LG",
+      "games": 9
+    },
+    {
+      "away": "NC",
+      "home": "LT",
+      "games": 9
+    },
+    {
+      "away": "NC",
+      "home": "OB",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "SK",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "SS",
+      "games": 7
+    },
+    {
+      "away": "NC",
+      "home": "WO",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "HH",
+      "games": 7
+    },
+    {
+      "away": "OB",
+      "home": "HT",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "KT",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "LG",
+      "games": 7
+    },
+    {
+      "away": "OB",
+      "home": "LT",
+      "games": 7
+    },
+    {
+      "away": "OB",
+      "home": "NC",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "SK",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "SS",
+      "games": 9
+    },
+    {
+      "away": "OB",
+      "home": "WO",
+      "games": 7
+    },
+    {
+      "away": "SK",
+      "home": "HH",
+      "games": 7
+    },
+    {
+      "away": "SK",
+      "home": "HT",
+      "games": 9
+    },
+    {
+      "away": "SK",
+      "home": "KT",
+      "games": 7
+    },
+    {
+      "away": "SK",
+      "home": "LG",
+      "games": 9
+    },
+    {
+      "away": "SK",
+      "home": "LT",
+      "games": 7
+    },
+    {
+      "away": "SK",
+      "home": "NC",
+      "games": 9
+    },
+    {
+      "away": "SK",
+      "home": "OB",
+      "games": 7
+    },
+    {
+      "away": "SK",
+      "home": "SS",
+      "games": 9
+    },
+    {
+      "away": "SK",
+      "home": "WO",
+      "games": 9
+    },
+    {
+      "away": "SS",
+      "home": "HH",
+      "games": 7
+    },
+    {
+      "away": "SS",
+      "home": "HT",
+      "games": 9
+    },
+    {
+      "away": "SS",
+      "home": "KT",
+      "games": 7
+    },
+    {
+      "away": "SS",
+      "home": "LG",
+      "games": 9
+    },
+    {
+      "away": "SS",
+      "home": "LT",
+      "games": 7
+    },
+    {
+      "away": "SS",
+      "home": "NC",
+      "games": 9
+    },
+    {
+      "away": "SS",
+      "home": "OB",
+      "games": 7
+    },
+    {
+      "away": "SS",
+      "home": "SK",
+      "games": 7
+    },
+    {
+      "away": "SS",
+      "home": "WO",
+      "games": 9
+    },
+    {
+      "away": "WO",
+      "home": "HH",
+      "games": 9
+    },
+    {
+      "away": "WO",
+      "home": "HT",
+      "games": 7
+    },
+    {
+      "away": "WO",
+      "home": "KT",
+      "games": 9
+    },
+    {
+      "away": "WO",
+      "home": "LG",
+      "games": 7
+    },
+    {
+      "away": "WO",
+      "home": "LT",
+      "games": 9
+    },
+    {
+      "away": "WO",
+      "home": "NC",
+      "games": 7
+    },
+    {
+      "away": "WO",
+      "home": "OB",
+      "games": 9
+    },
+    {
+      "away": "WO",
+      "home": "SK",
+      "games": 7
+    },
+    {
+      "away": "WO",
+      "home": "SS",
+      "games": 7
+    }
+  ],
+  "note": "Official attachment is independent preseason schedule evidence. Exactly matches2024 completed regular season pair quotas; all2026 completed directed pair counts fit. Values are total season home-away counts, not remaining games; subtract completed matching pairs at cutoff. This source establishes2026 only, not a permanent future-season rule."
+}

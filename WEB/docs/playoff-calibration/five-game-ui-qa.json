@@ -1,0 +1,2213 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "width": 1920,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 407.359375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-standings",
+            "width": 905.265625,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-monthly",
+            "width": 407.359375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          }
+        ],
+        "rows": [
+          {
+            "height": 143.265625,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 147.265625,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 407.359375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-standings",
+            "width": 905.265625,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-monthly",
+            "width": 407.359375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          }
+        ],
+        "rows": [
+          {
+            "height": 113.609375,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 117.609375,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 407.359375,
+            "height": 798.1875,
+            "top": 328.78125,
+            "bottom": 1126.96875
+          },
+          {
+            "id": "home-standings",
+            "width": 905.265625,
+            "height": 798.1875,
+            "top": 328.78125,
+            "bottom": 1126.96875
+          },
+          {
+            "id": "home-monthly",
+            "width": 407.359375,
+            "height": 798.1875,
+            "top": 328.78125,
+            "bottom": 1126.96875
+          }
+        ],
+        "rows": [
+          {
+            "height": 130,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 134,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 1440,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 322.09375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-standings",
+            "width": 715.796875,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-monthly",
+            "width": 322.09375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          }
+        ],
+        "rows": [
+          {
+            "height": 143.265625,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 147.265625,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 322.09375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-standings",
+            "width": 715.796875,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          },
+          {
+            "id": "home-monthly",
+            "width": 322.09375,
+            "height": 716.25,
+            "top": 328.78125,
+            "bottom": 1045.03125
+          }
+        ],
+        "rows": [
+          {
+            "height": 113.609375,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 117.609375,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 322.09375,
+            "height": 818.1875,
+            "top": 328.78125,
+            "bottom": 1146.96875
+          },
+          {
+            "id": "home-standings",
+            "width": 715.796875,
+            "height": 818.1875,
+            "top": 328.78125,
+            "bottom": 1146.96875
+          },
+          {
+            "id": "home-monthly",
+            "width": 322.09375,
+            "height": 818.1875,
+            "top": 328.78125,
+            "bottom": 1146.96875
+          }
+        ],
+        "rows": [
+          {
+            "height": 150,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 134,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 1280,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 284.203125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          },
+          {
+            "id": "home-standings",
+            "width": 631.578125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          },
+          {
+            "id": "home-monthly",
+            "width": 284.203125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          }
+        ],
+        "rows": [
+          {
+            "height": 143.265625,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 147.265625,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 284.203125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          },
+          {
+            "id": "home-standings",
+            "width": 631.578125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          },
+          {
+            "id": "home-monthly",
+            "width": 284.203125,
+            "height": 716.25,
+            "top": 395.15625,
+            "bottom": 1111.40625
+          }
+        ],
+        "rows": [
+          {
+            "height": 113.609375,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 117.609375,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 284.203125,
+            "height": 818.1875,
+            "top": 384.15625,
+            "bottom": 1202.34375
+          },
+          {
+            "id": "home-standings",
+            "width": 631.578125,
+            "height": 818.1875,
+            "top": 384.15625,
+            "bottom": 1202.34375
+          },
+          {
+            "id": "home-monthly",
+            "width": 284.203125,
+            "height": 818.1875,
+            "top": 384.15625,
+            "bottom": 1202.34375
+          }
+        ],
+        "rows": [
+          {
+            "height": 150,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 134,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 1000,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 312,
+            "height": 716.25,
+            "top": 385.15625,
+            "bottom": 1101.40625
+          },
+          {
+            "id": "home-standings",
+            "width": 624,
+            "height": 716.25,
+            "top": 385.15625,
+            "bottom": 1101.40625
+          },
+          {
+            "id": "home-monthly",
+            "width": 952,
+            "height": 677.453125,
+            "top": 1117.40625,
+            "bottom": 1794.859375
+          }
+        ],
+        "rows": [
+          {
+            "height": 143.265625,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 148.265625,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 147.265625,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 312,
+            "height": 716.25,
+            "top": 385.15625,
+            "bottom": 1101.40625
+          },
+          {
+            "id": "home-standings",
+            "width": 624,
+            "height": 716.25,
+            "top": 385.15625,
+            "bottom": 1101.40625
+          },
+          {
+            "id": "home-monthly",
+            "width": 952,
+            "height": 677.453125,
+            "top": 1117.40625,
+            "bottom": 1794.859375
+          }
+        ],
+        "rows": [
+          {
+            "height": 113.609375,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.625,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 118.609375,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 117.609375,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 312,
+            "height": 818.1875,
+            "top": 385.15625,
+            "bottom": 1203.34375
+          },
+          {
+            "id": "home-standings",
+            "width": 624,
+            "height": 818.1875,
+            "top": 385.15625,
+            "bottom": 1203.34375
+          },
+          {
+            "id": "home-monthly",
+            "width": 952,
+            "height": 677.453125,
+            "top": 1219.34375,
+            "bottom": 1896.796875
+          }
+        ],
+        "rows": [
+          {
+            "height": 150,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 135,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 134,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 390,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 366,
+            "height": 660.1875,
+            "top": 667.953125,
+            "bottom": 1328.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 366,
+            "height": 746.34375,
+            "top": 1344.140625,
+            "bottom": 2090.484375
+          },
+          {
+            "id": "home-monthly",
+            "width": 366,
+            "height": 685.15625,
+            "top": 2106.484375,
+            "bottom": 2791.640625
+          }
+        ],
+        "rows": [
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 132,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 366,
+            "height": 793.1875,
+            "top": 667.953125,
+            "bottom": 1461.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 366,
+            "height": 746.34375,
+            "top": 1477.140625,
+            "bottom": 2223.484375
+          },
+          {
+            "id": "home-monthly",
+            "width": 366,
+            "height": 685.15625,
+            "top": 2239.484375,
+            "bottom": 2924.640625
+          }
+        ],
+        "rows": [
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 132,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 366,
+            "height": 933.1875,
+            "top": 306.953125,
+            "bottom": 1240.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 366,
+            "height": 746.34375,
+            "top": 1256.140625,
+            "bottom": 2002.484375
+          },
+          {
+            "id": "home-monthly",
+            "width": 366,
+            "height": 685.15625,
+            "top": 2018.484375,
+            "bottom": 2703.640625
+          }
+        ],
+        "rows": [
+          {
+            "height": 177,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 156,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 320,
+      "actual": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 296,
+            "height": 660.1875,
+            "top": 667.953125,
+            "bottom": 1328.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 296,
+            "height": 765.53125,
+            "top": 1344.140625,
+            "bottom": 2109.671875
+          },
+          {
+            "id": "home-monthly",
+            "width": 296,
+            "height": 705.546875,
+            "top": 2125.671875,
+            "bottom": 2831.21875
+          }
+        ],
+        "rows": [
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W대니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 132,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "five": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 296,
+            "height": 793.1875,
+            "top": 667.953125,
+            "bottom": 1461.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 296,
+            "height": 765.53125,
+            "top": 1477.140625,
+            "bottom": 2242.671875
+          },
+          {
+            "id": "home-monthly",
+            "width": 296,
+            "height": 705.546875,
+            "top": 2258.671875,
+            "bottom": 2964.21875
+          }
+        ],
+        "rows": [
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W다니엘",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 133,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          },
+          {
+            "height": 132,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": ""
+          }
+        ]
+      },
+      "edge": {
+        "overflow": false,
+        "panels": [
+          {
+            "id": "home-results",
+            "width": 296,
+            "height": 933.1875,
+            "top": 306.953125,
+            "bottom": 1240.140625
+          },
+          {
+            "id": "home-standings",
+            "width": 296,
+            "height": 765.53125,
+            "top": 1256.140625,
+            "bottom": 2021.671875
+          },
+          {
+            "id": "home-monthly",
+            "width": 296,
+            "height": 705.546875,
+            "top": 2037.671875,
+            "bottom": 2743.21875
+          }
+        ],
+        "rows": [
+          {
+            "height": 177,
+            "decisions": [
+              {
+                "team": "HT",
+                "text": "L네일",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "KT",
+                "text": "W아주긴이름의승리투수",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "LG",
+                "text": "W고우석",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "SS",
+                "text": "L이승민",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "LT",
+                "text": "W로드리게스",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "WO",
+                "text": "L알칸타라",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 157,
+            "decisions": [
+              {
+                "team": "NC",
+                "text": "W구창모",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "OB",
+                "text": "L김정우",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          },
+          {
+            "height": 156,
+            "decisions": [
+              {
+                "team": "SK",
+                "text": "W김광현",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              },
+              {
+                "team": "HH",
+                "text": "L류현진",
+                "below": true,
+                "centered": true,
+                "overflow": false
+              }
+            ],
+            "extra": "S마무리투수H중간투수"
+          }
+        ]
+      },
+      "errors": []
+    }
+  ]
+}

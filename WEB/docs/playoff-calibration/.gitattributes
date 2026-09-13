@@ -1,0 +1,2 @@
+# Preserve audited JSON bytes so documented SHA-256 values survive checkout.
+*.json -text whitespace=cr-at-eol

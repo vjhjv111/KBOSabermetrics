@@ -22,7 +22,7 @@ catch (Exception ex) when (args.Length > 0 && args[0].StartsWith("--", StringCom
 var webRoot=Path.Combine(AppContext.BaseDirectory,"wwwroot");
 if (!Directory.Exists(webRoot))
     throw new DirectoryNotFoundException($"웹 정적 파일 폴더가 없습니다: {webRoot}. 솔루션을 다시 빌드하세요.");
-foreach (var asset in new[] { "index.html", "app.css", "home.css", "player-profile.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "comparison.js", "comparison.css", "diamond/index.html" })
+foreach (var asset in new[] { "index.html", "app.css", "home.css", "forecast-method.css", "forecast-method.js", "player-profile.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "comparison.js", "comparison.css", "diamond/index.html" })
 {
     var assetPath = Path.Combine(webRoot, asset);
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
@@ -158,7 +158,7 @@ app.UseStaticFiles(new StaticFileOptions
     {
         // DefaultFiles rewrites / to index.html before static files are served.
         // Keep the HTML entry point and tooltip script fresh across deployments.
-        if (context.File.Name is "index.html" or "app.js" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css")
+        if (context.File.Name is "index.html" or "app.js" or "forecast-method.js" or "forecast-method.css" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css")
         {
             context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
             context.Context.Response.Headers.Pragma = "no-cache";

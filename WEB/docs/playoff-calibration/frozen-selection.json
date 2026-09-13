@@ -1,0 +1,3361 @@
+{
+  "version": "pyth-sos-logit-v1",
+  "inputSha256": "e20680f8655ed0f55de4173a28af79129be94bd61346fb4346eaf9df7bf35610",
+  "trainYears": [
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "validationYear": 2024,
+  "holdoutYear": 2025,
+  "selection": "Minimize equal-season training log loss per family; select family on 2024; freeze before 2025.",
+  "minPastGames": 20,
+  "refresh": "Every day before games; all same-day outcomes withheld",
+  "target": "Home win conditional on decisive game; draws excluded from scoring, retained in past totals",
+  "selectedFamily": "shrink_opponent",
+  "selectedParameters": {
+    "opponentWeight": 0.5,
+    "priorGames": 40,
+    "homeLogOdds": 0
+  },
+  "families": {
+    "baseline": {
+      "training": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 0,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2020": {
+            "games": 605,
+            "logLoss": 0.6861247017469629,
+            "brier": 0.24611960336794497,
+            "meanPrediction": 0.5000907296037876,
+            "homeWinRate": 0.5289256198347108
+          },
+          "2021": {
+            "games": 569,
+            "logLoss": 0.7012883070845045,
+            "brier": 0.253648527199308,
+            "meanPrediction": 0.5008403722613766,
+            "homeWinRate": 0.5413005272407733
+          },
+          "2022": {
+            "games": 605,
+            "logLoss": 0.6800445536586622,
+            "brier": 0.24323643493524744,
+            "meanPrediction": 0.5015381516089645,
+            "homeWinRate": 0.4975206611570248
+          },
+          "2023": {
+            "games": 604,
+            "logLoss": 0.693920097888522,
+            "brier": 0.2502449126948319,
+            "meanPrediction": 0.49840511483252414,
+            "homeWinRate": 0.5182119205298014
+          }
+        },
+        "meanLogLoss": 0.6903444150946629,
+        "meanBrier": 0.24831236954933306
+      },
+      "validation": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 0,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2024": {
+            "games": 602,
+            "logLoss": 0.7036866627414121,
+            "brier": 0.2551021417451018,
+            "meanPrediction": 0.4994767786663123,
+            "homeWinRate": 0.5
+          }
+        },
+        "meanLogLoss": 0.7036866627414121,
+        "meanBrier": 0.2551021417451018
+      }
+    },
+    "shrink": {
+      "training": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 40,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2020": {
+            "games": 605,
+            "logLoss": 0.6787011886054326,
+            "brier": 0.24286442295667524,
+            "meanPrediction": 0.5003227334909688,
+            "homeWinRate": 0.5289256198347108
+          },
+          "2021": {
+            "games": 569,
+            "logLoss": 0.6920935009416428,
+            "brier": 0.24943564361503445,
+            "meanPrediction": 0.5000059570486153,
+            "homeWinRate": 0.5413005272407733
+          },
+          "2022": {
+            "games": 605,
+            "logLoss": 0.6786379905940618,
+            "brier": 0.2427567925821471,
+            "meanPrediction": 0.5008721412938735,
+            "homeWinRate": 0.4975206611570248
+          },
+          "2023": {
+            "games": 604,
+            "logLoss": 0.6895625676448823,
+            "brier": 0.24819162413685708,
+            "meanPrediction": 0.4991124546691674,
+            "homeWinRate": 0.5182119205298014
+          }
+        },
+        "meanLogLoss": 0.6847488119465049,
+        "meanBrier": 0.24581212082267845
+      },
+      "validation": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 40,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2024": {
+            "games": 602,
+            "logLoss": 0.6959619917568721,
+            "brier": 0.25139237198597136,
+            "meanPrediction": 0.5003923006385577,
+            "homeWinRate": 0.5
+          }
+        },
+        "meanLogLoss": 0.6959619917568721,
+        "meanBrier": 0.25139237198597136
+      }
+    },
+    "shrink_home": {
+      "training": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 40,
+          "homeLogOdds": 0.06
+        },
+        "byYear": {
+          "2020": {
+            "games": 605,
+            "logLoss": 0.6772925533841885,
+            "brier": 0.24219247418439002,
+            "meanPrediction": 0.5149194177795652,
+            "homeWinRate": 0.5289256198347108
+          },
+          "2021": {
+            "games": 569,
+            "logLoss": 0.6900426771247171,
+            "brier": 0.24842068354693175,
+            "meanPrediction": 0.5148228080062783,
+            "homeWinRate": 0.5413005272407733
+          },
+          "2022": {
+            "games": 605,
+            "logLoss": 0.6793692376074,
+            "brier": 0.24314077591509697,
+            "meanPrediction": 0.515684372902435,
+            "homeWinRate": 0.4975206611570248
+          },
+          "2023": {
+            "games": 604,
+            "logLoss": 0.6888378047860205,
+            "brier": 0.2478506417572935,
+            "meanPrediction": 0.5140538843356535,
+            "homeWinRate": 0.5182119205298014
+          }
+        },
+        "meanLogLoss": 0.6838855682255814,
+        "meanBrier": 0.24540114385092804
+      },
+      "validation": {
+        "parameters": {
+          "opponentWeight": 0,
+          "priorGames": 40,
+          "homeLogOdds": 0.06
+        },
+        "byYear": {
+          "2024": {
+            "games": 602,
+            "logLoss": 0.6963952696541611,
+            "brier": 0.25160654250826364,
+            "meanPrediction": 0.5154155106647007,
+            "homeWinRate": 0.5
+          }
+        },
+        "meanLogLoss": 0.6963952696541611,
+        "meanBrier": 0.25160654250826364
+      }
+    },
+    "shrink_opponent": {
+      "training": {
+        "parameters": {
+          "opponentWeight": 0.5,
+          "priorGames": 40,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2020": {
+            "games": 605,
+            "logLoss": 0.6786330192610123,
+            "brier": 0.24283462359689054,
+            "meanPrediction": 0.5004017094400731,
+            "homeWinRate": 0.5289256198347108
+          },
+          "2021": {
+            "games": 569,
+            "logLoss": 0.6917817263975273,
+            "brier": 0.24928930357860662,
+            "meanPrediction": 0.5000344452249428,
+            "homeWinRate": 0.5413005272407733
+          },
+          "2022": {
+            "games": 605,
+            "logLoss": 0.6789030904222784,
+            "brier": 0.24289184949088158,
+            "meanPrediction": 0.5008518131373332,
+            "homeWinRate": 0.4975206611570248
+          },
+          "2023": {
+            "games": 604,
+            "logLoss": 0.6895760472250283,
+            "brier": 0.24820136253509953,
+            "meanPrediction": 0.49915041789387504,
+            "homeWinRate": 0.5182119205298014
+          }
+        },
+        "meanLogLoss": 0.6847234708264616,
+        "meanBrier": 0.24580428480036956
+      },
+      "validation": {
+        "parameters": {
+          "opponentWeight": 0.5,
+          "priorGames": 40,
+          "homeLogOdds": 0
+        },
+        "byYear": {
+          "2024": {
+            "games": 602,
+            "logLoss": 0.6956778373471217,
+            "brier": 0.25125215972060577,
+            "meanPrediction": 0.5003549937193944,
+            "homeWinRate": 0.5
+          }
+        },
+        "meanLogLoss": 0.6956778373471217,
+        "meanBrier": 0.25125215972060577
+      }
+    },
+    "full": {
+      "training": {
+        "parameters": {
+          "opponentWeight": 0.5,
+          "priorGames": 40,
+          "homeLogOdds": 0.06
+        },
+        "byYear": {
+          "2020": {
+            "games": 605,
+            "logLoss": 0.6772327187775081,
+            "brier": 0.24216512694287626,
+            "meanPrediction": 0.5150251173998578,
+            "homeWinRate": 0.5289256198347108
+          },
+          "2021": {
+            "games": 569,
+            "logLoss": 0.6897367064495195,
+            "brier": 0.2482761964063542,
+            "meanPrediction": 0.5148688993021541,
+            "homeWinRate": 0.5413005272407733
+          },
+          "2022": {
+            "games": 605,
+            "logLoss": 0.6796306419962702,
+            "brier": 0.24327411694583467,
+            "meanPrediction": 0.5156809953582215,
+            "homeWinRate": 0.4975206611570248
+          },
+          "2023": {
+            "games": 604,
+            "logLoss": 0.6888526213386279,
+            "brier": 0.24785885171395233,
+            "meanPrediction": 0.5141020795695086,
+            "homeWinRate": 0.5182119205298014
+          }
+        },
+        "meanLogLoss": 0.6838631721404814,
+        "meanBrier": 0.2453935730022544
+      },
+      "validation": {
+        "parameters": {
+          "opponentWeight": 0.5,
+          "priorGames": 40,
+          "homeLogOdds": 0.06
+        },
+        "byYear": {
+          "2024": {
+            "games": 602,
+            "logLoss": 0.6961085022680022,
+            "brier": 0.2514650485256678,
+            "meanPrediction": 0.5153801375724996,
+            "homeWinRate": 0.5
+          }
+        },
+        "meanLogLoss": 0.6961085022680022,
+        "meanBrier": 0.2514650485256678
+      }
+    }
+  },
+  "grid": [
+    {
+      "family": "baseline",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 0,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6861247017469629,
+          "brier": 0.24611960336794497,
+          "meanPrediction": 0.5000907296037876,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.7012883070845045,
+          "brier": 0.253648527199308,
+          "meanPrediction": 0.5008403722613766,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6800445536586622,
+          "brier": 0.24323643493524744,
+          "meanPrediction": 0.5015381516089645,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.693920097888522,
+          "brier": 0.2502449126948319,
+          "meanPrediction": 0.49840511483252414,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6903444150946629,
+      "meanBrier": 0.24831236954933306
+    },
+    {
+      "family": "shrink",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 10,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6815978805720205,
+          "brier": 0.2442020804840025,
+          "meanPrediction": 0.5002452651917396,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6967299633369659,
+          "brier": 0.2516034061694234,
+          "meanPrediction": 0.5004454299003165,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.678405465099176,
+          "brier": 0.24257107714649778,
+          "meanPrediction": 0.5012989074612679,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6916855450502518,
+          "brier": 0.24919659283048443,
+          "meanPrediction": 0.49868436612392214,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6871047135146036,
+      "meanBrier": 0.24689328915760203
+    },
+    {
+      "family": "shrink",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 20,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6797322645398656,
+          "brier": 0.24335503016385188,
+          "meanPrediction": 0.5003057042163845,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6943763304106735,
+          "brier": 0.2505124725637802,
+          "meanPrediction": 0.5002294402308434,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6780942831637841,
+          "brier": 0.24246113079596823,
+          "meanPrediction": 0.5011175968590174,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6905552093420254,
+          "brier": 0.2486621086211692,
+          "meanPrediction": 0.49887172243723515,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6856895218640872,
+      "meanBrier": 0.24624768553619236
+    },
+    {
+      "family": "shrink",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6787011886054326,
+          "brier": 0.24286442295667524,
+          "meanPrediction": 0.5003227334909688,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6920935009416428,
+          "brier": 0.24943564361503445,
+          "meanPrediction": 0.5000059570486153,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6786379905940618,
+          "brier": 0.2427567925821471,
+          "meanPrediction": 0.5008721412938735,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6895625676448823,
+          "brier": 0.24819162413685708,
+          "meanPrediction": 0.4991124546691674,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6847488119465049,
+      "meanBrier": 0.24581212082267845
+    },
+    {
+      "family": "shrink",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 80,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6794545756963063,
+          "brier": 0.24321792934470604,
+          "meanPrediction": 0.5002614086997547,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.690627023399004,
+          "brier": 0.248734276314979,
+          "meanPrediction": 0.49984171912135394,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.680504947649512,
+          "brier": 0.2436931920184753,
+          "meanPrediction": 0.5006056535111141,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6891917714330451,
+          "brier": 0.24801989635264515,
+          "meanPrediction": 0.4993718949091684,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6849445795444667,
+      "meanBrier": 0.24591632350770137
+    },
+    {
+      "family": "shrink",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 160,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6820315187446442,
+          "brier": 0.24447234117048453,
+          "meanPrediction": 0.5001561859812379,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6903278846232825,
+          "brier": 0.24859227141477344,
+          "meanPrediction": 0.49978162335337967,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6834672853100617,
+          "brier": 0.24516827464684882,
+          "meanPrediction": 0.5003752601488727,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6896365010397404,
+          "brier": 0.2482455576604192,
+          "meanPrediction": 0.4996041180596298,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6863657974294323,
+      "meanBrier": 0.2466196112231315
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 10,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6800858456266412,
+          "brier": 0.2434871874389587,
+          "meanPrediction": 0.514470929366969,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.694701333891509,
+          "brier": 0.25061036458586383,
+          "meanPrediction": 0.5150492733650893,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6792147645533199,
+          "brier": 0.242996119716362,
+          "meanPrediction": 0.5159118720520751,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6909474940306536,
+          "brier": 0.24884636897005658,
+          "meanPrediction": 0.5135278119048847,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6862373595255309,
+      "meanBrier": 0.24648501017781027
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 10,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6794440069822186,
+          "brier": 0.24316617942466068,
+          "meanPrediction": 0.52867982590506,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6935643487405142,
+          "brier": 0.2500282102266545,
+          "meanPrediction": 0.5296313306669999,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6809150951737458,
+          "brier": 0.24384467544836969,
+          "meanPrediction": 0.5304988158855879,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6911172268768565,
+          "brier": 0.2489301251736457,
+          "meanPrediction": 0.5283453741139158,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6862601694433338,
+      "meanBrier": 0.24649229756833263
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 10,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6796708103802093,
+          "brier": 0.24323797372931735,
+          "meanPrediction": 0.542849853249895,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6933170198967681,
+          "brier": 0.2498554335822808,
+          "meanPrediction": 0.5441672761151797,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6835041192997524,
+          "brier": 0.2451118102521554,
+          "meanPrediction": 0.5450356584533349,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6921922601950419,
+          "brier": 0.24944424836798637,
+          "meanPrediction": 0.5431111901842482,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6871710524429429,
+      "meanBrier": 0.24691236648293496
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 10,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6807633368567431,
+          "brier": 0.24369920392252653,
+          "meanPrediction": 0.5569591074574184,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6939558615595223,
+          "brier": 0.2500879252593951,
+          "meanPrediction": 0.5586330554228759,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6869780301551234,
+          "brier": 0.2467899855870612,
+          "meanPrediction": 0.5594986348839865,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6941685182446591,
+          "brier": 0.25038222174362323,
+          "meanPrediction": 0.5577997685104316,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.688966436704012,
+      "meanBrier": 0.2477398341281515
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 20,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6782689067873179,
+          "brier": 0.24266049378766494,
+          "meanPrediction": 0.5146992102653779,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6923348024313954,
+          "brier": 0.24950819385896802,
+          "meanPrediction": 0.5149333937719667,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6788677552011919,
+          "brier": 0.24286894824022734,
+          "meanPrediction": 0.5158225418676274,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6898207029575508,
+          "brier": 0.24831679389436598,
+          "meanPrediction": 0.5137608892734555,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.684823041844364,
+      "meanBrier": 0.24583860744530658
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 20,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6776829027069204,
+          "brier": 0.24237392730289792,
+          "meanPrediction": 0.5290738493896405,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.691188369000513,
+          "brier": 0.24892503777007396,
+          "meanPrediction": 0.5296147597333521,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.680535502165927,
+          "brier": 0.24370842013378344,
+          "meanPrediction": 0.5305011142599956,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6899935980104559,
+          "brier": 0.2484105282414884,
+          "meanPrediction": 0.5286239848927492,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.684850092970954,
+      "meanBrier": 0.24585447836206092
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 20,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.677972518940535,
+          "brier": 0.24249382326443647,
+          "meanPrediction": 0.5434066619496569,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6909349682474285,
+          "brier": 0.24876130606000027,
+          "meanPrediction": 0.5442486358068447,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6830951644157146,
+          "brier": 0.24497453848273465,
+          "meanPrediction": 0.545128650209515,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6910714235524781,
+          "brier": 0.2489396228106151,
+          "meanPrediction": 0.5434349238360068,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.685768518789039,
+      "meanBrier": 0.24629232265444662
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 20,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6791346152817387,
+          "brier": 0.2430162305804583,
+          "meanPrediction": 0.5576749161592764,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6915710147471232,
+          "brier": 0.24901257121533885,
+          "meanPrediction": 0.5588104128001206,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6865428837547033,
+          "brier": 0.2466595680038513,
+          "meanPrediction": 0.5596808157121098,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6930501137093191,
+          "brier": 0.24989742326810438,
+          "meanPrediction": 0.5581679947360125,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6875746568732212,
+      "meanBrier": 0.2471464482669382
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6772925533841885,
+          "brier": 0.24219247418439002,
+          "meanPrediction": 0.5149194177795652,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6900426771247171,
+          "brier": 0.24842068354693175,
+          "meanPrediction": 0.5148228080062783,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6793692376074,
+          "brier": 0.24314077591509697,
+          "meanPrediction": 0.515684372902435,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6888378047860205,
+          "brier": 0.2478506417572935,
+          "meanPrediction": 0.5140538843356535,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6838855682255814,
+      "meanBrier": 0.24540114385092804
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6767699974604627,
+          "brier": 0.2419457395514362,
+          "meanPrediction": 0.5294946016897548,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6888905488240198,
+          "brier": 0.24783859610277834,
+          "meanPrediction": 0.529615997916708,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.680998365594676,
+          "brier": 0.2439656444693352,
+          "meanPrediction": 0.530469835406537,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.68901990924287,
+          "brier": 0.24795443216750723,
+          "meanPrediction": 0.5289690054581743,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6839197052805072,
+      "meanBrier": 0.24542610307276425
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6771315646462206,
+          "brier": 0.2421221491839008,
+          "meanPrediction": 0.5440241811784591,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6886349572180365,
+          "brier": 0.2476874411288664,
+          "meanPrediction": 0.5443599522062936,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6835229831895037,
+          "brier": 0.24522631745276552,
+          "meanPrediction": 0.5452031589436496,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6901064228233303,
+          "brier": 0.24849923183419054,
+          "meanPrediction": 0.5438314538723662,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6848489819692727,
+      "meanBrier": 0.2458837848999308
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.678373834077586,
+          "brier": 0.24271696709877533,
+          "meanPrediction": 0.5584843226219744,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.689272190348788,
+          "brier": 0.24796239358873545,
+          "meanPrediction": 0.5590294159821183,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6869391652859059,
+          "brier": 0.2469148370366101,
+          "meanPrediction": 0.5598593213392441,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.692093287661402,
+          "brier": 0.24947823612476597,
+          "meanPrediction": 0.5586152435573057,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6866696193434205,
+      "meanBrier": 0.24676810846222172
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 80,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6780940996592284,
+          "brier": 0.24256267564770553,
+          "meanPrediction": 0.5150484442768686,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6885740413344562,
+          "brier": 0.24771299452299675,
+          "meanPrediction": 0.5147571634782268,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6811948394529334,
+          "brier": 0.24405096781671323,
+          "meanPrediction": 0.5155152068968067,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6884831336274843,
+          "brier": 0.24768198661799687,
+          "meanPrediction": 0.514357966035834,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6840865285185256,
+      "meanBrier": 0.2455021561513531
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 80,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6776277005515939,
+          "brier": 0.24234844512545806,
+          "meanPrediction": 0.5298114728755233,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6874224348672394,
+          "brier": 0.24713492521955593,
+          "meanPrediction": 0.5296477963656091,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6827855254192386,
+          "brier": 0.2448573259123366,
+          "meanPrediction": 0.5303976625811052,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6886804874813155,
+          "brier": 0.24779361262025687,
+          "meanPrediction": 0.5293175002604358,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6841290370798468,
+      "meanBrier": 0.2455335772194019
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 80,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6780532090983991,
+          "brier": 0.24257260454789986,
+          "meanPrediction": 0.5445252171447352,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6871699439774682,
+          "brier": 0.2469978706171719,
+          "meanPrediction": 0.5444874314349984,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6852745826790767,
+          "brier": 0.24610714124871486,
+          "meanPrediction": 0.5452269804499165,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6897813865123124,
+          "brier": 0.24835096071236332,
+          "meanPrediction": 0.5442238688929119,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6850697805668141,
+      "meanBrier": 0.24600714428153747
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 80,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6793669312447931,
+          "brier": 0.24322962007917903,
+          "meanPrediction": 0.5591647169288952,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6878127292672529,
+          "brier": 0.24729660282633534,
+          "meanPrediction": 0.5592502283865174,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6886580217078462,
+          "brier": 0.24779227069177298,
+          "meanPrediction": 0.5599774856477966,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6917817793514118,
+          "brier": 0.24934710530824783,
+          "meanPrediction": 0.5590508252821499,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.686904865392826,
+      "meanBrier": 0.2469163997263838
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 160,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6807047819608693,
+          "brier": 0.24382465503497738,
+          "meanPrediction": 0.5150744123335322,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.688279057239435,
+          "brier": 0.2475701564976171,
+          "meanPrediction": 0.5147593553580901,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6841231626636218,
+          "brier": 0.24550364091309462,
+          "meanPrediction": 0.5153491700590754,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6889469217256857,
+          "brier": 0.2479105005512362,
+          "meanPrediction": 0.5146150843986002,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6855134808974029,
+      "meanBrier": 0.24620223824923132
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 160,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6802771628279057,
+          "brier": 0.24362785340986978,
+          "meanPrediction": 0.529966908317452,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6871326336370611,
+          "brier": 0.24699768221723387,
+          "meanPrediction": 0.5297113227084261,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6856811797046842,
+          "brier": 0.24629161657358534,
+          "meanPrediction": 0.530295815346352,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6891619553516329,
+          "brier": 0.2480274285686365,
+          "meanPrediction": 0.5295993430954098,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.685563232880321,
+      "meanBrier": 0.24623614519233136
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 160,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6807463432589869,
+          "brier": 0.24387890811179416,
+          "meanPrediction": 0.5448075229037097,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6868862737050534,
+          "brier": 0.24687243902766115,
+          "meanPrediction": 0.5446109323416304,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6881388944989478,
+          "brier": 0.24752707400198698,
+          "meanPrediction": 0.545188684870868,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6902791653582653,
+          "brier": 0.2485925072095361,
+          "meanPrediction": 0.5445300966700821,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6865126692053133,
+      "meanBrier": 0.2467177320877446
+    },
+    {
+      "family": "shrink_home",
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 160,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6821084359213865,
+          "brier": 0.24457171619796342,
+          "meanPrediction": 0.5595704590479568,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6875360416820667,
+          "brier": 0.247188889254556,
+          "meanPrediction": 0.559431957329453,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6914922761353364,
+          "brier": 0.249201772488483,
+          "meanPrediction": 0.5600016454494354,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6922945078916749,
+          "brier": 0.2495987449287549,
+          "meanPrediction": 0.5593809320965291,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6883578154076162,
+      "meanBrier": 0.24764028071743932
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 10,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6807999680701997,
+          "brier": 0.2438477648607253,
+          "meanPrediction": 0.5003645717348155,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6958297560980089,
+          "brier": 0.2511944913456185,
+          "meanPrediction": 0.5004862937295493,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6785231102188266,
+          "brier": 0.2426492623049304,
+          "meanPrediction": 0.5012711770646513,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6914950017086088,
+          "brier": 0.2491142033306794,
+          "meanPrediction": 0.4987619430950638,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6866619590239109,
+      "meanBrier": 0.24670143046048842
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 20,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6793366744054634,
+          "brier": 0.24317599427109385,
+          "meanPrediction": 0.5004114199406106,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.693766899972311,
+          "brier": 0.250231365452024,
+          "meanPrediction": 0.500264591157206,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6783167428331156,
+          "brier": 0.24258106165364707,
+          "meanPrediction": 0.5010918606082846,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6904721235316414,
+          "brier": 0.2486280502154379,
+          "meanPrediction": 0.49892972949300424,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6854731101856328,
+      "meanBrier": 0.2461541178980507
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6786330192610123,
+          "brier": 0.24283462359689054,
+          "meanPrediction": 0.5004017094400731,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6917817263975273,
+          "brier": 0.24928930357860662,
+          "meanPrediction": 0.5000344452249428,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6789030904222784,
+          "brier": 0.24289184949088158,
+          "meanPrediction": 0.5008518131373332,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6895760472250283,
+          "brier": 0.24820136253509953,
+          "meanPrediction": 0.49915041789387504,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6847234708264616,
+      "meanBrier": 0.24580428480036956
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 80,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6795447630928333,
+          "brier": 0.2432625400286794,
+          "meanPrediction": 0.5003091952489547,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6905285134541673,
+          "brier": 0.24868731326075727,
+          "meanPrediction": 0.4998633806815929,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6807304050149322,
+          "brier": 0.24380612156459602,
+          "meanPrediction": 0.5005928792614681,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6892541311109139,
+          "brier": 0.24805172867311895,
+          "meanPrediction": 0.49939281242242073,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6850144531682116,
+      "meanBrier": 0.2459519258817879
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 160,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6821339764129537,
+          "brier": 0.24452286606704182,
+          "meanPrediction": 0.5001796673722558,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6903228554684303,
+          "brier": 0.24858999635763038,
+          "meanPrediction": 0.49979535478303183,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.683608356636263,
+          "brier": 0.2452386378050883,
+          "meanPrediction": 0.5003690481230862,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6896945749426144,
+          "brier": 0.24827462630203795,
+          "meanPrediction": 0.49961328527318566,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6864399408650654,
+      "meanBrier": 0.2466565316329496
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 10,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6803294747733866,
+          "brier": 0.2436405770313836,
+          "meanPrediction": 0.5004611359132023,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6951166513157871,
+          "brier": 0.25086768306440144,
+          "meanPrediction": 0.5005165108168717,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6786924850536352,
+          "brier": 0.24274780561850967,
+          "meanPrediction": 0.5012324256493222,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6913757688369188,
+          "brier": 0.24906382103757,
+          "meanPrediction": 0.4988265650809802,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6863785949949319,
+      "meanBrier": 0.24657997168796617
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 20,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6791038731386306,
+          "brier": 0.24307240980748818,
+          "meanPrediction": 0.5005016155952988,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6932765900275564,
+          "brier": 0.250003641070518,
+          "meanPrediction": 0.5002932827367556,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6785568927320714,
+          "brier": 0.24270748770151815,
+          "meanPrediction": 0.5010617353167905,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6904290994274077,
+          "brier": 0.24861201958777585,
+          "meanPrediction": 0.4989782472883614,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6853416138314165,
+      "meanBrier": 0.24609888954182502
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6786188546656244,
+          "brier": 0.24283042302705304,
+          "meanPrediction": 0.5004720827281973,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6915278974280203,
+          "brier": 0.24916960840473995,
+          "meanPrediction": 0.5000593619490739,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.679166026352749,
+          "brier": 0.24302510656430334,
+          "meanPrediction": 0.5008310763678253,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6896040940609223,
+          "brier": 0.2482176265817095,
+          "meanPrediction": 0.49918269642094165,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6847292181268291,
+      "meanBrier": 0.24581069114445148
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 80,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6796436120483669,
+          "brier": 0.24331133013979328,
+          "meanPrediction": 0.5003533344416283,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6904491971554103,
+          "brier": 0.24864942975446125,
+          "meanPrediction": 0.499883081833313,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6809490886479941,
+          "brier": 0.2439155282002347,
+          "meanPrediction": 0.5005807151755081,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6893178012930933,
+          "brier": 0.2480840543360742,
+          "meanPrediction": 0.499411135119213,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6850899247862161,
+      "meanBrier": 0.24599008560764085
+    },
+    {
+      "family": "shrink_opponent",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 160,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6822350353635687,
+          "brier": 0.24457271722234347,
+          "meanPrediction": 0.5002019721489572,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6903215764366011,
+          "brier": 0.24858953906166897,
+          "meanPrediction": 0.4998081958975078,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6837451772867658,
+          "brier": 0.2453068698274341,
+          "meanPrediction": 0.5003632082824007,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.689751050578538,
+          "brier": 0.24830288112486246,
+          "meanPrediction": 0.4996216200564431,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6865132099163684,
+      "meanBrier": 0.24669300180907724
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 10,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6793011452049708,
+          "brier": 0.24313734821668614,
+          "meanPrediction": 0.5146531281913854,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6938120981787731,
+          "brier": 0.25020447010945596,
+          "meanPrediction": 0.5151314760148913,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6793254672427835,
+          "brier": 0.24307287486835297,
+          "meanPrediction": 0.5159256515434565,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6907589088862001,
+          "brier": 0.24876187293086338,
+          "meanPrediction": 0.5136299789921812,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6857994048781819,
+      "meanBrier": 0.2462941415313396
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 10,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.678675419966549,
+          "brier": 0.24282614882798045,
+          "meanPrediction": 0.5289244774307946,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6926876561821184,
+          "brier": 0.24962948067674146,
+          "meanPrediction": 0.5297539840380933,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6810205952074905,
+          "brier": 0.24392337339928316,
+          "meanPrediction": 0.5305537358030052,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.690931319794722,
+          "brier": 0.24884566158932803,
+          "meanPrediction": 0.5284720449190378,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6858287477877201,
+      "meanBrier": 0.24630616612333328
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 10,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6789212096854776,
+          "brier": 0.2429130065799799,
+          "meanPrediction": 0.5431561753171164,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.692454366610094,
+          "brier": 0.24946785439404423,
+          "meanPrediction": 0.5443292528579008,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6836061257619832,
+          "brier": 0.24519574308301542,
+          "meanPrediction": 0.5451310897120382,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6920097514298904,
+          "brier": 0.24936194551417198,
+          "meanPrediction": 0.5432621353772779,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6867478633718613,
+      "meanBrier": 0.24673463739280288
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 10,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6800355484029806,
+          "brier": 0.24339441355677982,
+          "meanPrediction": 0.557325980732384,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6931086568497051,
+          "brier": 0.24971527157036874,
+          "meanPrediction": 0.5588330032356366,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.687078207769929,
+          "brier": 0.2468823138763402,
+          "meanPrediction": 0.5596336970377249,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6939901224444892,
+          "brier": 0.25030416649221604,
+          "meanPrediction": 0.5579746184985555,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.688553133866776,
+      "meanBrier": 0.2475740413739262
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 20,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.677884917619742,
+          "brier": 0.2424852430443152,
+          "meanPrediction": 0.5148505590983078,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6917339621140208,
+          "brier": 0.2492295310784678,
+          "meanPrediction": 0.514998602122759,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6790847380688673,
+          "brier": 0.24298699715036562,
+          "meanPrediction": 0.5158262472417119,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6897392686677611,
+          "brier": 0.2482806777063126,
+          "meanPrediction": 0.513836546990416,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6846107216175978,
+      "meanBrier": 0.2457456122448653
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 20,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6773126066461482,
+          "brier": 0.24220640235741883,
+          "meanPrediction": 0.5292703748385371,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.690597241785254,
+          "brier": 0.24865189783413483,
+          "meanPrediction": 0.5297093724723547,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6807482155757334,
+          "brier": 0.24382694895492404,
+          "meanPrediction": 0.530534029533633,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6899143153785346,
+          "brier": 0.24837389425059397,
+          "meanPrediction": 0.5287172349929957,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6846430948464175,
+      "meanBrier": 0.24576478584926792
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 20,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6776179759553612,
+          "brier": 0.2423378861643335,
+          "meanPrediction": 0.5436476419018107,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6903546218406252,
+          "brier": 0.24849664816592038,
+          "meanPrediction": 0.5443718194495187,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6833047959458038,
+          "brier": 0.24509585713840745,
+          "meanPrediction": 0.5451903540499005,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6909947936105231,
+          "brier": 0.24890400898797416,
+          "meanPrediction": 0.5435456017282496,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6855680468380783,
+      "meanBrier": 0.24620860011415888
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 20,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6787978387310423,
+          "brier": 0.24287561317316247,
+          "meanPrediction": 0.5579593692396889,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6910024529777052,
+          "brier": 0.2487591955325621,
+          "meanPrediction": 0.5589611640743638,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.686750591281232,
+          "brier": 0.2467858968771038,
+          "meanPrediction": 0.5597707030586265,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6929766338384357,
+          "brier": 0.2498643423125393,
+          "meanPrediction": 0.5582958313222145,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6873818792071038,
+      "meanBrier": 0.2470712619738419
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6772327187775081,
+          "brier": 0.24216512694287626,
+          "meanPrediction": 0.5150251173998578,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6897367064495195,
+          "brier": 0.2482761964063542,
+          "meanPrediction": 0.5148688993021541,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6796306419962702,
+          "brier": 0.24327411694583467,
+          "meanPrediction": 0.5156809953582215,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6888526213386279,
+          "brier": 0.24785885171395233,
+          "meanPrediction": 0.5141020795695086,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6838631721404814,
+      "meanBrier": 0.2453935730022544
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.676719689202182,
+          "brier": 0.24192315982957266,
+          "meanPrediction": 0.5296266689643699,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6885910032717466,
+          "brier": 0.24769780548266696,
+          "meanPrediction": 0.5296792897141751,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6812567361479941,
+          "brier": 0.2440985725895822,
+          "meanPrediction": 0.5304832985046923,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6890363266248761,
+          "brier": 0.24796199312511608,
+          "meanPrediction": 0.5290273987872233,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6839009388116997,
+      "meanBrier": 0.2454203827567345
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6770919484898112,
+          "brier": 0.24210659131764534,
+          "meanPrediction": 0.5441820931468707,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6883424243017063,
+          "brier": 0.24755211512279524,
+          "meanPrediction": 0.5444399314089587,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6837789717761312,
+          "brier": 0.2453601106443943,
+          "meanPrediction": 0.5452332393840476,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6901247056975081,
+          "brier": 0.24850702580516348,
+          "meanPrediction": 0.5438999466752525,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6848345125662892,
+      "meanBrier": 0.24588146072249958
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6783460408935174,
+          "brier": 0.24271059082423446,
+          "meanPrediction": 0.5586673948165584,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6889872185829857,
+          "brier": 0.24783419963443787,
+          "meanPrediction": 0.5591254656496205,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6871934081422705,
+          "brier": 0.24705072563036215,
+          "meanPrediction": 0.5599056858272291,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6921136986896407,
+          "brier": 0.249487133333266,
+          "meanPrediction": 0.5586936735387813,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6866600915771036,
+      "meanBrier": 0.24677066235557513
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 80,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6781890225724133,
+          "brier": 0.2426085002737892,
+          "meanPrediction": 0.5151079808305216,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6884788062161273,
+          "brier": 0.24766727465234534,
+          "meanPrediction": 0.5147863949889515,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.681418258624005,
+          "brier": 0.24416281615152077,
+          "meanPrediction": 0.5155097935685908,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6885464515971059,
+          "brier": 0.24771305971966354,
+          "meanPrediction": 0.5143832420056638,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6841581347524128,
+      "meanBrier": 0.2455379126993297
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 80,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6777278445917189,
+          "brier": 0.2423964663781287,
+          "meanPrediction": 0.5298825606562194,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6873306990480857,
+          "brier": 0.24709125342230373,
+          "meanPrediction": 0.5296843987388217,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6830071606143796,
+          "brier": 0.24496859683689254,
+          "meanPrediction": 0.5303995735954369,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6887448444726199,
+          "brier": 0.24782427555532352,
+          "meanPrediction": 0.5293471184695875,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6842026371817009,
+      "meanBrier": 0.24557014804816213
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 80,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6781590454455315,
+          "brier": 0.2426237723667143,
+          "meanPrediction": 0.5446075788479104,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6870819156914585,
+          "brier": 0.24695701382133306,
+          "meanPrediction": 0.5445311556943045,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6854946847001541,
+          "brier": 0.24621833024533393,
+          "meanPrediction": 0.5452361276038445,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6898468637739564,
+          "brier": 0.24838156540505227,
+          "meanPrediction": 0.5442577838079599,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6851456274027752,
+      "meanBrier": 0.2460451704596084
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 80,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6794789124713528,
+          "brier": 0.24328483554507568,
+          "meanPrediction": 0.55925799988285,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6877285982026675,
+          "brier": 0.24725927831233407,
+          "meanPrediction": 0.5593007788903999,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6888768352971234,
+          "brier": 0.24790385470705353,
+          "meanPrediction": 0.5599937305543448,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6918484573974797,
+          "brier": 0.24937800005542993,
+          "meanPrediction": 0.5590889625033074,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6869832008421559,
+      "meanBrier": 0.24695649215497328
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 160,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6808093850474244,
+          "brier": 0.24387572504339147,
+          "meanPrediction": 0.5151014975147851,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6882755390376618,
+          "brier": 0.24756854515232207,
+          "meanPrediction": 0.5147752406324201,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6842633291746909,
+          "brier": 0.245573502442184,
+          "meanPrediction": 0.5153451622173729,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6890055455733083,
+          "brier": 0.24793935450960433,
+          "meanPrediction": 0.5146254541901054,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6855884497082714,
+      "meanBrier": 0.24623928178687549
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 160,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6803840315044561,
+          "brier": 0.24367972812801011,
+          "meanPrediction": 0.5299975155774455,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6871306567989085,
+          "brier": 0.24699696176383212,
+          "meanPrediction": 0.5297292847915238,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6858204925429863,
+          "brier": 0.24636107903046905,
+          "meanPrediction": 0.5302940049999585,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6892211247773619,
+          "brier": 0.24805614002035026,
+          "meanPrediction": 0.5296109092537616,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6856390764059281,
+      "meanBrier": 0.2462734772356654
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 160,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6808555919289969,
+          "brier": 0.24393183487315206,
+          "meanPrediction": 0.5448415448329803,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6868858626983081,
+          "brier": 0.24687282233352728,
+          "meanPrediction": 0.544630879146709,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6882774041008194,
+          "brier": 0.2475962385928869,
+          "meanPrediction": 0.5451890487964585,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6903388762473505,
+          "brier": 0.24862114981545588,
+          "meanPrediction": 0.5445428441423981,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6865894337438687,
+      "meanBrier": 0.24675551140375554
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 160,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6822201719061193,
+          "brier": 0.2446259248806684,
+          "meanPrediction": 0.5596077637889277,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6875372144002685,
+          "brier": 0.24719057128298702,
+          "meanPrediction": 0.559453782875407,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.691630031422394,
+          "brier": 0.24927073599648106,
+          "meanPrediction": 0.5600041443328705,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6923547560416147,
+          "brier": 0.24962739195655245,
+          "meanPrediction": 0.5593948371182261,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.688435543442599,
+      "meanBrier": 0.24767865602917224
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 10,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6788397131196213,
+          "brier": 0.24293306513970478,
+          "meanPrediction": 0.5147984961050129,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6931081988589097,
+          "brier": 0.24988051284474444,
+          "meanPrediction": 0.5151961279428415,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6794877520063612,
+          "brier": 0.24316929513214425,
+          "meanPrediction": 0.5159215562369811,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6906416473263359,
+          "brier": 0.24870990653834382,
+          "meanPrediction": 0.5137148942917434,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.685519327827807,
+      "meanBrier": 0.24617319491373432
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 10,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6782253094276522,
+          "brier": 0.24262888829935506,
+          "meanPrediction": 0.5291183651930547,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6919942497027468,
+          "brier": 0.24931185608477754,
+          "meanPrediction": 0.5298523307261106,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.681177215202649,
+          "brier": 0.24402047813282188,
+          "meanPrediction": 0.5305840202569277,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6908166068977093,
+          "brier": 0.2487938755504762,
+          "meanPrediction": 0.5285771874703036,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6855533453076893,
+      "meanBrier": 0.24618877451685767
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 10,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6784846648058042,
+          "brier": 0.24272683457514427,
+          "meanPrediction": 0.5433980226384507,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6917726772229801,
+          "brier": 0.24915990672786897,
+          "meanPrediction": 0.5444603515228874,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6837584828658451,
+          "brier": 0.24529627731543838,
+          "meanPrediction": 0.5451952575609427,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6918981654604284,
+          "brier": 0.24931209522674078,
+          "meanPrediction": 0.5433873189651731,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6864784975887643,
+      "meanBrier": 0.2466237784612981
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 10,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6796147818272918,
+          "brier": 0.24322329235155754,
+          "meanPrediction": 0.5576149545190029,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6924398361256248,
+          "brier": 0.24942016377902193,
+          "meanPrediction": 0.5589957205540419,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6872276688916007,
+          "brier": 0.24698891676527368,
+          "meanPrediction": 0.5597310387258155,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6938822375050461,
+          "brier": 0.25025797234641384,
+          "meanPrediction": 0.5581195389304807,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6882911310873909,
+      "meanBrier": 0.24747258631056673
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 20,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6776612345370455,
+          "brier": 0.24238449459853534,
+          "meanPrediction": 0.5149778605319726,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6912509817716453,
+          "brier": 0.2490040871887629,
+          "meanPrediction": 0.5150527456316125,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6793194905575338,
+          "brier": 0.24311129032731868,
+          "meanPrediction": 0.5158212519775932,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6896978205005604,
+          "brier": 0.24826301481202281,
+          "meanPrediction": 0.513899866881757,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6844823818416963,
+      "meanBrier": 0.24569072173165996
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 20,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6770997408133616,
+          "brier": 0.24211167380346946,
+          "meanPrediction": 0.529434428006128,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.690122521980115,
+          "brier": 0.2484313539896116,
+          "meanPrediction": 0.5297884152352011,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6809785825499834,
+          "brier": 0.24395111095235714,
+          "meanPrediction": 0.5305539831347437,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6898748432980044,
+          "brier": 0.24835588771705375,
+          "meanPrediction": 0.5287953124940197,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6845189221603661,
+      "meanBrier": 0.245712506615623
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 20,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6774176021468573,
+          "brier": 0.24225230026455127,
+          "meanPrediction": 0.5438478711910014,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6898890467119814,
+          "brier": 0.24828352004674636,
+          "meanPrediction": 0.544475054148045,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.683531773554294,
+          "brier": 0.24522184836453398,
+          "meanPrediction": 0.5452349116826152,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6909576989997313,
+          "brier": 0.24888694565153002,
+          "meanPrediction": 0.5436383020269204,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6854490303532159,
+      "meanBrier": 0.2461611535818404
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 20,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6786115952756271,
+          "brier": 0.24280218840530585,
+          "meanPrediction": 0.558194982524216,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6905468525324793,
+          "brier": 0.24855586059876825,
+          "meanPrediction": 0.5590877379153373,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6869751513748384,
+          "brier": 0.2469156038400917,
+          "meanPrediction": 0.5598393611902631,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.69294231546345,
+          "brier": 0.24984948734732387,
+          "meanPrediction": 0.5584029307683815,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6872689786615986,
+      "meanBrier": 0.2470307850478724
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 40,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6772257250406524,
+          "brier": 0.2421629825859654,
+          "meanPrediction": 0.5151183067131094,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.689487959386072,
+          "brier": 0.24815822003395502,
+          "meanPrediction": 0.5149090463550925,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6798900421810682,
+          "brier": 0.24340565129424924,
+          "meanPrediction": 0.5156751176521165,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6888819069673908,
+          "brier": 0.24787384843968194,
+          "meanPrediction": 0.514143120251719,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6838714083937959,
+      "meanBrier": 0.24540017558846292
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 40,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6767208780402412,
+          "brier": 0.2419250321608028,
+          "meanPrediction": 0.529742370598506,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6883478608690125,
+          "brier": 0.24758314458277944,
+          "meanPrediction": 0.5297343179460302,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6815131696062784,
+          "brier": 0.24422951265417034,
+          "meanPrediction": 0.5304921884955023,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6890670612611047,
+          "brier": 0.24797647143454288,
+          "meanPrediction": 0.5290771753281449,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6839122424441592,
+      "meanBrier": 0.24542854020807386
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 40,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6771023097060154,
+          "brier": 0.24211438902010504,
+          "meanPrediction": 0.5443198588331932,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6881053801181062,
+          "brier": 0.24744229962325542,
+          "meanPrediction": 0.5445093953656581,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.684032999319997,
+          "brier": 0.24549156418266904,
+          "meanPrediction": 0.5452567055597515,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6901571005501141,
+          "brier": 0.248521736825463,
+          "meanPrediction": 0.5439583768924399,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6848494474235582,
+      "meanBrier": 0.2458924974128731
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 40,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6783665345368282,
+          "brier": 0.24272614171044044,
+          "meanPrediction": 0.5588266364008008,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6887567324297817,
+          "brier": 0.2477306707050804,
+          "meanPrediction": 0.5592088293786162,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6874455771815406,
+          "brier": 0.24718375966435674,
+          "meanPrediction": 0.5599434394514811,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6921479635639392,
+          "brier": 0.24950281796909926,
+          "meanPrediction": 0.5587606202279618,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6866792019280225,
+      "meanBrier": 0.2467858475122442
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 80,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6782921874577491,
+          "brier": 0.2426584014693898,
+          "meanPrediction": 0.5151625944734751,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6884024469315368,
+          "brier": 0.2476305465060562,
+          "meanPrediction": 0.5148128214258909,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6816350135959538,
+          "brier": 0.24427117945029564,
+          "meanPrediction": 0.5155042632300165,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6886110097757879,
+          "brier": 0.24774473007842368,
+          "meanPrediction": 0.5144053906243198,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6842351644402569,
+      "meanBrier": 0.24557621437604132
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 80,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6778357543023574,
+          "brier": 0.2424483444392385,
+          "meanPrediction": 0.5299474690164528,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6872574881298867,
+          "brier": 0.24705639358921472,
+          "meanPrediction": 0.5297173723496189,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6832222105870857,
+          "brier": 0.24507636168602528,
+          "meanPrediction": 0.5304006445889446,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6888103524033037,
+          "brier": 0.24785559325377457,
+          "meanPrediction": 0.5293730799158641,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6842814513556583,
+      "meanBrier": 0.24560917324206327
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 80,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6782721158567478,
+          "brier": 0.24267846364578968,
+          "meanPrediction": 0.5446825317009821,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6870120300123289,
+          "brier": 0.24692470096852284,
+          "meanPrediction": 0.5445704538486695,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6857082502864206,
+          "brier": 0.24632593436151806,
+          "meanPrediction": 0.5452437207292071,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6899133838036667,
+          "brier": 0.2484128356865456,
+          "meanPrediction": 0.5442875190898577,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.685226444989791,
+      "meanBrier": 0.24608548366559405
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 80,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6795975426891752,
+          "brier": 0.2433431325223092,
+          "meanPrediction": 0.5593426793661394,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6876621981149658,
+          "brier": 0.24723014637731702,
+          "meanPrediction": 0.5593461373299486,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6890891316743212,
+          "brier": 0.24801171940058425,
+          "meanPrediction": 0.5600077211347999,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6919160513755349,
+          "brier": 0.24940952501626026,
+          "meanPrediction": 0.5591224071158799,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6870662309634993,
+      "meanBrier": 0.24699863082911766
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 160,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6809124715623744,
+          "brier": 0.24392610008062943,
+          "meanPrediction": 0.5151271289033629,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6882756671017777,
+          "brier": 0.24756871263038333,
+          "meanPrediction": 0.5147900488504894,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6843992877633887,
+          "brier": 0.24564125166471884,
+          "meanPrediction": 0.515341360829132,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6890625392695016,
+          "brier": 0.24796741781194426,
+          "meanPrediction": 0.514634870231464,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6856624914242606,
+      "meanBrier": 0.24627587054691896
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 160,
+        "homeLogOdds": 0.12
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.680489254770589,
+          "brier": 0.24373086209042166,
+          "meanPrediction": 0.5300263967784138,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6871322164099797,
+          "brier": 0.2469979600337484,
+          "meanPrediction": 0.5297459888757172,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6859556341570332,
+          "brier": 0.24642843595228786,
+          "meanPrediction": 0.5302922357868011,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6892786285917805,
+          "brier": 0.24808407440276353,
+          "meanPrediction": 0.5296214012419507,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6857139334823454,
+      "meanBrier": 0.24631033311980538
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 160,
+        "homeLogOdds": 0.18
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6809630557193975,
+          "brier": 0.2439839513218546,
+          "meanPrediction": 0.5448735752435874,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6868888728292472,
+          "brier": 0.2468748441411248,
+          "meanPrediction": 0.5446493940631122,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6884117731676411,
+          "brier": 0.24766329255058755,
+          "meanPrediction": 0.5451892901219612,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.6903968825082257,
+          "brier": 0.2486490192702717,
+          "meanPrediction": 0.5445543987547351,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6866651460561278,
+      "meanBrier": 0.24679277682095968
+    },
+    {
+      "family": "full",
+      "parameters": {
+        "opponentWeight": 1,
+        "priorGames": 160,
+        "homeLogOdds": 0.24
+      },
+      "byYear": {
+        "2020": {
+          "games": 605,
+          "logLoss": 0.6823299733656462,
+          "brier": 0.24467923110967604,
+          "meanPrediction": 0.5596428201717685,
+          "homeWinRate": 0.5289256198347108
+        },
+        "2021": {
+          "games": 569,
+          "logLoss": 0.6875416879739924,
+          "brier": 0.2471937928138581,
+          "meanPrediction": 0.5594740108616434,
+          "homeWinRate": 0.5413005272407733
+        },
+        "2022": {
+          "games": 605,
+          "logLoss": 0.6917636709622624,
+          "brier": 0.24933757232980874,
+          "meanPrediction": 0.5600063596170956,
+          "homeWinRate": 0.4975206611570248
+        },
+        "2023": {
+          "games": 604,
+          "logLoss": 0.692413257047309,
+          "brier": 0.2496552601715892,
+          "meanPrediction": 0.5594074331347859,
+          "homeWinRate": 0.5182119205298014
+        }
+      },
+      "meanLogLoss": 0.6885121473373025,
+      "meanBrier": 0.24771646410623302
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+{
+  "status": "PASS",
+  "report": [
+    {
+      "width": 1440,
+      "model": "pyth-sos-logit-v1-20260913",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "example": {
+        "home": "OB",
+        "away": "NC",
+        "expectedHomeWinPercent": 53.41752000313158,
+        "display": "53.42%"
+      },
+      "layout": {
+        "overflow": false,
+        "formulaOverflow": false,
+        "buttonFocus": "SUMMARY",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 716.25,
+            "bottom": 62.03125
+          },
+          {
+            "id": "home-standings",
+            "height": 716.25,
+            "bottom": 62.03125
+          },
+          {
+            "id": "home-monthly",
+            "height": 716.25,
+            "bottom": 62.03125
+          }
+        ]
+      },
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 1280,
+      "model": "pyth-sos-logit-v1-20260913",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "example": {
+        "home": "OB",
+        "away": "NC",
+        "expectedHomeWinPercent": 53.41752000313158,
+        "display": "53.42%"
+      },
+      "layout": {
+        "overflow": false,
+        "formulaOverflow": false,
+        "buttonFocus": "SUMMARY",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 716.25,
+            "bottom": 62.40625
+          },
+          {
+            "id": "home-standings",
+            "height": 716.25,
+            "bottom": 62.40625
+          },
+          {
+            "id": "home-monthly",
+            "height": 716.25,
+            "bottom": 62.40625
+          }
+        ]
+      },
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 390,
+      "model": "pyth-sos-logit-v1-20260913",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "example": {
+        "home": "OB",
+        "away": "NC",
+        "expectedHomeWinPercent": 53.41752000313158,
+        "display": "53.42%"
+      },
+      "layout": {
+        "overflow": false,
+        "formulaOverflow": false,
+        "buttonFocus": "SUMMARY",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 660.1875,
+            "bottom": -1401.859375
+          },
+          {
+            "id": "home-standings",
+            "height": 746.34375,
+            "bottom": -639.515625
+          },
+          {
+            "id": "home-monthly",
+            "height": 685.15625,
+            "bottom": 61.640625
+          }
+        ]
+      },
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 320,
+      "model": "pyth-sos-logit-v1-20260913",
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "example": {
+        "home": "OB",
+        "away": "NC",
+        "expectedHomeWinPercent": 53.41752000313158,
+        "display": "53.42%"
+      },
+      "layout": {
+        "overflow": false,
+        "formulaOverflow": false,
+        "buttonFocus": "SUMMARY",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 660.1875,
+            "bottom": -1440.859375
+          },
+          {
+            "id": "home-standings",
+            "height": 765.53125,
+            "bottom": -659.328125
+          },
+          {
+            "id": "home-monthly",
+            "height": 705.546875,
+            "bottom": 62.21875
+          }
+        ]
+      },
+      "errors": [],
+      "failed": []
+    }
+  ]
+}

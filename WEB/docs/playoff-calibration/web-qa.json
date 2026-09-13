@@ -1,0 +1,175 @@
+{
+  "status": "PASS",
+  "report": [
+    {
+      "width": 1440,
+      "status": "2026 정규시즌 · 수집된 종료 경기 기준",
+      "forecastModel": "pyth-sos-logit-v1-20260913",
+      "forecastParameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "asOf": "2026-09-12",
+      "rows": [
+        {
+          "team": "KT",
+          "g": 123,
+          "probability": 1
+        },
+        {
+          "team": "SS",
+          "g": 125,
+          "probability": 1
+        },
+        {
+          "team": "LG",
+          "g": 125,
+          "probability": 0.9967
+        },
+        {
+          "team": "HT",
+          "g": 125,
+          "probability": 0.99045
+        },
+        {
+          "team": "OB",
+          "g": 127,
+          "probability": 0.7792
+        },
+        {
+          "team": "NC",
+          "g": 121,
+          "probability": 0.23135
+        },
+        {
+          "team": "HH",
+          "g": 124,
+          "probability": 0.0019
+        },
+        {
+          "team": "SK",
+          "g": 128,
+          "probability": 0
+        },
+        {
+          "team": "LT",
+          "g": 123,
+          "probability": 0.0004
+        },
+        {
+          "team": "WO",
+          "g": 131,
+          "probability": 0
+        }
+      ],
+      "layout": {
+        "overflow": false,
+        "footnote": "기준일 2026-09-12 · 상대 수준·평균 회귀 보정 · 10,000회 · 자체 추정",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 704.640625,
+            "bottom": 1033.421875
+          },
+          {
+            "id": "home-standings",
+            "height": 704.640625,
+            "bottom": 1033.421875
+          },
+          {
+            "id": "home-monthly",
+            "height": 704.640625,
+            "bottom": 1033.421875
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 390,
+      "status": "2026 정규시즌 · 수집된 종료 경기 기준",
+      "forecastModel": "pyth-sos-logit-v1-20260913",
+      "forecastParameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "asOf": "2026-09-12",
+      "rows": [
+        {
+          "team": "KT",
+          "g": 123,
+          "probability": 1
+        },
+        {
+          "team": "SS",
+          "g": 125,
+          "probability": 1
+        },
+        {
+          "team": "LG",
+          "g": 125,
+          "probability": 0.9967
+        },
+        {
+          "team": "HT",
+          "g": 125,
+          "probability": 0.99045
+        },
+        {
+          "team": "OB",
+          "g": 127,
+          "probability": 0.7792
+        },
+        {
+          "team": "NC",
+          "g": 121,
+          "probability": 0.23135
+        },
+        {
+          "team": "HH",
+          "g": 124,
+          "probability": 0.0019
+        },
+        {
+          "team": "SK",
+          "g": 128,
+          "probability": 0
+        },
+        {
+          "team": "LT",
+          "g": 123,
+          "probability": 0.0004
+        },
+        {
+          "team": "WO",
+          "g": 131,
+          "probability": 0
+        }
+      ],
+      "layout": {
+        "overflow": false,
+        "footnote": "기준일 2026-09-12 · 상대 수준·평균 회귀 보정 · 10,000회 · 자체 추정",
+        "panels": [
+          {
+            "id": "home-results",
+            "height": 660.1875,
+            "bottom": 1328.140625
+          },
+          {
+            "id": "home-standings",
+            "height": 734.734375,
+            "bottom": 2078.875
+          },
+          {
+            "id": "home-monthly",
+            "height": 685.15625,
+            "bottom": 2780.03125
+          }
+        ]
+      },
+      "errors": []
+    }
+  ]
+}

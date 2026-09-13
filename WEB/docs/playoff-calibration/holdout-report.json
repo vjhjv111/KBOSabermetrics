@@ -1,0 +1,2248 @@
+{
+  "selectionSha256": "fdd2b09ef65d801ddc9e7ccbc4d66304f88cbe7389ca28ddd8c5d73559f50f9e",
+  "selectedFamily": "shrink_opponent",
+  "holdoutYear": 2025,
+  "gameMetrics": {
+    "baseline": {
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 0,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2025": {
+          "games": 581,
+          "logLoss": 0.7027309423675947,
+          "brier": 0.25341405185018934,
+          "meanPrediction": 0.5012057126265155,
+          "homeWinRate": 0.5025817555938038
+        }
+      },
+      "meanLogLoss": 0.7027309423675947,
+      "meanBrier": 0.25341405185018934
+    },
+    "shrink": {
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2025": {
+          "games": 581,
+          "logLoss": 0.6873552453789132,
+          "brier": 0.24700530042435173,
+          "meanPrediction": 0.5002902733127452,
+          "homeWinRate": 0.5025817555938038
+        }
+      },
+      "meanLogLoss": 0.6873552453789132,
+      "meanBrier": 0.24700530042435173
+    },
+    "shrink_home": {
+      "parameters": {
+        "opponentWeight": 0,
+        "priorGames": 40,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2025": {
+          "games": 581,
+          "logLoss": 0.6875065900243179,
+          "brier": 0.2470707078451196,
+          "meanPrediction": 0.5148597088840413,
+          "homeWinRate": 0.5025817555938038
+        }
+      },
+      "meanLogLoss": 0.6875065900243179,
+      "meanBrier": 0.2470707078451196
+    },
+    "shrink_opponent": {
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0
+      },
+      "byYear": {
+        "2025": {
+          "games": 581,
+          "logLoss": 0.686922295232667,
+          "brier": 0.2468158795841132,
+          "meanPrediction": 0.5000811022663566,
+          "homeWinRate": 0.5025817555938038
+        }
+      },
+      "meanLogLoss": 0.686922295232667,
+      "meanBrier": 0.2468158795841132
+    },
+    "full": {
+      "parameters": {
+        "opponentWeight": 0.5,
+        "priorGames": 40,
+        "homeLogOdds": 0.06
+      },
+      "byYear": {
+        "2025": {
+          "games": 581,
+          "logLoss": 0.6870697742336684,
+          "brier": 0.24688191429896483,
+          "meanPrediction": 0.5146743329028995,
+          "homeWinRate": 0.5025817555938038
+        }
+      },
+      "meanLogLoss": 0.6870697742336684,
+      "meanBrier": 0.24688191429896483
+    }
+  },
+  "pairedUncertainty": {
+    "method": "Paired seven-day block bootstrap (Unix-epoch aligned), 5000 resamples; does not measure season-to-season uncertainty",
+    "blocks": 25,
+    "candidateMinusBaselineLogLoss95": [
+      -0.02827762808720475,
+      -0.0040007735755781095
+    ],
+    "candidateMinusBaselineBrier95": [
+      -0.011692840026405147,
+      -0.001823115511950777
+    ]
+  },
+  "playoffMetrics": {
+    "baseline": [
+      {
+        "year": 2024,
+        "meanBrier": 0.18456999728888887,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2024-04-18",
+            "remaining": 611,
+            "brier": 0.4933913242222222,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.7289166666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9989,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.8035,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.0,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.9985166666666668,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.016116666666666665,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.11368333333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.3553,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.9850666666666668,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2024-05-14",
+            "remaining": 510,
+            "brier": 0.19919253122222222,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.004783333333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9886,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.024116666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.94105,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.00125,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.9978166666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9835,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.16461666666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8865166666666664,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.00775,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2024-06-07",
+            "remaining": 410,
+            "brier": 0.15276958963888887,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.30635833333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9880166666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.05285,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.99805,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.1265,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.6104583333333331,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9877,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.22705833333333325,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.6900583333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.01295,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2024-07-04",
+            "remaining": 302,
+            "brier": 0.1447910135277778,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.109075,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.998575,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.06334166666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9650500000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.2854,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.6345833333333335,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9441750000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.1689,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7984666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.032433333333333335,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2024-08-03",
+            "remaining": 205,
+            "brier": 0.08885803709444443,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.11962666666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9999,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.27816833333333346,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.966685,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.0697,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.42335166666666657,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.8114750000000001,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.3605,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.952893333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0177,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2024-08-31",
+            "remaining": 99,
+            "brier": 0.028417488027777753,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.17145833333333332,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5640750000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9941416666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.2011,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.06383333333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9021916666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.1031,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0001,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "year": 2025,
+        "meanBrier": 0.21674926256944446,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2025-04-22",
+            "remaining": 602,
+            "brier": 0.3085890231666667,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.99615,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.23451666666666665,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.9998,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.4155,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.00465,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.24915,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.10231666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9979166666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2025-05-17",
+            "remaining": 495,
+            "brier": 0.23836007199999995,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9987,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.18488333333333332,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.3979,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.8006333333333332,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.12025,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.34578333333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.19065,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9612,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2025-06-08",
+            "remaining": 401,
+            "brier": 0.18413597083333336,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9606,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.3182,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.6290666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.4851,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.03571666666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.008716666666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.5789,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9837,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2025-07-04",
+            "remaining": 305,
+            "brier": 0.2351747364444444,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.98405,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.6605666666666665,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5828333333333332,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.98385,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.5729166666666669,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.07,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0002,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4804833333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.6651,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2025-08-06",
+            "remaining": 202,
+            "brier": 0.21019445616666674,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.3848833333333337,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.29063333333333347,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.921,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.13983333333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0078,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.6741499999999996,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.5817,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2025-08-31",
+            "remaining": 98,
+            "brier": 0.12404131680555566,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.11280166666666672,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.4346266666666671,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.5791266666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.19769166666666646,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.003574999999999999,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.7815183333333329,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8906599999999999,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "shrink_opponent": [
+      {
+        "year": 2024,
+        "meanBrier": 0.1682074156638889,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2024-04-18",
+            "remaining": 611,
+            "brier": 0.4201022015249999,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.5574199999999999,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9477583333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.026669999999999992,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.6182,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.01037,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.933908333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.13731999999999997,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4472033333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.48,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.8411499999999998,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2024-05-14",
+            "remaining": 510,
+            "brier": 0.19817071930555558,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.040225,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9387,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.089675,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.82705,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.013916666666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.95375,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.91245,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.38857500000000006,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7841583333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0515,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2024-06-07",
+            "remaining": 410,
+            "brier": 0.1425965451527778,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.27526666666666677,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9681833333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.08556666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.98465,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.15175,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.5171000000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9591,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.3435250000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.6813583333333336,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0335,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2024-07-04",
+            "remaining": 302,
+            "brier": 0.1364628405694445,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.1231666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.995125,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.09679999999999998,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9419333333333337,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.2621,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.5815750000000004,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9143500000000006,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.2562,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7807166666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.04803333333333333,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2024-08-03",
+            "remaining": 205,
+            "brier": 0.08477498898611112,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.1117083333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9998,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.33489999999999986,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9527916666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.0656,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.39409166666666656,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.7664750000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4146,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.936158333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.023874999999999997,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2024-08-31",
+            "remaining": 99,
+            "brier": 0.027137198444444427,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.17400833333333335,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5790750000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9918166666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.1847,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.056908333333333325,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.8917916666666664,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.1216,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0001,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "year": 2025,
+        "meanBrier": 0.20584474566018518,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2025-04-22",
+            "remaining": 602,
+            "brier": 0.2619231903222222,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.8720616666666663,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.31156999999999996,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.9281,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9998,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.432,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.10435333333333338,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.250775,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.24547833333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8472083333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.008653333333333334,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2025-05-17",
+            "remaining": 495,
+            "brier": 0.20560681433333333,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9777833333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.2658833333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.3834,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9999,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.7582000000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.21901666666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.3128333333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.2819166666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8010666666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2025-06-08",
+            "remaining": 401,
+            "brier": 0.17610848205555554,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.92385,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.34185,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5778,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.99845,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.5371666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.08678333333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.02015,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.57875,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9352,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2025-07-04",
+            "remaining": 305,
+            "brier": 0.24134527247222218,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.96935,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.6749083333333331,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5635249999999998,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.95285,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.649125,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.1143,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0009,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4949416666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.5801,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2025-08-06",
+            "remaining": 202,
+            "brier": 0.21939867500000004,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9998,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.4103500000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.32245,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.9314,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.18114999999999992,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0117,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.6620499999999999,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.4811,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2025-08-31",
+            "remaining": 98,
+            "brier": 0.13068603977777787,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.11546666666666676,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.4672250000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.6075999999999996,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.21338333333333298,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.004391666666666666,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.7512083333333328,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8407249999999993,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "full": [
+      {
+        "year": 2024,
+        "meanBrier": 0.16725751929583332,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2024-04-18",
+            "remaining": 611,
+            "brier": 0.4185612169444444,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.5732833333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.953666666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.02671666666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.6063,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.01065,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.9335583333333334,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.14619166666666664,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4286416666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.4835,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.8374916666666666,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2024-05-14",
+            "remaining": 510,
+            "brier": 0.19577720850000002,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.042116666666666656,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9385833333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.09566666666666669,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.82425,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.012933333333333331,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.9542,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9109166666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.37423333333333336,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7947499999999998,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.05235,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2024-06-07",
+            "remaining": 410,
+            "brier": 0.14142109275555553,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.2776583333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9677733333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.09122333333333331,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.98555,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.1435,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.5224150000000001,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.9574,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.3374316666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.6841983333333337,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.03285,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2024-07-04",
+            "remaining": 302,
+            "brier": 0.13643651897222225,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.114925,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9961499999999999,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.09970833333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9471749999999998,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.2547,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.58955,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.906125,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.2624,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7859000000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.04336666666666667,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2024-08-03",
+            "remaining": 205,
+            "brier": 0.08552724545833329,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.10476666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.9997833333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.3362083333333334,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9568000000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.0662,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.41463333333333313,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.7590916666666667,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4039,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9376000000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.021016666666666666,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2024-08-31",
+            "remaining": 99,
+            "brier": 0.025821833144444428,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.16222333333333339,
+                "qualified": 0.0
+              },
+              {
+                "team": "HT",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5949733333333336,
+                "qualified": 1.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9918399999999999,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.1899,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.05850666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.8822899999999998,
+                "qualified": 1.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.1202,
+                "qualified": 0.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.9999666666666666,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0001,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "year": 2025,
+        "meanBrier": 0.20235111190046298,
+        "checkpoints": [
+          {
+            "threshold": 20,
+            "date": "2025-04-22",
+            "remaining": 602,
+            "brier": 0.26093763136111114,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.8817250000000002,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.2987750000000002,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.92405,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9998,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.43895,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.11526666666666663,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.2563333333333333,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.23450833333333335,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8416999999999998,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.008891666666666668,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 40,
+            "date": "2025-05-17",
+            "remaining": 495,
+            "brier": 0.20002513566666663,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9763666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.2471166666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.3815,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9997,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.7653,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.27420000000000005,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.30931666666666663,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.26795,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.7785499999999999,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 60,
+            "date": "2025-06-08",
+            "remaining": 401,
+            "brier": 0.17159805144444445,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.92495,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.339,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5702166666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9985,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.5382166666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.11183333333333335,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.019133333333333336,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.56815,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.93,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 80,
+            "date": "2025-07-04",
+            "remaining": 305,
+            "brier": 0.23551663238888895,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9705,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.6733666666666668,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.5443166666666671,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 0.9499,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.6547833333333335,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.1453,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0007666666666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.4986666666666668,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.5624,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 100,
+            "date": "2025-08-06",
+            "remaining": 202,
+            "brier": 0.2174877128055556,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 0.9999,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.40232500000000015,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.3294416666666667,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.9304,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.2042583333333333,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.011,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.662975,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.4597,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          },
+          {
+            "threshold": 120,
+            "date": "2025-08-31",
+            "remaining": 98,
+            "brier": 0.1285415077361112,
+            "teams": [
+              {
+                "team": "HH",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "HT",
+                "probability": 0.12231666666666674,
+                "qualified": 0.0
+              },
+              {
+                "team": "KT",
+                "probability": 0.47239166666666704,
+                "qualified": 0.0
+              },
+              {
+                "team": "LG",
+                "probability": 1.0,
+                "qualified": 1.0
+              },
+              {
+                "team": "LT",
+                "probability": 0.5904416666666665,
+                "qualified": 0.0
+              },
+              {
+                "team": "NC",
+                "probability": 0.21850833333333308,
+                "qualified": 1.0
+              },
+              {
+                "team": "OB",
+                "probability": 0.0040416666666666665,
+                "qualified": 0.0
+              },
+              {
+                "team": "SK",
+                "probability": 0.7470416666666664,
+                "qualified": 1.0
+              },
+              {
+                "team": "SS",
+                "probability": 0.8452583333333332,
+                "qualified": 1.0
+              },
+              {
+                "team": "WO",
+                "probability": 0.0,
+                "qualified": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "playoffLimitations": [
+    "10000 trials; paired random draws for model comparison",
+    "Remaining home/away assignments use final recorded schedule; ignores as-of postponement uncertainty",
+    "Future draws not simulated (same as baseline); 2024 fifth-place tiebreak label KT=1 SK=0",
+    "Checkpoints overlap and share the same final qualifier labels; not independent samples",
+    "Only one untouched test season; this is initial validation, not proof of future accuracy"
+  ]
+}
