@@ -1,0 +1,15 @@
+{
+  "suite": "DiamondSeason.Validation",
+  "checksPassed": 371,
+  "teams": 10,
+  "gamesPerTeam": 144,
+  "completedFixtures": 720,
+  "seasonLoopSeconds": 8.43,
+  "careerBoundaryChecksAdded": 28,
+  "sourceDatabase": "independent synthetic fixture; original source hash unchanged",
+  "stateDatabase": "separate diamond_career.db",
+  "realDatabaseBalanceGames": 270,
+  "realDatabaseYears": [2025, 2026],
+  "realDatabaseRunsPerTeamGameRange": [4.539, 4.733],
+  "result": "passed"
+}

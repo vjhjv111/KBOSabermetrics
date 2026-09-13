@@ -70,6 +70,13 @@ builder.Services.AddSingleton<ComparisonWebService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
 builder.Services.AddSingleton(services => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
     roster: services.GetRequiredService<DiamondRosterService>()));
+builder.Services.AddSingleton(_ => new DiamondCareerService(settings.StateDirectory));
+builder.Services.AddSingleton(services => new DiamondSeasonService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
+    services.GetRequiredService<DiamondRosterService>(),
+    rosterOverride: services.GetRequiredService<DiamondCareerService>().GetRosterOverride,
+    gameCompleted: services.GetRequiredService<DiamondCareerService>().ApplyGame));
+builder.Services.AddSingleton<DiamondSeasonMatchService>();
+builder.Services.AddSingleton(_ => new DiamondSaveCodeService(settings.StateDirectory));
 // Opt-in for isolated local UI/API verification where Windows user-profile keys are unavailable.
 if(development && builder.Configuration.GetValue<bool>("Site:UseEphemeralDevelopmentKeys"))
     builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
@@ -179,6 +186,10 @@ app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(n
     demo=settings.Demo
 }));
 app.MapDiamondGame();
+app.MapDiamondSeason();
+app.MapDiamondCareer();
+app.MapDiamondMatch();
+app.MapDiamondSaveCode();
 app.MapGet("/api/health",()=>Results.Ok(new{status=databaseReady?"ok":"waiting_for_database",databaseReady,databasePath=settings.DatabasePath}));
 app.MapGet("/api/ready",()=>databaseReady
     ? Results.Ok(new{status="ready"})

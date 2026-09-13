@@ -148,9 +148,9 @@ public sealed partial class DiamondRosterService
         return profiles;
     }
     private static DiamondProfile Profile(string hands)=>new()
-    { BatsThrows=hands,Throws=hands.StartsWith('좌')?"L":hands.StartsWith('우')?"R":null,
+    { BatsThrows=hands,Throws=DiamondDelivery.ThrowingHand(null,hands),
       Bats=hands.EndsWith("양타",StringComparison.Ordinal)?"S":hands.EndsWith("좌타",StringComparison.Ordinal)?"L":hands.EndsWith("우타",StringComparison.Ordinal)?"R":null,
-      Delivery=hands.Contains('언')?"underhand":null };
+      Delivery=DiamondDelivery.Normalize(null,hands) };
     private static DiamondDiscipline Discipline(SqliteDataReader r)=>new()
     { ZonePitchRate=Ratio(N(r,"Z"),N(r,"Z")+N(r,"OZ")),ZoneSwingRate=Ratio(N(r,"ZS"),N(r,"Z")),ChaseRate=Ratio(N(r,"OS"),N(r,"OZ")),ZoneContactRate=Ratio(N(r,"ZC"),N(r,"ZS")),OutZoneContactRate=Ratio(N(r,"OC"),N(r,"OS")) };
     private static void AddMissingNotes(List<string> notes,DiamondProfile profile,DiamondDiscipline discipline)

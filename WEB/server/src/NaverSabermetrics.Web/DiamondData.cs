@@ -41,11 +41,59 @@ public sealed class DiamondPitcher
 }
 public sealed class DiamondProfile
 {
+    public DiamondGameRatings? GameRatings { get; set; }
     public string BatsThrows { get; set; } = "";
     public double? HeightCm { get; set; }
+    public string? Position { get; set; }
+    public string? BodyType { get; set; }
     public string? Throws { get; set; }
     public string? Bats { get; set; }
+    /// <summary>overhand, sidearm, or underhand; imported Korean descriptions are also accepted.</summary>
     public string? Delivery { get; set; }
+}
+/// <summary>Same canonical release coordinates and profile rules as diamond-game/lib/player-motion.ts.</summary>
+public static class DiamondDelivery
+{
+    public static string Normalize(string? value, string? description = null)
+    {
+        static string? Parse(string? text)
+        {
+            var compact = System.Text.RegularExpressions.Regex.Replace((text ?? "").ToLowerInvariant(), @"[\s_-]", "");
+            if (System.Text.RegularExpressions.Regex.IsMatch(compact, "underhand|submarine|언더|잠수|^[좌우]언")) return "underhand";
+            if (System.Text.RegularExpressions.Regex.IsMatch(compact, "sidearm|사이드|^[좌우]사")) return "sidearm";
+            if (System.Text.RegularExpressions.Regex.IsMatch(compact, "overhand|overarm|오버|일반")) return "overhand";
+            return null;
+        }
+        return Parse(value) ?? Parse(description) ?? "overhand";
+    }
+    public static string? ThrowingHand(string? value, string? description = null)
+    {
+        var hand = value?.Trim().ToLowerInvariant();
+        if (hand is "l" or "left" || hand?.StartsWith('좌') == true) return "L";
+        if (hand is "r" or "right" || hand?.StartsWith('우') == true) return "R";
+        var text = description?.Trim();
+        return text?.StartsWith('좌') == true ? "L" : text?.StartsWith('우') == true ? "R" : null;
+    }
+    public static double BodyScale(double? heightCm) => heightCm is > 0 and <= 250 && double.IsFinite(heightCm.Value) ? heightCm.Value / 185 : 1;
+    // Ready colliders are ordered body/limbs (0..9), head (10..14), batting hands (15+).
+    // An enclosing circular cross-section matches the maximum width/depth applied by player-model.ts.
+    public static double ColliderRadiusFactor(int index, string? bodyType) => index >= 15 ? 1 : bodyType switch
+    {
+        "power" => index < 10 ? 1.15 : 1.0234,
+        "lean" => index < 10 ? .94 : .9928,
+        _ => 1
+    };
+    public static DiamondPosition Release(string style, int hand, double? heightCm)
+    {
+        var scale = BodyScale(heightCm);
+        var local = Normalize(style) switch
+        {
+            "sidearm" => new DiamondPosition(-.72, 1.43, .20),
+            "underhand" => new DiamondPosition(-.58, 1.08, .22),
+            _ => new DiamondPosition(-.33, 1.84, .12)
+        };
+        return new(local.X * hand * scale, .254 + local.Y * scale, -18.44 + local.Z * scale);
+    }
 }
 public sealed class DiamondDiscipline
 {
@@ -111,17 +159,25 @@ public sealed class DiamondData
     public DiamondDiscipline? Discipline(string id, string side) =>
         (side == "batter" ? _batterSource : _pitcherSource).GetValueOrDefault(id)?.Discipline;
     public IReadOnlyList<DiamondArsenal> Arsenal(string id) => _arsenals.TryGetValue(id, out var list) && list.Count > 0 ? list : DefaultArsenal;
-    public IReadOnlyList<DiamondCapsule> Colliders(bool left) => _colliders[left ? "left" : "right"];
+    public IReadOnlyList<DiamondCapsule> Colliders(bool left, double? heightCm = null, string? bodyType = null)
+    {
+        var scale = DiamondDelivery.BodyScale(heightCm);
+        var capsules = _colliders[left ? "left" : "right"];
+        if (scale == 1 && bodyType is not ("power" or "lean")) return capsules;
+        return capsules.Select((c,index) => new DiamondCapsule(new(c.A.X * scale, c.A.Y * scale, c.A.Z * scale), new(c.B.X * scale, c.B.Y * scale, c.B.Z * scale), c.Radius * scale * DiamondDelivery.ColliderRadiusFactor(index, bodyType))).ToArray();
+    }
     public bool ThrowsLeft(string id)
     {
         var p = Profile(id, "pitcher");
-        return p?.Throws is { Length: > 0 } hand ? hand == "L" : p?.BatsThrows.StartsWith("좌", StringComparison.Ordinal) == true;
+        return DiamondDelivery.ThrowingHand(p?.Throws, p?.BatsThrows) == "L";
     }
-    public bool Underhand(string id)
+    public string DeliveryStyle(string id)
     {
         var p = Profile(id, "pitcher");
-        return p?.Delivery == "underhand" || p?.BatsThrows.Contains('언') == true;
+        return DiamondDelivery.Normalize(p?.Delivery, p?.BatsThrows);
     }
+    public bool Underhand(string id) => DeliveryStyle(id) == "underhand";
+    public bool Sidearm(string id) => DeliveryStyle(id) == "sidearm";
     public bool BatsLeft(string batter, string pitcher)
     {
         var p = Profile(batter, "batter");

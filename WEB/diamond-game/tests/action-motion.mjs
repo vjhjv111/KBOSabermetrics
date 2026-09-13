@@ -11,10 +11,8 @@ assert(engine.batsLeft(byName('디아즈'),byName('폰세')));
 assert(!engine.batsLeft(byName('안현민'),byName('폰세')));
 for(const name of ['김주원','레이예스']){assert(engine.batsLeft(byName(name),byName('폰세')));assert(!engine.batsLeft(byName(name),byName('양현종')));}
 assert(engine.isUnderhand(byName('고영표')));assert(!engine.throwsLeft(byName('폰세')));assert(engine.throwsLeft(byName('양현종')));
-const source=fs.readFileSync('app/action-scene.tsx','utf8');
-const helpers=ts.transpileModule(source.slice(source.indexOf('const V='),source.indexOf('export default function')),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
 const {createPlayer:player}=load('lib/player-model.ts');
-const {poseBatter,posePitcher}=new Function('THREE','clamp',helpers+';return {poseBatter,posePitcher};')(THREE,engine.clamp);
+const {poseBatter,posePitcher}=load('lib/player-pose.ts');
 const V=(...n)=>new THREE.Vector3(...n);let worstWrist=0,skinPoseChecks=0,worstPitchWrist=0,worstPlantedFoot=0;
 function inspectSkinPose(model){
  model.root.updateWorldMatrix(true,true);model.root.updateMatrixWorld(true);

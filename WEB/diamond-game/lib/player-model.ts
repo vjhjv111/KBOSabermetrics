@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import {PlayerAppearance} from "./player-appearance";
-import {createPlayerSurface} from "./player-surfaces";
+import {PlayerAppearance,PlayerCustomization,PlayerHairStyle,normalizePlayerCustomization,playerDimensions} from "./player-appearance";
+import {createPlayerSurface,createPlayerRoughness} from "./player-surfaces";
 
 const v=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 type Profile=[y:number,width:number,depth:number,forward?:number,side?:number];
@@ -15,6 +15,8 @@ export type PlayerModel={
  jersey:SurfaceMaterial;cap:SurfaceMaterial;accent:SurfaceMaterial;
  lettering:{area:"front"|"back"|"cap";decal:THREE.Mesh;material:THREE.MeshStandardMaterial}[];
  appearanceKey:string;
+ appearance:Required<PlayerCustomization>;
+ detailMeshes:THREE.Mesh[];
 };
 
 function object(parent:THREE.Object3D,x=0,y=0,z=0){
@@ -173,14 +175,15 @@ function headGeometry(){
  geometry.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));return geometry;
 }
 
-function hairGeometry(){
+function hairGeometry(style:PlayerHairStyle="short"){
  const geometry=loft([[0,.1,.1],[1,.1,.1]],32,12),positions=geometry.getAttribute("position");
  for(let row=0;row<=12;row++)for(let col=0;col<=32;col++){
   const angle=col/32*Math.PI*2,front=Math.max(0,Math.cos(angle));
   // A hairline follows the temples and nape, staying above the eyebrows under the bill.
-  const bottom=.023+.111*front*front,y=THREE.MathUtils.lerp(bottom,.191,row/12);
+  const back=Math.max(0,-Math.cos(angle)),bottom=(style==="flow"?.023-back*.064:style==="buzz"?.04:.023)+.111*front*front,y=THREE.MathUtils.lerp(bottom,.191,row/12);
   const [,w,d,z=0]=profileAt(headProfile,y);
-  positions.setXYZ(row*33+col,Math.sin(angle)*(w+.0018),y,z+Math.cos(angle)*(d+.0018));
+  const layer=style==="buzz"?.0006:style==="flow"?.005+back*.003:.0018;
+  positions.setXYZ(row*33+col,Math.sin(angle)*(w+layer),y,z+Math.cos(angle)*(d+layer));
  }
  geometry.computeVertexNormals();return geometry;
 }
@@ -222,16 +225,16 @@ function brimGeometry(){
 function headDetails(head:THREE.Object3D,skin:SurfaceMaterial,cap:SurfaceMaterial,cloth:THREE.Texture|null,isBatter:boolean){
  const faceMaterial=skin.clone();faceMaterial.vertexColors=true;
  add(headGeometry(),faceMaterial,head);add(noseGeometry(),skin,head);
- const hair=material("#242421",.94),features=material("#684f42",.91),eyeWhite=material("#c6c2b5",.64),iris=material("#282a25",.42);
+ const hair=material("#242421",.94,cloth,.0008),features=material("#684f42",.91),eyeWhite=material("#c6c2b5",.64),iris=material("#282a25",.42);hair.userData.playerSurface="hair";
  const ears=[-1,1].map(sign=>loft([[-.006,.005,.01],[.003,.009,.017],[.026,.012,.021],[.047,.009,.016],[.053,.002,.005]],12,2).translate(sign*.111,0,-.014));
  add(joined(ears),skin,head);
  add(joined([-1,1].map(sign=>oval(.003,.019,.01,sign*.122,.025,-.003,10))),features,head);
- add(hairGeometry(),hair,head);
+ add(hairGeometry(),hair,head).name="Custom hair";
  // Facial details stay restrained: the eyes are almond-shaped, set under the brow.
  const eyes=[-1,1].map(sign=>oval(.016,.0039,.0025,sign*.047,.06,.091,16));
  add(joined(eyes),eyeWhite,head);
  add(joined([-1,1].map(sign=>oval(.0037,.0038,.0013,sign*.047,.06,.0934,12))),iris,head);
- const lid=skin.clone();lid.color.multiplyScalar(.91);
+ const lid=skin.clone();lid.color.multiplyScalar(.91);lid.userData.skinToneFactor=.91;
  seams(head,[-1,1].flatMap(sign=>[
   [[sign*.03,.059,.092],[sign*.046,.055,.094],[sign*.063,.059,.087]],
   [[sign*.034,.052,.092],[sign*.048,.05,.092],[sign*.061,.052,.086]]
@@ -489,7 +492,7 @@ function hand(parent:THREE.Object3D,mat:THREE.Material){
 /** Cupped mitt mesh, with separate finger channels and a woven web. */
 function mitt(parent:THREE.Object3D,size:number,bump:THREE.Texture|null){
  const root=object(parent);root.scale.setScalar(size);
- const leather=new THREE.MeshPhysicalMaterial({color:"#915b31",roughness:.74,clearcoat:.07,bumpMap:bump,bumpScale:.0045});
+ const leather=new THREE.MeshPhysicalMaterial({color:"#915b31",roughness:.74,clearcoat:.12,clearcoatRoughness:.58,bumpMap:bump,bumpScale:.0034});leather.userData.playerSurface="glove";
  const trim=material("#c69b66",.85,bump,.002),pocket=material("#5f3e29",.89,bump,.003);
  const front:number[]=[],uv:number[]=[],indices:number[]=[],around=28,rows=8;
  for(let row=0;row<=rows;row++)for(let i=0;i<=around;i++){
@@ -557,10 +560,12 @@ function decalGeometry(area:"front"|"back"|"cap"){
 export function createPlayer(color:string,isBatter=false):PlayerModel{
  const root=new THREE.Group();root.name=isBatter?"Athletic batter":"Athletic pitcher";
  const cloth=createPlayerSurface("cloth"),skinTexture=createPlayerSurface("skin"),leather=createPlayerSurface("leather");
- const jersey=new THREE.MeshPhysicalMaterial({color,roughness:.83,bumpMap:cloth,bumpScale:.0026,sheen:.5,sheenRoughness:.85,sheenColor:"#a7acb2"});
- const pants=new THREE.MeshPhysicalMaterial({color:"#e5e3dc",roughness:.89,bumpMap:cloth,bumpScale:.0023,sheen:.28,sheenRoughness:.94});
- const skin=new THREE.MeshPhysicalMaterial({color:"#c89675",roughness:.64,clearcoat:.04,clearcoatRoughness:.72,bumpMap:skinTexture,bumpScale:.001});
+ const clothRough=createPlayerRoughness("cloth"),skinRough=createPlayerRoughness("skin"),leatherRough=createPlayerRoughness("leather");
+ const jersey=new THREE.MeshPhysicalMaterial({color,roughness:.92,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0015,sheen:.42,sheenRoughness:.9,sheenColor:"#a7acb2"});
+ const pants=new THREE.MeshPhysicalMaterial({color:"#e5e3dc",roughness:.96,roughnessMap:clothRough,bumpMap:cloth,bumpScale:.0014,sheen:.23,sheenRoughness:.94});
+ const skin=new THREE.MeshPhysicalMaterial({color:"#c89675",roughness:.72,roughnessMap:skinRough,clearcoat:.07,clearcoatRoughness:.52,bumpMap:skinTexture,bumpScale:.0006});skin.userData.playerSurface="skin";
  const dark=material("#172027",.72,leather,.0025),white=material("#dfdfd5",.86),accent=material("#dedccf",.9,cloth,.002);
+ dark.roughnessMap=leatherRough;dark.userData.playerSurface="cleats";
  const cap=new THREE.MeshPhysicalMaterial({color,roughness:isBatter?.26:.87,clearcoat:isBatter?.66:0,clearcoatRoughness:.2,bumpMap:isBatter?null:cloth,bumpScale:.003});
  const hips=object(root,0,.93),torso=object(root,0,.95),head=object(torso,0,.82);
  add(loft(shirtProfile,32,4,jerseyRelief),jersey,torso);
@@ -581,6 +586,7 @@ export function createPlayer(color:string,isBatter=false):PlayerModel{
  if(isBatter){
   // A fitted lead-leg guard follows the shin. Mirroring the whole rig keeps it on the lead side.
   const guard=new THREE.MeshPhysicalMaterial({color:"#27313b",roughness:.6,clearcoat:.14});
+  guard.userData.playerSurface="equipment";
   add(loft([[-.344,.029,.017,.058],[-.302,.054,.022,.061],[-.174,.071,.025,.072],[-.084,.058,.02,.081],[-.067,.021,.01,.074]],20,3),guard,leftLeg.knee);
   for(const y of [-.108,-.296])cuff(leftLeg.knee,y,y>-.2?.084:.071,y>-.2?.087:.07,dark);
   seams(leftLeg.knee,[[[-.038,-.304,.087],[-.045,-.179,.102],[-.035,-.096,.104]],[[.038,-.304,.087],[.045,-.179,.102],[.035,-.096,.104]]],accent,.0025);
@@ -591,13 +597,38 @@ export function createPlayer(color:string,isBatter=false):PlayerModel{
   if(area==="back")decal.rotation.y=Math.PI;
   decal.castShadow=false;decal.visible=false;return {area,decal,material};
  });
- return {root,hips,torso,head,left,right,le,re,ll:leftLeg.thigh,rl:rightLeg.thigh,lk:leftLeg.knee,rk:rightLeg.knee,lf:leftLeg.ankle,rf:rightLeg.ankle,jersey,cap,accent,lettering,appearanceKey:""};
+ const detailMeshes:THREE.Mesh[]=[];
+ root.traverse(o=>{if(!(o instanceof THREE.Mesh)||o instanceof THREE.SkinnedMesh)return;o.geometry.computeBoundingBox();const size=o.geometry.boundingBox!.getSize(v());if(Math.max(size.x,size.y,size.z)<.085&&!lettering.some(slot=>slot.decal===o))detailMeshes.push(o);});
+ return {root,hips,torso,head,left,right,le,re,ll:leftLeg.thigh,rl:rightLeg.thigh,lk:leftLeg.knee,rk:rightLeg.knee,lf:leftLeg.ankle,rf:rightLeg.ankle,jersey,cap,accent,lettering,appearanceKey:"",appearance:normalizePlayerCustomization(),detailMeshes};
 }
 
 export function dressPlayer(model:PlayerModel,appearance:PlayerAppearance,handedness=1){
+ if(appearance.jerseyNumber&&/^\d{1,2}$/.test(appearance.jerseyNumber))appearance={...appearance,number:appearance.jerseyNumber};
  const key=JSON.stringify(appearance);
  if(key!==model.appearanceKey){
   model.appearanceKey=key;model.jersey.color.set(appearance.jersey);model.cap.color.set(appearance.cap);model.accent.color.set(appearance.accent);
+  const look=normalizePlayerCustomization(appearance),previousLook=model.appearance;model.appearance=look;
+  const colors:Record<string,string>={skin:look.skinTone,hair:look.hairColor,glove:look.gloveColor,cleats:look.cleatColor,equipment:look.equipmentColor};
+  model.root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;
+   for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){const surface=material as SurfaceMaterial,color=colors[material.userData.playerSurface];if(color&&surface.color)surface.color.set(color).multiplyScalar(material.userData.skinToneFactor??1);}
+   if(mesh.name==="Custom hair"){mesh.visible=look.hairStyle!=="bald";if(previousLook.hairStyle!==look.hairStyle){const old=mesh.geometry;mesh.geometry=hairGeometry(look.hairStyle);old.dispose();}}
+  });
+  if(previousLook.bodyType!==look.bodyType){
+   const dims=playerDimensions(look);
+   // Shape the rest vertices, not the animation pivots or bone lengths. Each mesh
+   // retains its originals so successive edits do not accumulate scale errors.
+   model.root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh||mesh.name==="Custom hair")return;
+    const belongsToHead=(()=>{let p:THREE.Object3D|null=mesh;while(p&&p!==model.root){if(p===model.head)return true;p=p.parent;}return false;})();
+    const p=mesh.geometry.getAttribute("position");if(!p)return;
+    const data=mesh.geometry.userData,original=data.restShape??(data.restShape=Float32Array.from(p.array));
+    const sx=belongsToHead?1+(dims.widthScale-1)*.18:dims.widthScale,sz=belongsToHead?1+(dims.depthScale-1)*.12:dims.depthScale;
+    for(let i=0;i<p.count;i++){const x=original[i*3],y=original[i*3+1],z=original[i*3+2];
+     // The trouser legs thicken around their own femur axes, preserving stance.
+     const centre=mesh instanceof THREE.SkinnedMesh&&mesh.skeleton.bones.length>2&&y<.79?(x>=0?.115:-.115):0;
+     p.setXYZ(i,centre+(x-centre)*sx,y,z*sz);
+    }p.needsUpdate=true;mesh.geometry.computeVertexNormals();mesh.geometry.computeBoundingSphere();
+   });
+  }
   for(const {area,decal,material} of model.lettering){
    const previous=material.map;material.map=uniformTexture(appearance,area);material.needsUpdate=true;decal.visible=!!material.map;previous?.dispose();
   }
@@ -606,8 +637,19 @@ export function dressPlayer(model:PlayerModel,appearance:PlayerAppearance,handed
  for(const {decal} of model.lettering)decal.scale.x=handedness;
 }
 
+/** Keep full silhouettes but cull sub-pixel seams/features in wide broadcast views. */
+export function setPlayerDetail(model:PlayerModel,distance:number,compact=false){
+ const visible=distance<(compact?10:17);for(const mesh of model.detailMeshes)mesh.visible=visible;
+}
+
+/** Bat is shared by two IK hands, so color it without rebuilding its grip rig. */
+export function dressBat(bat:THREE.Object3D,appearance:PlayerCustomization){
+ const look=normalizePlayerCustomization(appearance);bat.traverse(o=>{if(!(o instanceof THREE.Mesh))return;for(const material of Array.isArray(o.material)?o.material:[o.material])if(material.userData.playerSurface==="bat")(material as SurfaceMaterial).color.set(look.batColor);});
+}
+
 export function equipCatcher(model:PlayerModel){
  const shell=material("#243443",.62),pad=material("#3f505e",.94,model.jersey.bumpMap,.003),metal=new THREE.MeshStandardMaterial({color:"#899398",roughness:.37,metalness:.72});
+ shell.userData.playerSurface="equipment";
  const chest=loft([[.147,.094,.023,.153],[.2,.165,.033,.151],[.361,.2,.038,.144],[.522,.192,.03,.128],[.625,.094,.025,.119]],24,3);
  add(chest,shell,model.torso);
  const ribs=[.215,.28,.345,.41,.475,.536].map(y=>tube([[-.147,y,.19],[0,y-.009,.193],[.147,y,.187]],.018));
@@ -630,6 +672,7 @@ export function equipCatcher(model:PlayerModel){
 export function createBat(parent:THREE.Object3D){
  const root=object(parent),wood=createPlayerSurface("wood"),cloth=createPlayerSurface("cloth");
  const barrel=new THREE.MeshPhysicalMaterial({color:"#bc8b52",roughness:.42,clearcoat:.35,clearcoatRoughness:.3,bumpMap:wood,bumpScale:.0015});
+ barrel.userData.playerSurface="bat";
  const grip=material("#212a2b",.83,cloth,.0025),glove=material("#dfdfd4",.82,cloth,.0018),trim=material("#868e8e",.84);
  // Grip anchors at -0.055 and +0.065 are shared with two-bone arm IK.
  add(loft([[-.154,.024,.024],[-.143,.032,.032],[-.129,.032,.032],[-.117,.021,.021],[.16,.022,.022],[.35,.028,.028],[.55,.035,.035],[.88,.038,.038],[.94,.034,.034],[.976,.019,.019],[.98,.001,.001]],24,3),barrel,root);

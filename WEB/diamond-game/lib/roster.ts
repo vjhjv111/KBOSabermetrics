@@ -1,5 +1,6 @@
 export type RosterPitchType="fastball"|"slider"|"curve"|"changeup"|"splitter"|"sinker"|"cutter";
-export type PlayerProfile={batsThrows:string;heightCm?:number;throws?:string;bats?:string;delivery?:string};
+/** delivery accepts canonical styles or imported descriptions such as 우사/좌언; explicit settings override batsThrows. */
+export type PlayerProfile={batsThrows:string;heightCm?:number;position?:string;bodyType?:"lean"|"athletic"|"power";throws?:string;bats?:string;delivery?:"overhand"|"sidearm"|"underhand"|(string&{})};
 export type Discipline={zonePitchRate?:number;zoneSwingRate?:number;chaseRate?:number;zoneContactRate?:number;outZoneContactRate?:number};
 export type RosterPlayer={id:string;playerId:string;name:string;team:string;profile:PlayerProfile;discipline:Discipline;sampleNote?:string};
 export type RosterBatter=RosterPlayer&{pa:number;ab:number;h:number;hr:number;so:number;avg:number;slg:number;ops:number};
@@ -7,6 +8,11 @@ export type RosterPitcher=RosterPlayer&{tbf:number;bb:number;so:number;outs:numb
 export type RosterTeam={code:string;name:string};
 export type MatchRoster={season:number;asOf:string;revision:string;batter:RosterBatter;pitcher:RosterPitcher};
 export type RosterResponse={season:number;seasons:number[];asOf:string;revision:string;teams:RosterTeam[];batters:RosterBatter[];pitchers:RosterPitcher[]};
+
+export function fullGameTeams(roster:RosterResponse|null):RosterTeam[]{
+ if(!roster)return [];
+ return roster.teams.filter(team=>roster.batters.filter(player=>player.team===team.code).length>=9&&roster.pitchers.some(player=>player.team===team.code));
+}
 
 const batters=new Map<string,RosterBatter>(),pitchers=new Map<string,RosterPitcher>();
 let pinned:MatchRoster|null=null;

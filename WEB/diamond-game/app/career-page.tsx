@@ -1,0 +1,42 @@
+import {useState} from 'react';
+import {UserRound,TrendingUp} from 'lucide-react';
+import CharacterPreview from './character-preview';
+import {DEFAULT_PLAYER_CUSTOMIZATION,playerAppearance,type PlayerCustomization} from '../lib/player-appearance';
+import {SKILLS,type Skill,type CareerPlayer} from '../lib/career-types';
+import {teamName,type RosterTeam} from '../lib/roster';
+
+type Props={active?:boolean;player:CareerPlayer|null;teams:RosterTeam[];leagueTeam?:string;busy:boolean;edit:(body:Record<string,unknown>)=>Promise<unknown>;onLeague:()=>void};
+const positions:Record<string,string>={P:'투수',C:'포수','1B':'1루수','2B':'2루수','3B':'3루수',SS:'유격수',LF:'좌익수',CF:'중견수',RF:'우익수',DH:'지명타자'};
+const archetypes:Record<string,string>={balanced:'균형형',slugger:'거포형',contact:'교타형',speed:'준족형',fireballer:'강속구형',control:'제구형'};
+export default function CareerPage({player,teams,leagueTeam,busy,edit,onLeague,active=true}:Props){
+ const [editing,setEditing]=useState(!player),[name,setName]=useState(player?.name??'나의 선수'),[team,setTeam]=useState(player?.team??leagueTeam??'LG');
+ const [position,setPosition]=useState(player?.position??'CF'),[bats,setBats]=useState<'L'|'R'|'S'>(player?.bats??'R'),[throws,setThrows]=useState<'L'|'R'>(player?.throws??'R');
+ const [delivery,setDelivery]=useState<'overhand'|'sidearm'|'underhand'>(player?.delivery??'overhand'),[archetype,setArchetype]=useState(player?.archetype??'balanced');
+ const [appearance,setAppearance]=useState<PlayerCustomization>({...DEFAULT_PLAYER_CUSTOMIZATION,jerseyNumber:'17',...player?.appearance});
+ const patch=(key:keyof PlayerCustomization,value:unknown)=>setAppearance(old=>({...old,[key]:value}));
+ const save=async()=>{if(busy)return;try{await edit(player?{op:'appearance',version:player.version,name:name.trim(),appearance}:{op:'create',name:name.trim(),team:leagueTeam??team,position,bats,throws,delivery,archetype,appearance});setEditing(false);}catch{}};
+ const visual=editing?appearance:player?.appearance??appearance;
+ const visualName=editing?name:player?.name??name;
+ const visualTeam=player?.team??leagueTeam??team;
+ const isPitcher=player?.position==='P',trainingSkills:Skill[]=isPitcher?['velocity','control','stamina']:['contact','power','discipline','speed','fielding'];
+ const train=(skill:Skill)=>{if(player&&!busy&&trainingSkills.includes(skill))void edit({op:'train',version:player.version,skill}).catch(()=>{});};
+ return <div className="career-page"><div className="season-section-heading"><div><span>MY PLAYER</span><h1>{player?player.name:'나만의 선수, 나만의 시즌'}</h1><p>{player?(isPitcher?'등판하며 경험치를 얻고, 구속·제구·체력을 훈련하세요.':'경기에서 경험치를 얻고, 타격·주루·수비 능력을 훈련하세요.'):'외형과 플레이 스타일을 정하고 프로 리그에 도전하세요.'}</p></div>{player&&<button disabled={busy} onClick={()=>{setName(player.name);setAppearance({...DEFAULT_PLAYER_CUSTOMIZATION,...player.appearance});setEditing(!editing);}}>{editing?'편집 닫기':'외형 편집'}</button>}</div>
+  <div className="career-layout"><section className="career-avatar"><CharacterPreview active={active} appearance={playerAppearance(visualTeam,visualName,visual.jerseyNumber,visual)} role={position==='P'?'pitcher':'batter'} bats={bats} throws={throws} delivery={delivery}/><div className="career-player-card"><small>{teamName(visualTeam,teams)} · {positions[position]}</small><h2>{visualName} <span>#{visual.jerseyNumber}</span></h2><p>{throws==='L'?'좌투':'우투'} · {bats==='S'?'양타':bats==='L'?'좌타':'우타'}{position==='P'?' · '+({overhand:'오버핸드',sidearm:'사이드암',underhand:'언더핸드'}[delivery]):''}</p></div></section>
+  {editing?<form className="career-editor season-panel" aria-busy={busy} onSubmit={e=>{e.preventDefault();void save();}}><h2><UserRound size={20}/>{player?'외형 편집':'선수 만들기'}</h2><div className="season-form-grid">
+   <label>이름<input required maxLength={20} value={name} onChange={e=>setName(e.target.value)}/></label>
+   <label>등번호<input inputMode="numeric" pattern="[0-9]{1,2}" maxLength={2} required value={appearance.jerseyNumber??''} onChange={e=>patch('jerseyNumber',e.target.value.replace(/\D/g,''))}/></label>
+   <label>구단<select disabled={!!player||!!leagueTeam} value={leagueTeam??team} onChange={e=>setTeam(e.target.value)}>{teams.map(t=><option key={t.code} value={t.code}>{t.name}</option>)}</select></label>
+   <label>포지션<select disabled={!!player} value={position} onChange={e=>setPosition(e.target.value)}>{Object.entries(positions).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+   <label>타격 방향<select disabled={!!player} value={bats} onChange={e=>setBats(e.target.value as typeof bats)}><option value="R">우타</option><option value="L">좌타</option><option value="S">양타</option></select></label>
+   <label>투구 손<select disabled={!!player} value={throws} onChange={e=>setThrows(e.target.value as typeof throws)}><option value="R">오른손</option><option value="L">왼손</option></select></label>
+   <label>투구 동작<select disabled={!!player} value={delivery} onChange={e=>setDelivery(e.target.value as typeof delivery)}><option value="overhand">오버핸드</option><option value="sidearm">사이드암</option><option value="underhand">언더핸드</option></select></label>
+   <label>플레이 스타일<select disabled={!!player} value={archetype} onChange={e=>setArchetype(e.target.value)}>{Object.entries(archetypes).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+   <label>신장 · {appearance.heightCm}cm<input type="range" min={155} max={215} value={appearance.heightCm} onChange={e=>patch('heightCm',Number(e.target.value))}/></label>
+   <label>체형<select value={appearance.bodyType} onChange={e=>patch('bodyType',e.target.value)}><option value="lean">날렵한 체형</option><option value="athletic">균형 잡힌 체형</option><option value="power">건장한 체형</option></select></label>
+   <label>헤어스타일<select value={appearance.hairStyle} onChange={e=>patch('hairStyle',e.target.value)}><option value="short">짧은 머리</option><option value="buzz">스포츠 머리</option><option value="flow">긴 머리</option><option value="bald">삭발</option></select></label>
+   {([['skinTone','피부색'],['hairColor','머리색'],['gloveColor','글러브'],['cleatColor','스파이크'],['batColor','배트'],['equipmentColor','보호 장비']] as const).map(([k,label])=><label className="career-color" key={k}>{label}<input type="color" value={appearance[k]} onChange={e=>patch(k,e.target.value)}/></label>)}
+  </div><p className="season-note">{player?'변경한 외형과 신장은 다음 경기부터 적용됩니다.':'만든 선수는 선택 구단의 라인업에 합류합니다. 경기에서 얻은 포인트로 능력치를 훈련할 수 있습니다.'}</p><button className="season-primary" disabled={busy}>{player?'외형 저장':'선수 생성하고 프로 데뷔'}</button></form>:player&&<section className="season-panel career-growth"><div className="career-level"><div><span>LEVEL</span><strong>{player.level}</strong></div><div><b>{player.xp} / {player.nextLevelXp} XP</b><progress max={player.nextLevelXp} value={player.xp}/><small>{player.games}경기 출전 · {archetypes[player.archetype]}</small></div></div><h2><TrendingUp size={20}/>훈련 <em>{player.trainingPoints} PT</em></h2><p className="season-note">경기 완료 시 1 PT, 레벨 상승 시 4 PT. 훈련은 +2 상승하며 80 이상은 2 PT가 필요합니다.</p><div className="career-skills">{trainingSkills.map(skill=><div key={skill}><span>{SKILLS[skill]}</span><progress max={95} value={player.ratings[skill]}/><b>{player.ratings[skill]}</b><button disabled={busy||player.ratings[skill]>=95||player.trainingPoints<(player.ratings[skill]>=80?2:1)} aria-label={SKILLS[skill]+' 훈련'} onClick={()=>train(skill)}>+2</button></div>)}</div><p className="season-note">{isPitcher?'훈련한 능력치는 다음 경기부터 구속·제구·체력에 적용됩니다.':'훈련한 능력치는 다음 경기부터 타격·주루·수비에 적용됩니다.'}</p><button className="season-primary" onClick={onLeague}>리그에서 뛰기</button></section>}
+  </div>
+  {player&&<div className="career-records"><section className="season-panel"><h2>통산 기록</h2><div className="career-totals">{(player.position==='P'?[['이닝',`${Math.floor(player.stats.outsPitched/3)}.${player.stats.outsPitched%3}`],['탈삼진',player.stats.strikeouts],['실점',player.stats.runsAllowed],['피안타',player.stats.hitsAllowed]]:[['타율',player.stats.ab?(player.stats.h/player.stats.ab).toFixed(3):'.000'],['안타',player.stats.h],['홈런',player.stats.hr],['타점',player.stats.rbi]]).map(([label,value])=><div key={label}><small>{label}</small><b>{value}</b></div>)}</div></section><section className="season-panel"><h2>최근 경기와 성장</h2>{player.rewards.length?<ul className="career-rewards">{player.rewards.slice(0,6).map(r=><li key={r.gameId}><span>{r.summary}{r.levels>0&&<small>레벨 +{r.levels}</small>}</span><b>+{r.xp} XP</b></li>)}</ul>:<p className="season-note">첫 경기를 완료하면 경험치와 기록이 표시됩니다.</p>}</section></div>}
+ </div>;
+}

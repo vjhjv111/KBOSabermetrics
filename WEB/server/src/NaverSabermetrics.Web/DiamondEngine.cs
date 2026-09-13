@@ -50,13 +50,13 @@ public sealed partial class DiamondEngine(DiamondData data, Func<double>? random
     {
         var bend = Breaks[type];
         var hand = data.ThrowsLeft(game.Pitcher) ? -1 : 1;
-        var under = data.Underhand(game.Pitcher); var scale = (data.Profile(game.Pitcher, "pitcher")?.HeightCm ?? 185) / 185;
+        var release = DiamondDelivery.Release(data.DeliveryStyle(game.Pitcher), hand, data.Profile(game.Pitcher, "pitcher")?.HeightCm);
         var factor = game.Pace switch { "practice" => 1.85, "real" => 1.15, _ => 1d };
         var pitch = new DiamondPitch
         {
             Id = game.PitchCount + 1, Type = type, Velocity = velocity, ReleaseAt = now + (game.Mode == "pvp" ? 1900 : 1200),
-            FlightMs = Round(18.44 / (velocity / 3.6) * 1000 * factor), ReleaseX = -(under ? .58 : .33) * hand * scale,
-            ReleaseY = (under ? 1.08 : 1.84) * scale, ReleaseZ = -18.44 + (under ? .22 : .12) * scale,
+            FlightMs = Round(18.44 / (velocity / 3.6) * 1000 * factor), ReleaseX = release.X,
+            ReleaseY = release.Y, ReleaseZ = release.Z,
             Target = target, BreakX = bend.X * hand, BreakY = bend.Y, Quality = quality, Resolved = false
         };
         pitch.BodyHit = FindBodyHit(game.Batter, game.Pitcher, pitch); return pitch;
@@ -69,15 +69,15 @@ public sealed partial class DiamondEngine(DiamondData data, Func<double>? random
             (p.ReleaseZ ?? -18.44) * (1 - u));
     }
     public DiamondBodyHit? FindBodyHit(string batter, string pitcher, DiamondPitch pitch) =>
-        SweepBody(at => BallPosition(pitch, at), pitch.ReleaseAt + pitch.FlightMs, pitch.FlightMs, data.Colliders(data.BatsLeft(batter, pitcher)));
+        SweepBody(at => BallPosition(pitch, at), pitch.ReleaseAt + pitch.FlightMs, pitch.FlightMs, data.Colliders(data.BatsLeft(batter, pitcher), data.Profile(batter, "batter")?.HeightCm, data.Profile(batter, "batter")?.BodyType));
 
-    public DiamondResult EvaluatePitch(DiamondGame game, DiamondSwing? swing, long now)
+    public DiamondResult EvaluatePitch(DiamondGame game, DiamondSwing? swing, long now, bool skipBodyCollision = false)
     {
         var pitch = game.Pitch ?? throw new DiamondInputError("진행 중인 투구가 없습니다.");
         var att = Attributes(game.Batter, game.Pitcher); var arrival = pitch.ReleaseAt + pitch.FlightMs;
         var inZone = Math.Abs(pitch.Target.X) <= 1 && Math.Abs(pitch.Target.Y) <= 1;
         var result = new DiamondResult { Id = pitch.Id, At = now, SwingAt = swing?.At, SwingAim = swing?.Aim, PlateLocation = pitch.Target };
-        var bodyHit = pitch.BodyHit ?? FindBodyHit(game.Batter, game.Pitcher, pitch);
+        var bodyHit = pitch.BodyHit ?? (skipBodyCollision ? null : FindBodyHit(game.Batter, game.Pitcher, pitch));
         if (bodyHit != null && (swing == null || swing.At - SwingContactMs > bodyHit.At))
         {
             result.BodyHit = bodyHit; result.SwingAt = null; result.SwingAim = null;

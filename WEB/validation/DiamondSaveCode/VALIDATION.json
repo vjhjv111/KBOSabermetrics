@@ -1,0 +1,22 @@
+{
+  "suite": "DiamondSaveCode.Validation",
+  "checksPassed": 90,
+  "exitCode": 0,
+  "compilerWarnings": 0,
+  "result": "passed",
+  "stateDatabase": "new isolated diamond_career.db under scratch save-code-<guid>",
+  "originalDatabaseOpened": false,
+  "httpServer": "ephemeral loopback port, independent browser cookie containers and ephemeral antiforgery keys",
+  "restart": "all services and HTTP host recreated against the same isolated state",
+  "includes": [
+    "stable code and atomic first issuance",
+    "normalization and invalid-code identity preservation",
+    "canonical alias owner and latest live league/game/career",
+    "prior anonymous data preservation",
+    "cross-browser optimistic concurrency and idempotency",
+    "reward deduplication",
+    "cookie overwrite prevention",
+    "HTTP CSRF/origin/body validation",
+    "persistent rate limits and cooldown"
+  ]
+}

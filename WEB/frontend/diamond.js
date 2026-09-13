@@ -29,6 +29,7 @@ window.addEventListener('hashchange',diamondRoute);
 document.addEventListener('visibilitychange',diamondVisibility);
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==diamondFrame.contentWindow)return;
+  if(event.data?.type==='diamond:ready')diamondVisibility();
   if(event.data?.type==='diamond:height'&&Number.isFinite(event.data.height)){
     diamondFrame.style.height=`${Math.max(500,Math.min(4000,event.data.height))}px`;
   }

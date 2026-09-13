@@ -1,5 +1,36 @@
 // World axes: home plate z=0, mound z<0; a right-handed batter stands at x<0.
 export type Point3 = [number, number, number];
+export type DeliveryStyle = "overhand" | "sidearm" | "underhand";
+export const MOUND_HEIGHT = .254;
+/** Explicit profile settings take precedence over descriptive roster text. */
+export function normalizeDelivery(value?: string | boolean | null, description = ""): DeliveryStyle {
+  if (typeof value === "boolean") return value ? "underhand" : "overhand";
+  const parse = (text: string): DeliveryStyle | undefined => {
+    const compact = text.toLowerCase().replace(/[\s_-]/g, "");
+    if (/underhand|submarine|언더|잠수|^[좌우]언/.test(compact)) return "underhand";
+    if (/sidearm|사이드|^[좌우]사/.test(compact)) return "sidearm";
+    if (/overhand|overarm|오버|일반/.test(compact)) return "overhand";
+  };
+  return parse(value ?? "") ?? parse(description) ?? "overhand";
+}
+export function profileThrowingHand(value?: string | null, description = ""): "L" | "R" | undefined {
+  const hand = value?.trim().toLowerCase();
+  if (hand === "l" || hand === "left" || hand?.startsWith("좌")) return "L";
+  if (hand === "r" || hand === "right" || hand?.startsWith("우")) return "R";
+  const text = description.trim();
+  return text.startsWith("좌") ? "L" : text.startsWith("우") ? "R" : undefined;
+}
+export const PITCH_RELEASE: Record<DeliveryStyle, Point3> = {
+  overhand: [-.33, 1.84, .12], sidearm: [-.72, 1.43, .20], underhand: [-.58, 1.08, .22],
+};
+export function pitcherBodyScale(heightCm?: number | null) {
+  return typeof heightCm === "number" && Number.isFinite(heightCm) && heightCm > 0 && heightCm <= 250 ? heightCm / 185 : 1;
+}
+/** World position of the baseball center, shared by the release animation and pitch engine. */
+export function pitchReleasePosition(style: DeliveryStyle | boolean, hand: 1 | -1, heightCm?: number | null): Point3 {
+  const local = PITCH_RELEASE[normalizeDelivery(style)], scale = pitcherBodyScale(heightCm);
+  return [local[0] * hand * scale, MOUND_HEIGHT + local[1] * scale, -18.44 + local[2] * scale];
+}
 export const SWING_CONTACT_MS = 95;
 export const SWING_DURATION_MS = 980;
 export const BAT_SWEET_SPOT = .82;
@@ -56,32 +87,54 @@ export function swingPose(age: number, aim: { x: number; y: number }, hand: 1 | 
 type DeliveryKey = {
   t: number; hand: Point3; glove: Point3; lead: Point3; trail: Point3;
   lift: number; lean: number; coil: number; hips: number; drop: number; forward: number; heel: number;
+  sideBend: number; throwElbow: Point3; gloveElbow: Point3;
 };
 const readyDelivery: DeliveryKey = {
   t: -900, hand: [-.06,1.33,.26], glove: [.055,1.32,.26],
   lead: [.15,.034,.025], trail: [-.15,.034,-.025],
   lift: 0, lean: .035, coil: 0, hips: 0, drop: .035, forward: 0, heel: 0,
+  sideBend: 0, throwElbow: [-1,.1,-.15], gloveElbow: [1,-.3,.1],
 };
 const overhandDelivery: DeliveryKey[] = [
   readyDelivery,
   {...readyDelivery,t:-710,hand:[-.07,1.45,.28],glove:[.045,1.44,.28],lead:[.15,.24,.0],lift:.45,coil:.16,hips:.09,drop:.022},
   {...readyDelivery,t:-440,hand:[-.46,1.78,-.25],glove:[.24,1.47,.28],lead:[.15,.57,-.065],lift:1,coil:.37,hips:.18,drop:.02,forward:-.025},
   {...readyDelivery,t:-145,hand:[-.49,1.96,-.09],glove:[.37,1.28,.5],lead:[.2,.15,.39],lift:.23,lean:.1,coil:.2,hips:-.12,drop:.085,forward:.055,heel:.08},
-  {...readyDelivery,t:0,hand:[-.33,1.84,.12],glove:[.2,1.18,.31],lead:[.2,.034,.49],lean:.16,coil:-.13,hips:-.22,drop:.12,forward:.1,heel:.16},
+  {...readyDelivery,t:0,hand:PITCH_RELEASE.overhand,glove:[.2,1.18,.31],lead:[.2,.034,.49],lean:.16,coil:-.13,hips:-.22,drop:.12,forward:.1,heel:.16},
   {...readyDelivery,t:180,hand:[.18,1.04,.48],glove:[.17,1.06,.29],lead:[.2,.034,.49],trail:[-.14,.18,-.28],lean:.36,coil:-.3,hips:-.24,drop:.16,forward:.16,heel:.36},
   {...readyDelivery,t:350,hand:[.17,1.08,.4],glove:[.13,1.09,.3],lead:[.2,.034,.49],trail:[-.15,.15,.0],lean:.23,coil:-.15,hips:-.13,drop:.14,forward:.13,heel:.17},
   {...readyDelivery,t:500,hand:[.025,1.28,.31],glove:[.09,1.23,.28],lead:[.17,.115,.235],lean:.08,coil:-.04,hips:-.035,drop:.065,forward:.045},
   {...readyDelivery,t:640},
 ];
-const underhandDelivery: DeliveryKey[] = overhandDelivery.map(key => {
-  const poses: Record<number, Point3> = {[-440]:[-.48,1.1,-.08],[-145]:[-.63,.84,.025],0:[-.58,1.08,.22],180:[.13,1.15,.44],350:[.08,1.19,.37]};
-  return {...key,hand:poses[key.t]??key.hand,lean:key.lean+(key.t>-710&&key.t<640?.11:0)};
-});
+// The sidearm arm slot stays beside the shoulder while the trunk rotates across the planted front leg.
+const sidearmDelivery: DeliveryKey[] = [
+  readyDelivery,
+  {...readyDelivery,t:-710,hand:[-.08,1.41,.25],glove:[.04,1.4,.25],lead:[.17,.2,.015],lift:.35,coil:.2,hips:.12,drop:.025},
+  {...readyDelivery,t:-440,hand:[-.53,1.43,-.22],glove:[.29,1.38,.32],lead:[.18,.43,-.08],lift:.75,lean:.075,coil:.42,hips:.22,drop:.04,forward:-.035,sideBend:.04,throwElbow:[-.8,.3,-.35]},
+  {...readyDelivery,t:-145,hand:[-.75,1.40,-.13],glove:[.3,1.2,.43],lead:[.24,.11,.4],lift:.16,lean:.14,coil:.24,hips:-.16,drop:.11,forward:.07,heel:.12,sideBend:.08,throwElbow:[-.9,.25,-.35]},
+  {...readyDelivery,t:0,hand:PITCH_RELEASE.sidearm,glove:[.18,1.1,.29],lead:[.24,.034,.53],lean:.21,coil:-.22,hips:-.28,drop:.15,forward:.13,heel:.23,sideBend:.11,throwElbow:[-.7,.25,-.3]},
+  {...readyDelivery,t:180,hand:[.12,1.12,.5],glove:[.14,1.04,.27],lead:[.24,.034,.53],trail:[-.18,.17,-.22],lean:.32,coil:-.4,hips:-.3,drop:.18,forward:.18,heel:.33,sideBend:.08,throwElbow:[-.55,.2,-.25]},
+  {...readyDelivery,t:350,hand:[.18,1.17,.38],glove:[.1,1.09,.28],lead:[.24,.034,.53],trail:[-.17,.12,.04],lean:.22,coil:-.24,hips:-.17,drop:.14,forward:.13,heel:.16,sideBend:.04},
+  {...readyDelivery,t:500,hand:[.015,1.27,.30],glove:[.075,1.25,.28],lead:[.19,.095,.23],lean:.085,coil:-.07,hips:-.05,drop:.075,forward:.05,sideBend:.02},
+  {...readyDelivery,t:640},
+];
+// The underhand delivery lowers the center of mass and sweeps upward from below the waist.
+const underhandDelivery: DeliveryKey[] = [
+  readyDelivery,
+  {...readyDelivery,t:-710,hand:[-.07,1.39,.27],glove:[.045,1.38,.27],lead:[.16,.17,.015],lift:.3,lean:.075,coil:.13,hips:.08,drop:.05},
+  {...readyDelivery,t:-440,hand:[-.48,1.1,-.08],glove:[.24,1.31,.31],lead:[.19,.36,-.065],lift:.62,lean:.21,coil:.3,hips:.18,drop:.10,forward:-.025,sideBend:.20,throwElbow:[-.8,-.1,-.35]},
+  {...readyDelivery,t:-145,hand:[-.63,.84,.025],glove:[.29,1.05,.37],lead:[.24,.09,.43],lift:.12,lean:.34,coil:.18,hips:-.16,drop:.21,forward:.085,heel:.13,sideBend:.23,throwElbow:[-.75,-.35,-.25]},
+  {...readyDelivery,t:0,hand:PITCH_RELEASE.underhand,glove:[.16,1.01,.28],lead:[.24,.034,.55],lean:.29,coil:-.15,hips:-.27,drop:.20,forward:.15,heel:.25,sideBend:.21,throwElbow:[-.7,-.25,-.2]},
+  {...readyDelivery,t:180,hand:[.13,1.15,.44],glove:[.13,1.01,.27],lead:[.24,.034,.55],trail:[-.18,.13,-.20],lean:.35,coil:-.34,hips:-.3,drop:.22,forward:.20,heel:.30,sideBend:.17,throwElbow:[-.65,.1,-.3]},
+  {...readyDelivery,t:350,hand:[.08,1.19,.37],glove:[.1,1.07,.27],lead:[.24,.034,.55],trail:[-.17,.11,.03],lean:.25,coil:-.21,hips:-.18,drop:.16,forward:.14,heel:.15,sideBend:.12},
+  {...readyDelivery,t:500,hand:[.025,1.27,.30],glove:[.09,1.24,.28],lead:[.19,.085,.25],lean:.11,coil:-.065,hips:-.05,drop:.08,forward:.055,sideBend:.045},
+  {...readyDelivery,t:640},
+];
 
 /** Right hand is -x. Hand and glove tracks are continuous through release, with fixed release coordinates. */
-export function pitchingPose(relativeMs: number, underhand: boolean) {
-  const keys=underhand?underhandDelivery:overhandDelivery;
-  const elapsed=Math.max(-900,Math.min(640,relativeMs));
+export function pitchingPose(relativeMs: number, delivery: DeliveryStyle | boolean = "overhand") {
+  const style=normalizeDelivery(delivery),keys=style==="underhand"?underhandDelivery:style==="sidearm"?sidearmDelivery:overhandDelivery;
+  const elapsed=Number.isNaN(relativeMs)?-900:Math.max(-900,Math.min(640,relativeMs));
   let i=0;while(i<keys.length-2&&elapsed>keys[i+1].t)i++;
   const a=keys[i],b=keys[i+1],dt=b.t-a.t,t=(elapsed-a.t)/dt,t2=t*t,t3=t2*t;
   const sample=(read:(key:DeliveryKey)=>number)=>{
@@ -95,10 +148,10 @@ export function pitchingPose(relativeMs: number, underhand: boolean) {
     };
     return (2*t3-3*t2+1)*read(a)+(t3-2*t2+t)*dt*slope(i)+(-2*t3+3*t2)*read(b)+(t3-t2)*dt*slope(i+1);
   };
-  const point=(key:'hand'|'glove'|'lead'|'trail')=>[0,1,2].map(index=>sample(pose=>pose[key][index])) as Point3;
+  const point=(key:'hand'|'glove'|'lead'|'trail'|'throwElbow'|'gloveElbow')=>[0,1,2].map(index=>sample(pose=>pose[key][index])) as Point3;
   const heel=sample(k=>k.heel),trail=point('trail');
   trail[1]+=Math.sin(heel)*.22;
-  return {hand:point('hand'),glove:point('glove'),lead:point('lead'),trail,
+  return {style,hand:point('hand'),glove:point('glove'),lead:point('lead'),trail,throwElbow:point('throwElbow'),gloveElbow:point('gloveElbow'),sideBend:sample(k=>k.sideBend),
     lift:sample(k=>k.lift),lean:sample(k=>k.lean),coil:sample(k=>k.coil),hips:sample(k=>k.hips),
     drop:sample(k=>k.drop),forward:sample(k=>k.forward),heel};
 }

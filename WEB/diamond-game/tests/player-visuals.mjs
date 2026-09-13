@@ -243,7 +243,7 @@ for(const side of ['batter','pitcher'])for(const [width,height] of [[367,420],[3
  const config=FIELD_CAMERAS[side],camera=new THREE.PerspectiveCamera(fieldFov(side,width/height),width/height,.03,300);
  camera.position.set(...config.position);camera.lookAt(...config.target);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
  const rect={left:29.5,top:145.75,width,height},node={getBoundingClientRect:()=>rect},ray=new THREE.Raycaster(),plane=new THREE.Plane(new THREE.Vector3(0,0,1),0),point=new THREE.Vector3(),frameProps={current:{aim:{current:null}}};
- const aimEvent=new Function('node','ray','plane','point','camera','frameProps','THREE','clamp',ts.transpileModule(pointerSource,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText+';return aimEvent;')(node,ray,plane,point,camera,frameProps,THREE,(v,a,b)=>Math.max(a,Math.min(b,v)));
+ const aimEvent=new Function('node','ray','plane','point','camera','frameProps','THREE','clamp','tracking',ts.transpileModule(pointerSource,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText+';return aimEvent;')(node,ray,plane,point,camera,frameProps,THREE,(v,a,b)=>Math.max(a,Math.min(b,v)),false);
  for(const x of [-1,0,1])for(const y of [-1,0,1]){
   const projected=new THREE.Vector3(x*.5,1.05+y*.55,0).project(camera);
   aimEvent({clientX:rect.left+(projected.x*.5+.5)*width,clientY:rect.top+(-projected.y*.5+.5)*height});

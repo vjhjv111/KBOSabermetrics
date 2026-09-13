@@ -1,6 +1,11 @@
 export type Position3 = {x:number;y:number;z:number};
 export type BodyHit = {at:number;position:Position3};
 export type BodyCapsule = {a:Position3;b:Position3;radius:number};
+/** Conservative round cross-sections for the mesh's width/depth edits; skeletal axes stay unchanged. */
+export function bodyColliderRadiusFactor(index:number,bodyType?:string){return index>=15?1:bodyType==="power"?(index<10?1.15:1.0234):bodyType==="lean"?(index<10?.94:.9928):1}
+export function styleBodyCapsules(capsules:BodyCapsule[],scale:number,bodyType?:string):BodyCapsule[]{
+ return capsules.map((c,index)=>({a:{x:c.a.x*scale,y:c.a.y*scale,z:c.a.z*scale},b:{x:c.b.x*scale,y:c.b.y*scale,z:c.b.z*scale},radius:c.radius*scale*bodyColliderRadiusFactor(index,bodyType)}));
+}
 const dot=(a:Position3,b:Position3)=>a.x*b.x+a.y*b.y+a.z*b.z;
 const sub=(a:Position3,b:Position3):Position3=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
 const mix=(a:Position3,b:Position3,t:number):Position3=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});

@@ -124,3 +124,15 @@ export function createPlayerSurface(kind: PlayerSurfaceKind): THREE.Texture | nu
     }
   }
 }
+
+/** Roughness is independent of height, avoiding equally glossy cloth, skin and leather. */
+export function createPlayerRoughness(kind:PlayerSurfaceKind):THREE.Texture|null{
+ const fine=periodicNoise(0x729d4613,kind==="skin"?48:32),broad=periodicNoise(0x384b7821,8);
+ return heightTexture((u,v)=>{
+  const n=fine(u,v),wide=broad(u,v);
+  if(kind==="skin")return 207+n*14+wide*13;
+  if(kind==="leather")return 224+n*12-wide*10;
+  if(kind==="wood")return 216+n*8+Math.sin(u*TAU*28)*9;
+  return 237+n*10+wide*5;
+ },kind==="cloth"?3:kind==="wood"?1:2);
+}

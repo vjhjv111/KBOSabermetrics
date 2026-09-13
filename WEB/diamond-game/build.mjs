@@ -78,9 +78,14 @@ for (const file of result.outputFiles) {
   await mkdir(path.dirname(file.path), { recursive: true });
   await writeFile(file.path, file.contents);
 }
-for (const file of await readdir(path.join(project, "public"), { withFileTypes: true })) {
-  if (file.isFile()) await copyFile(path.join(project, "public", file.name), path.join(output, file.name));
+async function copyPublic(source, destination) {
+  await mkdir(destination, { recursive: true });
+  for (const file of await readdir(source, { withFileTypes: true })) {
+    if (file.isDirectory()) await copyPublic(path.join(source, file.name), path.join(destination, file.name));
+    else if (file.isFile()) await copyFile(path.join(source, file.name), path.join(destination, file.name));
+  }
 }
+await copyPublic(path.join(project, "public"), output);
 const template = await readFile(path.join(project, "index.html"), "utf8");
 if (!template.includes("<!-- diamond-styles -->") || !template.includes("<!-- diamond-script -->")) throw new Error("게임 HTML의 번들 삽입 위치가 없습니다.");
 await writeFile(path.join(output, "index.html"), template

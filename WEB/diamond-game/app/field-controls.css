@@ -1,0 +1,42 @@
+/* The controls belong to the fullscreen stage. Reserve their height so the
+   actual canvas and its projected strike zone remain unobstructed. */
+.season-stage.with-field-controls{--field-controls-space:88px;min-height:498px}
+.season-stage.with-field-controls[data-control-side=batter]{--field-controls-space:66px;min-height:476px}
+.season-stage.with-field-controls>.three-surface{bottom:var(--field-controls-space)}
+.season-stage.with-field-controls .season-batter-tag,.season-stage.with-field-controls .season-pitcher-tag{bottom:calc(var(--field-controls-space) + 20px)}
+.season-stage.with-field-controls .season-speed{bottom:calc(var(--field-controls-space) + 108px)}
+.season-stage.with-field-controls .season-release{bottom:calc(var(--field-controls-space) + 20px);pointer-events:none}
+.season-stage .season-field-inputs{position:absolute;inset:auto 0 0;height:var(--field-controls-space);z-index:12;background:#101f27f5;border-top:1px solid #d4e29b35;padding:9px 12px;pointer-events:none;color:#eff5e7}
+.season-field-inputs button,.season-field-inputs .season-field-pitches{pointer-events:auto}
+.season-field-pitching{height:100%;display:flex;align-items:end;gap:10px;min-width:0}
+.season-field-arsenal{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;gap:5px}
+.season-field-control-title{display:flex;align-items:center;gap:6px;color:#d6ee8b;font-size:10px;font-weight:650;min-height:14px}
+.season-field-control-title small{margin-left:auto;color:#9eafb1;font-size:9px;font-weight:400}
+.season-field-pitches{display:flex;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;scrollbar-color:#849a5c #152830;min-width:0;padding-bottom:1px}
+.season-field-pitches button{min-height:44px;min-width:66px;flex:1 0 66px;display:flex;flex-direction:column;gap:4px;justify-content:center;padding:6px!important;background:#142a34;border:1px solid #3c5360;border-radius:5px;touch-action:pan-x}
+.season-field-pitches button b{font-size:11px;font-weight:650;white-space:nowrap}
+.season-field-pitches button small{font-size:9px;color:#aabcc2;white-space:nowrap}
+.season-field-pitches button.selected{background:#334529;border-color:#d6ee8b;color:#e9fac4}
+.season-field-pitches button.selected small{color:#d2e2b0}
+.season-field-inputs .season-field-throw,.season-field-inputs .season-field-next{min-height:46px;flex:0 0 auto;background:#d6ee8b;color:#243021;border:1px solid #d6ee8b;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;touch-action:manipulation}
+.season-field-inputs .season-field-throw{display:flex;flex-direction:column;gap:4px;min-width:102px;margin-bottom:2px;touch-action:none}
+.season-field-throw b{font-size:12px}.season-field-throw small{font-size:10px;font-weight:450}.season-field-inputs .season-field-throw.held{background:#f4ffba;color:#26341b;box-shadow:0 0 0 2px #cdec8c44}
+.season-field-batting{display:flex;align-items:center;justify-content:space-between;height:100%;gap:12px}
+.season-field-swing-hint{display:flex;align-items:center;gap:9px;min-width:0;pointer-events:none}.season-field-swing-hint svg{flex:none;color:#d6ee8b}
+.season-field-swing-hint b{display:block;font-size:12px;font-weight:650}.season-field-swing-hint small{display:block;color:#9cafb7;font-size:10px;margin-top:5px}
+.season-field-wait{font-size:10px;color:#ccdcb2;max-width:88px;line-height:1.5}
+.season-field-inputs button:disabled{opacity:.5;cursor:not-allowed}.season-field-inputs button:focus-visible{outline:2px solid #edffb0;outline-offset:-3px}
+.season-stage.with-field-controls:fullscreen{min-height:0;height:100dvh;max-height:none}
+@media(max-width:600px){
+ .season-stage.with-field-controls{--field-controls-space:88px;min-height:438px}
+ .season-stage.with-field-controls[data-control-side=batter]{--field-controls-space:66px;min-height:416px}
+ .season-stage .season-field-inputs{padding:8px}
+ .season-field-pitching{gap:7px}.season-field-pitches{gap:4px}.season-field-pitches button{min-width:62px;flex-basis:62px}
+ .season-field-inputs .season-field-throw{min-width:80px;padding:7px!important}.season-field-throw b{font-size:11px}.season-field-throw small{font-size:9px}
+ .season-field-control-title{font-size:9px}.season-field-control-title small{font-size:8px}
+ .season-field-swing-hint{gap:6px}.season-field-swing-hint svg{width:15px}.season-field-swing-hint b{font-size:10px;line-height:1.5}.season-field-swing-hint small{font-size:8px;line-height:1.5;margin-top:2px}
+ .season-field-inputs .season-field-next{font-size:11px;padding:8px;min-width:66px}
+ .season-stage.with-field-controls .season-batter-tag,.season-stage.with-field-controls .season-pitcher-tag{bottom:calc(var(--field-controls-space) + 14px)}
+ .season-stage.with-field-controls .season-speed{bottom:calc(var(--field-controls-space) + 88px)}
+ .season-stage.with-field-controls .season-release{bottom:calc(var(--field-controls-space) + 16px);width:160px}
+}
