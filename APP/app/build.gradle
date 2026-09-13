@@ -1,0 +1,58 @@
+import groovy.json.JsonOutput
+
+plugins {
+    id 'com.android.application'
+}
+
+def siteBaseUrl = providers.gradleProperty('siteBaseUrl')
+        .orElse('https://kbosabermetrics.onrender.com/').get()
+def siteUri
+try {
+    siteUri = new URI(siteBaseUrl)
+} catch (URISyntaxException exception) {
+    throw new GradleException('siteBaseUrl must be an absolute HTTPS URL.', exception)
+}
+if (!'https'.equalsIgnoreCase(siteUri.scheme) || !siteUri.host ||
+        siteUri.rawUserInfo != null || siteUri.rawQuery != null ||
+        siteUri.rawFragment != null || siteUri.port == 0 || siteUri.port > 65535) {
+    throw new GradleException('siteBaseUrl must be an HTTPS URL with a host, valid port, and no credentials, query, or fragment.')
+}
+
+android {
+    namespace 'kr.kbosabermetrics.app'
+    compileSdk 36
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        applicationId 'kr.kbosabermetrics.app'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'SITE_BASE_URL', JsonOutput.toJson(siteUri.toASCIIString())
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
