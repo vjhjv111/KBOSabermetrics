@@ -619,7 +619,26 @@ function renderHomeResults(d,year){
       const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
       if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
     }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · 종료`));const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);game.append(meta,scoreline);
-    const decisions=text('div','','home-game-decisions');for(const p of g.decisions??[]){const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';const row=text('div');row.title=p.label;row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));decisions.append(row);}game.append(decisions);list.append(game);
+    const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
+    for(const side of ['Away','Home']){
+      sides[side].dataset.team=g[side+'TeamCode'];
+      sides[side].setAttribute('role','group');
+      sides[side].setAttribute('aria-label',`${teamNames[g[side+'TeamCode']]??g[side+'TeamCode']} 투수 기록`);
+    }
+    const decisive=Number.isFinite(g.AwayScore)&&Number.isFinite(g.HomeScore)&&g.AwayScore!==g.HomeScore;
+    const winner=decisive?(g.AwayScore>g.HomeScore?'Away':'Home'):null;
+    const loser=decisive?(winner==='Away'?'Home':'Away'):null;
+    const decisions=text('div','','home-game-decisions');
+    for(const p of g.decisions??[]){
+      const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';
+      const side=kind==='W'?winner:kind==='L'?loser:null;
+      const row=text('div','',side?'home-side-decision':'');row.title=p.label;row.setAttribute('aria-label',`${p.label} ${p.name}`);
+      row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));
+      (side?sides[side]:decisions).append(row);
+    }
+    for(const side of ['Away','Home'])if(sides[side].childElementCount)scoreline.append(sides[side]);
+    if(decisions.childElementCount)game.append(decisions);
+    list.append(game);
   }
   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
   card.append(text('p','선택 시즌의 마지막 종료 경기일 기준 · 승리·패전·홀드·세이브는 수집된 중계에 기록된 경우 표시합니다.','player-note'));

@@ -14,28 +14,34 @@
 .home-team-tile .team-logo{width:56px;height:41px;max-width:100%}
 .home-team-tile:hover{background:#fff;border-color:var(--team-text-color)}
 .home-team-tile:focus-visible{outline:3px solid var(--team-text-color);outline-offset:2px}
-.home-page .home-top-grid{align-items:start;grid-template-columns:minmax(260px,.9fr) minmax(0,2fr) minmax(270px,.9fr)}
+.home-page .home-top-grid{align-items:stretch;grid-template-columns:minmax(260px,.9fr) minmax(0,2fr) minmax(270px,.9fr)}
 .home-page .home-top-grid>.player-card{height:auto}
-.home-page .home-results-list{display:flex;flex-direction:column;gap:0;flex:none}
-.home-page .home-game{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:14px 0;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.home-page .home-results-list{display:flex;flex-direction:column;gap:0;flex:1}
+.home-page .home-game{display:flex;flex:1;flex-flow:column nowrap;align-items:stretch;justify-content:center;gap:4px;padding:5px 0;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
 .home-game:first-child{padding-top:0}
 .home-game-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#596779}
-.home-game-meta .player-link{font-size:11px;min-height:28px;display:inline-flex;align-items:center}
-.home-page .home-scoreline{display:grid;grid-template-columns:minmax(0,1fr) 30px 12px 30px minmax(0,1fr);gap:6px;width:100%}
-.home-scoreline .home-team-link{flex-direction:column;gap:3px;font-size:13px;line-height:20px;min-width:0;letter-spacing:0}
-.home-scoreline .home-team-link>span{display:block;min-height:20px;line-height:20px;text-align:center}
-.home-scoreline .team-logo{width:56px;height:41px}
-.home-scoreline>strong{font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums}
-.home-score-divider{text-align:center;font-size:18px;color:#758293}
-.home-page .home-game-decisions{justify-content:center;gap:6px 12px;font-size:12px;line-height:22px}
-.home-page .home-game-decisions>div{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;gap:6px;white-space:nowrap}
-.home-page .home-decision-badge{flex:none;line-height:22px}
+.home-game-meta .player-link{font-size:11px;min-height:24px;display:inline-flex;align-items:center}
+.home-page .home-scoreline{display:grid;grid-template-columns:minmax(0,1fr) 28px 10px 28px minmax(0,1fr);gap:4px;width:100%}
+.home-scoreline .home-team-link{flex-direction:column;gap:2px;font-size:12px;line-height:18px;min-width:0;letter-spacing:0}
+.home-scoreline .home-team-link>span{display:block;min-height:18px;line-height:18px;text-align:center}
+.home-scoreline .team-logo{width:40px;height:28px}
+.home-scoreline>strong{font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums}
+.home-score-divider{text-align:center;font-size:16px;color:#758293}
+.home-side-decisions{grid-row:2;display:flex;flex-direction:column;align-items:center;align-self:start;gap:4px;min-width:0;white-space:normal;font-size:12px;line-height:20px}
+.home-away-decisions{grid-column:1}
+.home-home-decisions{grid-column:5}
+.home-side-decision{display:flex;align-items:flex-start;justify-content:center;gap:4px;max-width:100%;min-width:0}
+.home-side-decision>span:last-child{min-width:0;overflow-wrap:anywhere;text-align:left}
+.home-page .home-game-decisions{justify-content:center;gap:4px 10px;font-size:12px;line-height:20px}
+.home-page .home-game-decisions>div{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:4px;white-space:nowrap}
+.home-page .home-decision-badge{flex:none;width:20px;height:20px;line-height:20px}
+#home-results>.player-note{flex:none;margin:12px 0 0;font-size:11px;line-height:1.6}
 .home-page .home-top-grid td .home-team-link{justify-content:flex-start;min-width:66px;min-height:32px;font-size:12px}
 .home-page .home-top-grid .player-table-wrap td,.home-page .home-top-grid .player-table-wrap th{padding:8px 5px}
 .home-page .home-leaders-grid{align-items:start}
 .home-page .home-leaders-grid>.player-card{height:auto}
 @media(max-width:1400px){#home-teams{grid-template-columns:repeat(5,minmax(0,1fr))}.home-team-tile{min-height:74px;padding:5px 3px}.home-clubs{padding:14px}.home-clubs-heading{margin-bottom:10px}}
 @media(max-width:1250px){.home-page .home-top-grid{grid-template-columns:minmax(270px,1fr) minmax(0,2fr)}}
-@media(max-width:800px){.home-page .home-heading{grid-template-columns:1fr;gap:18px}.home-page .home-top-grid{grid-template-columns:minmax(0,1fr)}.home-page .home-game{padding:16px 0}.home-page .home-scoreline{max-width:360px;align-self:center}.home-page .home-game-meta .player-link{min-height:36px}.home-page .home-game-decisions{display:grid;grid-template-columns:minmax(0,1fr);align-self:center;gap:6px;width:max-content;max-width:100%}.home-page .home-game-decisions>div{white-space:normal}.home-page .home-game-decisions>div>span:last-child{overflow-wrap:anywhere}}
+@media(max-width:800px){.home-page .home-heading{grid-template-columns:1fr;gap:18px}.home-page .home-top-grid{grid-template-columns:minmax(0,1fr);align-items:start}.home-page .home-results-list{flex:none}.home-page .home-game{flex:none;padding:6px 0}.home-page .home-scoreline{max-width:360px;align-self:center}.home-page .home-game-meta .player-link{min-height:44px}.home-page .home-game-decisions{align-self:center;max-width:100%;white-space:normal}.home-page .home-game-decisions>div{white-space:normal}.home-page .home-game-decisions>div>span:last-child{overflow-wrap:anywhere}}
 @media(max-width:550px){.home-clubs{padding:12px}.home-clubs-heading{gap:8px}.home-clubs-heading span{font-size:11px}#home-teams{gap:5px}.home-team-tile{min-height:72px;font-size:11px}.home-team-tile .team-logo{width:48px;height:35px}.home-page .home-heading-copy h1{font-size:28px}.home-page .home-top-grid .player-table-wrap td,.home-page .home-top-grid .player-table-wrap th{padding:8px 6px}.home-page .home-game-meta{font-size:12px}.home-page .home-game-meta .player-link{min-height:44px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.home-team-tile{transition:none}}
