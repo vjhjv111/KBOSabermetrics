@@ -278,6 +278,43 @@ app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebServ
     quotas.Consume(Ip(c),Math.Min(100,settings.MaxPageSize));
     return Results.Ok(await gate.RunAsync(t=>teams.QueryAsync(input,t),c.RequestAborted));
 });
+// -----------------------------------------------------------------------------
+// KakaoTalk bot integration (KakaoBotServer).
+// Plain GET, so these skip the POST-only antiforgery/Origin checks above —
+// the bot is a server process, not a browser, and cannot carry a CSRF cookie.
+// Read-only, same QueryGate/QuotaStore budget as the site itself uses.
+// -----------------------------------------------------------------------------
+var botTeamNames=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase)
+{ ["HH"]="한화",["HT"]="KIA",["KT"]="KT",["LG"]="LG",["LT"]="롯데",["NC"]="NC",["OB"]="두산",["SK"]="SSG",["SS"]="삼성",["WO"]="키움" };
+app.MapGet("/api/bot/standings", async (int? year, HttpContext c, HomeWebService home, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    var request=new HomeRequest(year ?? DateTime.UtcNow.Year,"standings");
+    request.Validate();
+    quotas.Consume(Ip(c),10);
+    dynamic result=await gate.RunAsync(t=>home.QueryAsync(request,t),c.RequestAborted);
+    var rows=new List<object>();
+    foreach (dynamic r in result.rows)
+    {
+        string code=r.team;
+        rows.Add(new{team=code,teamName=botTeamNames.TryGetValue(code,out var n)?n:code,rank=(int)r.rank,g=(int)r.g,w=(int)r.w,d=(int)r.d,l=(int)r.l,pct=(double?)r.pct});
+    }
+    return Results.Ok(new{year=request.Year,rows});
+});
+app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bool? desc, double? qualPercent, int? year, int? limit,
+    HttpContext c, RecordService records, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    var request=new RecordRequest
+    {
+        Room="season",Role=role,View="basic",Year=year ?? DateTime.UtcNow.Year,
+        Team=string.IsNullOrWhiteSpace(team)?null:team,QualificationPercent=qualPercent ?? 0,
+        SortBy=stat,Descending=desc ?? true,Page=1,PageSize=Math.Clamp(limit ?? 10,1,20)
+    };
+    request.Validate(settings);
+    quotas.Consume(Ip(c),request.PageSize);
+    return Results.Ok(await gate.RunAsync(t=>records.QueryAsync(request,t),c.RequestAborted));
+});
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});
 app.Run();
