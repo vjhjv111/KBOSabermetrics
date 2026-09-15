@@ -102,9 +102,14 @@ public sealed partial class DatabaseCacheService
             if (!query.HasSituationFilters)
                 await AttachPitcherStadiumOutsAsync(con, filter, query.TeamCode, query.Grouping, pitchers, token).ConfigureAwait(false);
         }
-        else batters = query.HasSituationFilters
-            ? await ReadSituationBatterAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
-            : await ReadBatterAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
+        else
+        {
+            batters = query.HasSituationFilters
+                ? await ReadSituationBatterAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
+                : await ReadBatterAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
+            if (!query.HasSituationFilters)
+                await AttachBatterStadiumPaAsync(con, filter, query.TeamCode, query.Grouping, batters, token).ConfigureAwait(false);
+        }
         var teamGames = await ReadTeamGamesAsync(con, filter, token).ConfigureAwait(false);
         return new WarehouseAnalyticsData { Batters=batters, Pitchers=pitchers, TeamGames=teamGames };
     }

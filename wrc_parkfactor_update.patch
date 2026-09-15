@@ -1,0 +1,414 @@
+From c0275326f2117ac63f6f59b18a294fb40a66ffa1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 15 Sep 2026 06:16:21 +0000
+Subject: [PATCH] =?UTF-8?q?wRC+=20=ED=8C=8C=ED=81=AC=20=ED=8C=A9=ED=84=B0?=
+ =?UTF-8?q?=20=EB=B3=B4=EC=A0=95=20=EC=B6=94=EA=B0=80=20=EB=B0=8F=20?=
+ =?UTF-8?q?=ED=8C=8C=ED=81=AC=20=ED=8C=A9=ED=84=B0=20=ED=8E=98=EC=9D=B4?=
+ =?UTF-8?q?=EC=A7=80=20=EC=8A=A4=ED=83=80=EC=9D=BC=20=EA=B0=9C=EC=84=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 타자 wRC+에 구장별 KBO PF v2 가중평균(타석 기준)을 적용한 wRC+(파크) 컬럼을
+  기록실 타자 기본/심화 탭에 추가 (기존 미보정 wRC+*는 그대로 유지)
+- 투수 WAR 계산에서 쓰던 구장별 가중치 로직을 타자 타석(PA) 기준으로 동일하게
+  구현 (BatterGameStats.PA를 구장별로 집계)
+- 기록실/파크 팩터 페이지의 PF류 컬럼에 파크 팩터 색상 배지(파랑/회색/핑크) 적용
+- 파크 팩터(구장 상수) 페이지 결과 표에 핑크/마젠타 헤더 바 스타일 적용
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XLmeQ2fV1SVdk9SQcsKFCJ
+---
+ WEB/frontend/app.css                          | 18 +++++
+ WEB/frontend/app.js                           | 67 ++++++++++++-------
+ .../Statistics/RecordRoomRows.cs              |  6 ++
+ .../Statistics/SabermetricRows.cs             |  2 +
+ .../DatabaseAnalyticsService.cs               | 46 ++++++++++++-
+ .../DatabaseCacheService.Query.cs             | 52 ++++++++++++++
+ .../DatabaseCacheService.WebAccess.cs         | 11 ++-
+ .../WarehouseRecords.cs                       |  1 +
+ 8 files changed, 172 insertions(+), 31 deletions(-)
+
+diff --git a/WEB/frontend/app.css b/WEB/frontend/app.css
+index b1fac57..2ca4bca 100644
+--- a/WEB/frontend/app.css
++++ b/WEB/frontend/app.css
+@@ -56,3 +56,21 @@ table,.player-table-wrap table{font-size:13px}th,td{height:36px;padding:7px 10px
+ .team-name[data-team=HH]{--team-text-color:#b94410}.team-name[data-team=HT]{--team-text-color:#bf2538}.team-name[data-team=LG]{--team-text-color:#a61847}.team-name[data-team=LT]{--team-text-color:#b72740}.team-name[data-team=SS]{--team-text-color:#1b5da5}.team-name[data-team=SK]{--team-text-color:#bb2639}.team-name[data-team=WO]{--team-text-color:#71263c}.team-name[data-team=KT]{--team-text-color:#252931}.team-name[data-team=NC]{--team-text-color:#224b79}.team-name[data-team=OB]{--team-text-color:#192b47}.team-name[data-team=neutral]{--team-text-color:#536174}
+ .team-name[data-team]{color:var(--team-text-color)!important;fill:var(--team-text-color);font-weight:600}.team-name[data-team]:is(a):hover{text-decoration:underline;text-underline-offset:3px}.team-name[data-team]:is(select){font-weight:600}.team-name option:not([data-team]){color:#202d40}.team-names{white-space:normal}.player-card h2:has(.team-name){background:#f3f6fa;color:#202d40}.team-page #tp-mark{background:#f3f6fa;border:1px solid #dce3ed}
+ @media(max-width:650px){.percentile-card svg{display:none}.percentile-mobile{display:grid;gap:18px;margin:20px 0}.percentile-mobile-heading{display:grid;grid-template-columns:minmax(0,1fr) auto 76px;align-items:baseline;gap:10px;margin-bottom:7px;font-size:14px}.percentile-mobile-heading small{text-align:right;color:#596779;font-size:12px}.percentile-mobile-track{height:8px;border-radius:4px;background:#edf1f5;overflow:hidden}.percentile-mobile-track>span{display:block;height:100%;border-radius:4px}.player-hero .player-monogram{width:50px;font-size:15px}.player-hero h1{font-size:28px}}
++
++/* Park factor badges: color-coded around the league-neutral value of 100. */
++.pf-badge{display:inline-flex;align-items:center;justify-content:center;min-width:44px;padding:3px 9px;border-radius:999px;font-weight:700;font-size:11px;font-variant-numeric:tabular-nums;line-height:1.4}
++.pf-badge.pf-low{background:#e3edfb;color:#2258a8}
++.pf-badge.pf-mid{background:#eef0f4;color:#596779}
++.pf-badge.pf-high{background:#fbe3ee;color:#c22a72}
++td.pf-cell{text-align:center}
++/* Dedicated Park Factor page: pink/magenta banner over the result bar and table header. */
++.result-bar.park-factor-view{background:linear-gradient(90deg,#c2246f,#e0568f);border-radius:6px;padding:14px 21px;margin:12px 18px 0}
++.result-bar.park-factor-view #result-title{color:#fff;font-size:15px;letter-spacing:-.3px}
++.result-bar.park-factor-view #result-count,.result-bar.park-factor-view ~ .warnings{color:#fbdcec}
++.table-scroll.park-factor-view{margin-top:10px}
++.table-scroll.park-factor-view thead th{background:linear-gradient(90deg,#c2246f,#e0568f);color:#fff;border-bottom:none}
++.table-scroll.park-factor-view thead th button{color:#fff}
++.table-scroll.park-factor-view thead th button:hover{color:#fff;background:#00000014}
++.table-scroll.park-factor-view th .sort-arrow{color:#fff}
++.table-scroll.park-factor-view td.name,.table-scroll.park-factor-view th.name{background:#fff}
++.table-scroll.park-factor-view tbody tr:nth-child(even) td{background:#fdf2f7}
+diff --git a/WEB/frontend/app.js b/WEB/frontend/app.js
+index 4219e92..99b1c3d 100644
+--- a/WEB/frontend/app.js
++++ b/WEB/frontend/app.js
+@@ -170,7 +170,7 @@ async function query(r){
+   }catch(e){if(e.name!=='AbortError'&&seq===state.sequence)showError(e.message+(e.requestId?` (요청 ID: ${e.requestId})`:''));}
+   finally{if(seq===state.sequence){setBusy(false);state.controller=null;}}
+ }
+-const STAT_HEADER_TITLES={"Rank":"Rank · 순위","Name":"Name · 선수명","적용 조건":"Applied condition · 적용 조건","Team":"Team · 팀","G":"Games · 경기","GS":"Games Started · 선발 등판","GR":"Relief Games · 구원 등판","CG":"Complete Games · 완투","SHO":"Shutouts · 완봉","IP":"Innings Pitched · 투구 이닝","ER":"Earned Runs · 자책점","R":"Runs Allowed · 실점","TBF":"Total Batters Faced · 상대 타자 수","H":"Hits Allowed · 피안타","HR":"Home Runs Allowed · 피홈런","BB":"Walks · 볼넷","HBP":"Hit By Pitch · 사구","SO":"Strikeouts · 탈삼진","IFFB":"Infield Fly Balls · 내야 뜬공","WP":"Wild Pitches · 폭투","ERA":"Earned Run Average · 평균자책점","RA9":"Runs Allowed per 9 · 9이닝당 실점","FIP":"Fielding Independent Pitching · 수비무관 평균자책","WHIP":"Walks plus Hits per Inning Pitched · 이닝당 출루 허용","피OBP":"Opponent On-base Percentage · 피출루율","피OPS":"Opponent OPS · 피OPS","K/9":"Strikeouts per 9 innings · 9이닝당 탈삼진","BB/9":"Walks per 9 innings · 9이닝당 볼넷","K/BB":"Strikeout-to-Walk Ratio · 탈삼진/볼넷 비율","HR/9":"Home Runs per 9 innings · 9이닝당 피홈런","K%":"Strikeout Rate · 탈삼진율","BB%":"Walk Rate · 볼넷율","K-BB%":"Strikeout minus Walk Rate · 탈삼진율-볼넷율","BABIP":"Batting Average on Balls in Play · 인플레이 타구 피안타율","LOB%*":"Left On Base Percentage · 잔루율","xFIP":"Expected FIP · 기대 수비무관 평균자책","FIP-":"FIP Minus · 리그/구장 보정 FIP 지수","xFIP-":"xFIP Minus · 리그 보정 xFIP 지수","ERA-FIP":"ERA minus FIP · ERA-FIP 차이","피AVG":"Opponent Batting Average · 피안타율","NP":"Number of Pitches · 투구 수","P/G":"Pitches per Game · 경기당 투구 수","P/IP":"Pitches per Inning · 이닝당 투구 수","P/PA":"Pitches per Plate Appearance · 타석당 투구 수","KBO fWAR":"KBO Fielding Independent WAR · KBO 수비무관 투수 WAR","KBO fWAR v4":"KBO Fielding Independent WAR v4 · KBO 수비무관 투수 WAR v4","gmLI*":"Game-entering Leverage Index · 등판 시 레버리지 지수","QS":"Quality Starts · 퀄리티스타트","QS%":"Quality Start Rate · 퀄리티스타트 비율","QS+":"Quality Start Plus · 퀄리티스타트 플러스","QS+%":"Quality Start Plus Rate · QS+ 비율","RS*":"Run Support · 득점 지원","RS9*":"Run Support per 9 innings · 9이닝당 득점 지원","팀 W":"Team Wins · 팀 승","팀 L":"Team Losses · 팀 패","팀 W%":"Team Winning Percentage · 팀 승률","IP/GS":"Innings per Start · 선발 경기당 이닝","P/GS":"Pitches per Start · 선발 경기당 투구 수","2연투":"Back-to-back Appearances · 2연투","3연투":"Three-day Streaks · 3연투","4연투":"Four-day Streaks · 4연투","1+이닝":"One-plus Inning Relief Games · 1이닝 초과 구원 등판","IP/GR":"Innings per Relief Game · 구원 경기당 이닝","P/GR":"Pitches per Relief Game · 구원 경기당 투구 수","WAR":"Wins Above Replacement · 대체선수 대비 승리기여","wRC+":"Weighted Runs Created Plus · 조정 득점생산력","AVG":"Batting Average · 타율","OBP":"On-base Percentage · 출루율","SLG":"Slugging Percentage · 장타율","OPS":"On-base Plus Slugging · 출루율+장타율","PA":"Plate Appearances · 타석","AB":"At Bats · 타수","2B":"Doubles · 2루타","3B":"Triples · 3루타","RBI":"Runs Batted In · 타점","SB":"Stolen Bases · 도루","CS":"Caught Stealing · 도루 실패"};
++const STAT_HEADER_TITLES={"Rank":"Rank · 순위","Name":"Name · 선수명","적용 조건":"Applied condition · 적용 조건","Team":"Team · 팀","G":"Games · 경기","GS":"Games Started · 선발 등판","GR":"Relief Games · 구원 등판","CG":"Complete Games · 완투","SHO":"Shutouts · 완봉","IP":"Innings Pitched · 투구 이닝","ER":"Earned Runs · 자책점","R":"Runs Allowed · 실점","TBF":"Total Batters Faced · 상대 타자 수","H":"Hits Allowed · 피안타","HR":"Home Runs Allowed · 피홈런","BB":"Walks · 볼넷","HBP":"Hit By Pitch · 사구","SO":"Strikeouts · 탈삼진","IFFB":"Infield Fly Balls · 내야 뜬공","WP":"Wild Pitches · 폭투","ERA":"Earned Run Average · 평균자책점","RA9":"Runs Allowed per 9 · 9이닝당 실점","FIP":"Fielding Independent Pitching · 수비무관 평균자책","WHIP":"Walks plus Hits per Inning Pitched · 이닝당 출루 허용","피OBP":"Opponent On-base Percentage · 피출루율","피OPS":"Opponent OPS · 피OPS","K/9":"Strikeouts per 9 innings · 9이닝당 탈삼진","BB/9":"Walks per 9 innings · 9이닝당 볼넷","K/BB":"Strikeout-to-Walk Ratio · 탈삼진/볼넷 비율","HR/9":"Home Runs per 9 innings · 9이닝당 피홈런","K%":"Strikeout Rate · 탈삼진율","BB%":"Walk Rate · 볼넷율","K-BB%":"Strikeout minus Walk Rate · 탈삼진율-볼넷율","BABIP":"Batting Average on Balls in Play · 인플레이 타구 피안타율","LOB%*":"Left On Base Percentage · 잔루율","xFIP":"Expected FIP · 기대 수비무관 평균자책","FIP-":"FIP Minus · 리그/구장 보정 FIP 지수","xFIP-":"xFIP Minus · 리그 보정 xFIP 지수","ERA-FIP":"ERA minus FIP · ERA-FIP 차이","피AVG":"Opponent Batting Average · 피안타율","NP":"Number of Pitches · 투구 수","P/G":"Pitches per Game · 경기당 투구 수","P/IP":"Pitches per Inning · 이닝당 투구 수","P/PA":"Pitches per Plate Appearance · 타석당 투구 수","KBO fWAR":"KBO Fielding Independent WAR · KBO 수비무관 투수 WAR","KBO fWAR v4":"KBO Fielding Independent WAR v4 · KBO 수비무관 투수 WAR v4","gmLI*":"Game-entering Leverage Index · 등판 시 레버리지 지수","QS":"Quality Starts · 퀄리티스타트","QS%":"Quality Start Rate · 퀄리티스타트 비율","QS+":"Quality Start Plus · 퀄리티스타트 플러스","QS+%":"Quality Start Plus Rate · QS+ 비율","RS*":"Run Support · 득점 지원","RS9*":"Run Support per 9 innings · 9이닝당 득점 지원","팀 W":"Team Wins · 팀 승","팀 L":"Team Losses · 팀 패","팀 W%":"Team Winning Percentage · 팀 승률","IP/GS":"Innings per Start · 선발 경기당 이닝","P/GS":"Pitches per Start · 선발 경기당 투구 수","2연투":"Back-to-back Appearances · 2연투","3연투":"Three-day Streaks · 3연투","4연투":"Four-day Streaks · 4연투","1+이닝":"One-plus Inning Relief Games · 1이닝 초과 구원 등판","IP/GR":"Innings per Relief Game · 구원 경기당 이닝","P/GR":"Pitches per Relief Game · 구원 경기당 투구 수","WAR":"Wins Above Replacement · 대체선수 대비 승리기여","wRC+":"Weighted Runs Created Plus · 조정 득점생산력","AVG":"Batting Average · 타율","OBP":"On-base Percentage · 출루율","SLG":"Slugging Percentage · 장타율","OPS":"On-base Plus Slugging · 출루율+장타율","PA":"Plate Appearances · 타석","AB":"At Bats · 타수","2B":"Doubles · 2루타","3B":"Triples · 3루타","RBI":"Runs Batted In · 타점","SB":"Stolen Bases · 도루","CS":"Caught Stealing · 도루 실패","PF":"Park Factor · 파크 팩터 (100 = 리그 평균)","wRC+(파크)*":"Park-adjusted wRC+ · 파크 팩터 보정 조정 득점생산력","원시 FIP PF":"Raw FIP Park Factor · 원시 FIP 파크 팩터","사용 FIP PF":"Applied FIP Park Factor · 실제 계산에 사용한 FIP 파크 팩터"};
+ function statHeaderTitle(c){return STAT_HEADER_TITLES[c.label]||STAT_HEADER_TITLES[c.key]||c.label;}
+ function makeSortHeader(c){
+   const th=document.createElement('th');th.scope='col';
+@@ -218,9 +218,23 @@ function renderLeagueOverview(result){
+   }
+   metrics.replaceChildren(frag);box.hidden=false;
+ }
++// Park-factor style columns (any "…PF" label, on the 100-neutral scale used across
++// the site) get a color-coded badge instead of plain text: blue when the park
++// suppresses the stat, gray near league-neutral, pink/red when it inflates it.
++function pfBadgeNode(rawValue){
++  const n=Number(rawValue);
++  if(!Number.isFinite(n))return text('span',rawValue);
++  const span=text('span',n.toFixed(1),'pf-badge');
++  span.classList.add(n<=96?'pf-low':n>=104?'pf-high':'pf-mid');
++  return span;
++}
++function isParkFactorColumn(col){return col.kind!=='text'&&/PF$/.test((col.label||'').trim());}
+ function renderTable(result){
+   renderLeagueOverview(result);
+   renderHeader(result.columns);
++  const parkFactorPage=state.room==='constants'&&state.view==='parks';
++  $('table-scroll').classList.toggle('park-factor-view',parkFactorPage);
++  document.querySelector('.result-bar')?.classList.toggle('park-factor-view',parkFactorPage);
+   const body=document.createDocumentFragment();
+   for(const row of result.rows){
+     const tr=document.createElement('tr');
+@@ -228,7 +242,8 @@ function renderTable(result){
+       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
+       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
+       if(col.key==='TeamCode')td.replaceChildren(teamNamesNode(value));
+-      if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
++      if(['WrcPlus','OPS','ERA','WrcPlusParkAdjusted'].includes(col.key))td.classList.add('stat-emphasis');
++      if(value!=='-'&&isParkFactorColumn(col)){td.replaceChildren(pfBadgeNode(value));td.classList.add('pf-cell');}
+       if(state.room==='team'&&['Name','TeamCode'].includes(col.key)&&row.entityCode){
+         const a=teamNameNode(row.entityCode,teamNames[row.entityCode]??value,'a');a.classList.add('player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
+       }else if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
+@@ -570,10 +585,10 @@ function renderHomeTeams(year,codes=state.catalog?.teams??[]){
+ }
+ function initHome(){
+   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
+-  home.innerHTML='<div class="home-heading"><div class="home-heading-copy"><p class="player-eyebrow">KBO SABERMETRICS</p><h1>오늘의 리그</h1><p>팀과 선수의 현재 기록, 득실점으로 바라본 남은 시즌</p><label>시즌 <select id="home-year"></select></label></div><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><span>로고를 눌러 팀 기록 보기</span></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details>';
++  home.innerHTML='<div class="home-heading"><div class="home-heading-copy"><p class="player-eyebrow">KBO SABERMETRICS</p><h1>오늘의 리그</h1><p>팀과 선수의 현재 기록, 득실점으로 바라본 남은 시즌</p><label>시즌 <select id="home-year"></select></label></div><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><span>로고를 눌러 팀 기록 보기</span></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details>';
+   const results=text('section','','player-card');results.id='home-results';results.append(text('h2','최근 경기 결과'));home.querySelector('.home-top-grid').prepend(results);
+   const monthly=text('section','','player-card');monthly.id='home-monthly';monthly.append(text('h2','월간 승률 순위'));home.querySelector('.home-top-grid').append(monthly);
+-  home.querySelector('.home-top-grid').after(home.querySelector('.home-method'));
++  home.querySelector('.home-top-grid').after(home.querySelector('.home-method'));
+   $('workspace').before(home);$('home-year').onchange=loadHome;
+   const button=text('button','홈','room');button.dataset.route='home';button.onclick=()=>{if(!location.hash)homeRoute();else location.hash='';};document.querySelector('.room-nav').prepend(button);
+   for(const b of document.querySelectorAll('.room[data-room],.role'))b.addEventListener('click',()=>{location.hash='records';});
+@@ -606,8 +621,8 @@ function renderHomeStandings(d,year){
+   const card=$('home-standings');card.replaceChildren(text('h2',`${year} 팀 순위 · 피타고리안 전망`));const pct=x=>x==null?'—':(x*100).toFixed(1)+'%';
+   const rows=d.rows.map(r=>{const link=homeTeamLink(r.team,year);const chance=text('span',pct(r.playoff),'home-prob');if(r.playoff!=null)chance.style.setProperty('--chance',(r.playoff*100)+'%');chance.title='피타고리안 승률 기반 자체 모델 추정';return [r.rank,link,r.g,r.w,r.d,r.l,r.gb.toFixed(1),r.pct==null?'—':r.pct.toFixed(3),r.rf,r.ra,pct(r.pyth),r.winDifference==null?'—':(r.winDifference>0?'+':'')+r.winDifference.toFixed(1),chance];});
+   card.append(text('p','↔ 좌우로 밀어 승률·득실점·시즌 전망을 확인하세요.','scroll-hint'),homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
+-  card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?(d.forecastModel?'상대 수준·평균 회귀 보정 · 10,000회 · 자체 추정':'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님'):d.reason}`,'player-note'));renderForecastMethod($('home-model-note'),d);
+-  const explain=text('button','계산식 보기','home-formula-button');explain.type='button';explain.setAttribute('aria-controls','home-method');explain.onclick=()=>{const panel=$('home-method');panel.open=true;panel.querySelector('summary').focus({preventScroll:true});panel.scrollIntoView({behavior:'auto',block:'start'});};card.querySelector('.player-note').append(document.createTextNode(' · '),explain);
++  card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?(d.forecastModel?'상대 수준·평균 회귀 보정 · 10,000회 · 자체 추정':'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님'):d.reason}`,'player-note'));renderForecastMethod($('home-model-note'),d);
++  const explain=text('button','계산식 보기','home-formula-button');explain.type='button';explain.setAttribute('aria-controls','home-method');explain.onclick=()=>{const panel=$('home-method');panel.open=true;panel.querySelector('summary').focus({preventScroll:true});panel.scrollIntoView({behavior:'auto',block:'start'});};card.querySelector('.player-note').append(document.createTextNode(' · '),explain);
+ }
+ function renderHomeResults(d,year){
+   const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
+@@ -621,26 +636,26 @@ function renderHomeResults(d,year){
+       const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
+       if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
+     }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · 종료`));const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);game.append(meta,scoreline);
+-    const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
+-    for(const side of ['Away','Home']){
+-      sides[side].dataset.team=g[side+'TeamCode'];
+-      sides[side].setAttribute('role','group');
+-      sides[side].setAttribute('aria-label',`${teamNames[g[side+'TeamCode']]??g[side+'TeamCode']} 투수 기록`);
+-    }
+-    const decisive=Number.isFinite(g.AwayScore)&&Number.isFinite(g.HomeScore)&&g.AwayScore!==g.HomeScore;
+-    const winner=decisive?(g.AwayScore>g.HomeScore?'Away':'Home'):null;
+-    const loser=decisive?(winner==='Away'?'Home':'Away'):null;
+-    const decisions=text('div','','home-game-decisions');
+-    for(const p of g.decisions??[]){
+-      const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';
+-      const side=kind==='W'?winner:kind==='L'?loser:null;
+-      const row=text('div','',side?'home-side-decision':'');row.title=p.label;row.setAttribute('aria-label',`${p.label} ${p.name}`);
+-      row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));
+-      (side?sides[side]:decisions).append(row);
+-    }
+-    for(const side of ['Away','Home'])if(sides[side].childElementCount)scoreline.append(sides[side]);
+-    if(decisions.childElementCount)game.append(decisions);
+-    list.append(game);
++    const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
++    for(const side of ['Away','Home']){
++      sides[side].dataset.team=g[side+'TeamCode'];
++      sides[side].setAttribute('role','group');
++      sides[side].setAttribute('aria-label',`${teamNames[g[side+'TeamCode']]??g[side+'TeamCode']} 투수 기록`);
++    }
++    const decisive=Number.isFinite(g.AwayScore)&&Number.isFinite(g.HomeScore)&&g.AwayScore!==g.HomeScore;
++    const winner=decisive?(g.AwayScore>g.HomeScore?'Away':'Home'):null;
++    const loser=decisive?(winner==='Away'?'Home':'Away'):null;
++    const decisions=text('div','','home-game-decisions');
++    for(const p of g.decisions??[]){
++      const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';
++      const side=kind==='W'?winner:kind==='L'?loser:null;
++      const row=text('div','',side?'home-side-decision':'');row.title=p.label;row.setAttribute('aria-label',`${p.label} ${p.name}`);
++      row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));
++      (side?sides[side]:decisions).append(row);
++    }
++    for(const side of ['Away','Home'])if(sides[side].childElementCount)scoreline.append(sides[side]);
++    if(decisions.childElementCount)game.append(decisions);
++    list.append(game);
+   }
+   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
+   card.append(text('p','선택 시즌의 마지막 종료 경기일 기준 · 승리·패전·홀드·세이브는 수집된 중계에 기록된 경우 표시합니다.','player-note'));
+diff --git a/WEB/server/src/NaverRelay.Application/Statistics/RecordRoomRows.cs b/WEB/server/src/NaverRelay.Application/Statistics/RecordRoomRows.cs
+index a62eaeb..8e13592 100644
+--- a/WEB/server/src/NaverRelay.Application/Statistics/RecordRoomRows.cs
++++ b/WEB/server/src/NaverRelay.Application/Statistics/RecordRoomRows.cs
+@@ -37,6 +37,7 @@ public sealed class BatterBasicRecordRow
+     [DisplayName("OPS")] public double? OPS { get; init; }
+     [DisplayName("R/ePA*")] public double? RunsPerEffectivePa { get; init; }
+     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
++    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
+ }
+ 
+ public sealed class BatterAdvancedRecordRow
+@@ -58,6 +59,8 @@ public sealed class BatterAdvancedRecordRow
+     [DisplayName("wRC*")] public double? Wrc { get; init; }
+     [DisplayName("RC27*")] public double? RunsCreated27 { get; init; }
+     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
++    [DisplayName("PF")] public double? ParkFactor { get; init; }
++    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
+     [DisplayName("OPS+")] public double? OpsPlus { get; init; }
+ }
+ 
+@@ -447,6 +450,7 @@ public static class RecordRoomRowFactory
+                     OPS = row.OPS,
+                     RunsPerEffectivePa = effectivePa > 0 ? (saberRow?.Wraa ?? 0.0) / effectivePa : null,
+                     WrcPlus = saberRow?.WrcPlus,
++                    WrcPlusParkAdjusted = saberRow?.WrcPlusParkAdjusted,
+                 };
+             })
+             .OrderByDescending(row => row.War ?? double.MinValue)
+@@ -488,6 +492,8 @@ public static class RecordRoomRowFactory
+                     Wrc = row.Wrc,
+                     RunsCreated27 = CalculateRunsCreated27(classicRow),
+                     WrcPlus = row.WrcPlus,
++                    ParkFactor = row.ParkFactor,
++                    WrcPlusParkAdjusted = row.WrcPlusParkAdjusted,
+                     OpsPlus = row.OpsPlus,
+                 };
+             })
+diff --git a/WEB/server/src/NaverRelay.Application/Statistics/SabermetricRows.cs b/WEB/server/src/NaverRelay.Application/Statistics/SabermetricRows.cs
+index 9711aa6..232cc7c 100644
+--- a/WEB/server/src/NaverRelay.Application/Statistics/SabermetricRows.cs
++++ b/WEB/server/src/NaverRelay.Application/Statistics/SabermetricRows.cs
+@@ -18,6 +18,8 @@ public sealed class BatterSabermetricGridRow
+     [DisplayName("wRAA*")] public double? Wraa { get; init; }
+     [DisplayName("wRC*")] public double? Wrc { get; init; }
+     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
++    [DisplayName("PF")] public double? ParkFactor { get; init; }
++    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
+     [DisplayName("OPS+")] public double? OpsPlus { get; init; }
+ }
+ 
+diff --git a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs
+index e8bd921..46dc2b8 100644
+--- a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs
++++ b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseAnalyticsService.cs
+@@ -46,7 +46,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
+             .OrderByDescending(row => row.PA)
+             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+             .ToList();
+-        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league))
++        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league, seasonYear))
+             .OrderByDescending(row => row.PA)
+             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+             .ToList();
+@@ -139,7 +139,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
+         };
+     }
+ 
+-    private static BatterSabermetricGridRow BuildBatterSaber(BatterAggregateRecord row, LeagueReference league)
++    private static BatterSabermetricGridRow BuildBatterSaber(BatterAggregateRecord row, LeagueReference league, int? seasonYear)
+     {
+         var avg = Divide(row.Hits, row.AtBats);
+         var slg = Divide(row.TotalBases, row.AtBats);
+@@ -167,6 +167,11 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
+             ? 100.0 * (obp.Value / league.Obp + slg.Value / league.Slg - 1.0)
+             : null;
+ 
++        var parkFactor = ComputeBatterParkFactor(row, league, seasonYear);
++        double? wrcPlusParkAdjusted = wrcPlus.HasValue
++            ? wrcPlus.Value + (100.0 - parkFactor)
++            : null;
++
+         return new BatterSabermetricGridRow
+         {
+             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode), Games = row.Games,
+@@ -178,9 +183,46 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
+             Babip = Divide(row.Hits - row.HomeRuns,
+                 row.AtBats - row.Strikeouts - row.HomeRuns + row.SacrificeFlies),
+             Woba = woba, Wraa = wraa, Wrc = wrc, WrcPlus = wrcPlus, OpsPlus = opsPlus,
++            ParkFactor = parkFactor, WrcPlusParkAdjusted = wrcPlusParkAdjusted,
+         };
+     }
+ 
++    // Weighted-average KBO PF v2 across the stadiums a batter actually had plate appearances in,
++    // mirroring the pitcher-side weighting in BuildPitcherValue. Falls back to a neutral 100 when
++    // no per-stadium PA breakdown is available (e.g. situational-split queries).
++    private static double ComputeBatterParkFactor(BatterAggregateRecord row, LeagueReference league, int? seasonYear)
++    {
++        if (row.PlateAppearances <= 0 || row.StadiumPA.Count == 0) return 100.0;
++
++        var v2Rows = league.KboParkFactorsV2
++            .Where(x => !string.IsNullOrWhiteSpace(x.Stadium))
++            .ToList();
++        var parkByStadium = v2Rows
++            .GroupBy(x => x.Stadium, StringComparer.OrdinalIgnoreCase)
++            .ToDictionary(
++                g => g.Key,
++                g =>
++                {
++                    if (seasonYear.HasValue)
++                    {
++                        var exact = g.FirstOrDefault(x => x.Year == seasonYear.Value);
++                        if (exact is not null) return exact.Factor;
++                    }
++                    return g.OrderByDescending(x => x.Year).First().Factor;
++                },
++                StringComparer.OrdinalIgnoreCase);
++
++        var totalPa = row.StadiumPA.Values.Sum();
++        if (totalPa <= 0) return 100.0;
++        var weightedNumerator = 0.0;
++        foreach (var item in row.StadiumPA)
++        {
++            var factor = parkByStadium.TryGetValue(item.Key, out var storedFactor) ? storedFactor : 100.0;
++            weightedNumerator += item.Value * factor;
++        }
++        return weightedNumerator / totalPa;
++    }
++
+     private static PitcherSummaryGridRow BuildPitcherClassic(PitcherAggregateRecord row) => new()
+     {
+         Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode), Games = row.Games,
+diff --git a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Query.cs b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Query.cs
+index ed11a13..1560c28 100644
+--- a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Query.cs
++++ b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.Query.cs
+@@ -264,6 +264,7 @@ public sealed partial class DatabaseCacheService
+         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+         progress?.Report(new DatabaseLoadProgress(1, 4, "타자 경기 집계 테이블 조회 중"));
+         var batters = await ReadBatterAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
++        await AttachBatterStadiumPaAsync(connection, filter, query.TeamCode, query.Grouping, batters, cancellationToken).ConfigureAwait(false);
+         progress?.Report(new DatabaseLoadProgress(2, 4, "투수 경기 집계 테이블 조회 중"));
+         var pitchers = await ReadPitcherAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
+         if (query.Grouping == AnalyticsGrouping.Team)
+@@ -519,6 +520,57 @@ public sealed partial class DatabaseCacheService
+         }
+     }
+ 
++    private static async Task AttachBatterStadiumPaAsync(
++        SqliteConnection connection,
++        SqlFilter filter,
++        string? resultTeam,
++        AnalyticsGrouping grouping,
++        IReadOnlyList<BatterAggregateRecord> batters,
++        CancellationToken cancellationToken)
++    {
++        static string MakeKey(AnalyticsGrouping mode, string pcode, string teamCode) => mode switch
++        {
++            AnalyticsGrouping.PlayerCareer => pcode,
++            AnalyticsGrouping.Team => teamCode,
++            _ => $"{pcode}|{teamCode}",
++        };
++
++        var map = batters.ToDictionary(
++            row => MakeKey(grouping, row.Pcode, row.TeamCode),
++            StringComparer.Ordinal);
++        await using var command = connection.CreateCommand();
++        var (entityCode, entityTeam, groupBy) = grouping switch
++        {
++            AnalyticsGrouping.PlayerCareer => ("b.Pcode", "''", "b.Pcode, g.Stadium"),
++            AnalyticsGrouping.Team => ("b.TeamCode", "b.TeamCode", "b.TeamCode, g.Stadium"),
++            _ => ("b.Pcode", "b.TeamCode", "b.Pcode, b.TeamCode, g.Stadium"),
++        };
++        command.CommandText = $"""
++            {filter.Cte}
++            SELECT {entityCode}, {entityTeam}, COALESCE(g.Stadium,''), SUM(b.PA)
++            FROM BatterGameStats b
++            INNER JOIN FilteredGames g ON g.GameId=b.GameId
++            WHERE ($resultTeam='' OR b.TeamCode=$resultTeam)
++            GROUP BY {groupBy};
++            """;
++        AddParameters(command, filter.Parameters);
++        command.Parameters.AddWithValue("$resultTeam", resultTeam ?? string.Empty);
++        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
++        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
++        {
++            var entity = reader.GetString(0);
++            var team = reader.GetString(1);
++            var key = grouping switch
++            {
++                AnalyticsGrouping.PlayerCareer => entity,
++                AnalyticsGrouping.Team => team,
++                _ => $"{entity}|{team}",
++            };
++            if (!map.TryGetValue(key, out var batter)) continue;
++            batter.StadiumPA[reader.GetString(2)] = ReadInt32(reader, 3);
++        }
++    }
++
+     private static async Task<IReadOnlyDictionary<string, int>> ReadTeamGamesAsync(
+         SqliteConnection connection,
+         SqlFilter filter,
+diff --git a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.WebAccess.cs b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.WebAccess.cs
+index 12a523a..c81549b 100644
+--- a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.WebAccess.cs
++++ b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/DatabaseCacheService.WebAccess.cs
+@@ -102,9 +102,14 @@ public sealed partial class DatabaseCacheService
+             if (!query.HasSituationFilters)
+                 await AttachPitcherStadiumOutsAsync(con, filter, query.TeamCode, query.Grouping, pitchers, token).ConfigureAwait(false);
+         }
+-        else batters = query.HasSituationFilters
+-            ? await ReadSituationBatterAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
+-            : await ReadBatterAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
++        else
++        {
++            batters = query.HasSituationFilters
++                ? await ReadSituationBatterAggregatesAsync(con, filter, query, token).ConfigureAwait(false)
++                : await ReadBatterAggregatesAsync(con, filter, query.TeamCode, query.Grouping, token).ConfigureAwait(false);
++            if (!query.HasSituationFilters)
++                await AttachBatterStadiumPaAsync(con, filter, query.TeamCode, query.Grouping, batters, token).ConfigureAwait(false);
++        }
+         var teamGames = await ReadTeamGamesAsync(con, filter, token).ConfigureAwait(false);
+         return new WarehouseAnalyticsData { Batters=batters, Pitchers=pitchers, TeamGames=teamGames };
+     }
+diff --git a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/WarehouseRecords.cs b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/WarehouseRecords.cs
+index 86ea6a8..a15063e 100644
+--- a/WEB/server/src/NaverRelay.Infrastructure.Sqlite/WarehouseRecords.cs
++++ b/WEB/server/src/NaverRelay.Infrastructure.Sqlite/WarehouseRecords.cs
+@@ -209,6 +209,7 @@ internal sealed class BatterAggregateRecord
+     public double CenterFieldInnings { get; init; }
+     public double RightFieldInnings { get; init; }
+     public int DesignatedHitterPlateAppearances { get; init; }
++    public Dictionary<string, int> StadiumPA { get; } = new(StringComparer.OrdinalIgnoreCase);
+ 
+     public PositionAdjustmentSummary Position => WarehousePositionAdjustment.Calculate(
+         CatcherInnings,
+-- 
+2.43.0
+

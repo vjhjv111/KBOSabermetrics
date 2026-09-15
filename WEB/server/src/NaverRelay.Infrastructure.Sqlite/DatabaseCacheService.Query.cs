@@ -264,6 +264,7 @@ public sealed partial class DatabaseCacheService
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new DatabaseLoadProgress(1, 4, "타자 경기 집계 테이블 조회 중"));
         var batters = await ReadBatterAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
+        await AttachBatterStadiumPaAsync(connection, filter, query.TeamCode, query.Grouping, batters, cancellationToken).ConfigureAwait(false);
         progress?.Report(new DatabaseLoadProgress(2, 4, "투수 경기 집계 테이블 조회 중"));
         var pitchers = await ReadPitcherAggregatesAsync(connection, filter, query.TeamCode, query.Grouping, cancellationToken).ConfigureAwait(false);
         if (query.Grouping == AnalyticsGrouping.Team)
@@ -516,6 +517,57 @@ public sealed partial class DatabaseCacheService
             };
             if (!map.TryGetValue(key, out var pitcher)) continue;
             pitcher.StadiumOuts[reader.GetString(2)] = ReadInt32(reader, 3);
+        }
+    }
+
+    private static async Task AttachBatterStadiumPaAsync(
+        SqliteConnection connection,
+        SqlFilter filter,
+        string? resultTeam,
+        AnalyticsGrouping grouping,
+        IReadOnlyList<BatterAggregateRecord> batters,
+        CancellationToken cancellationToken)
+    {
+        static string MakeKey(AnalyticsGrouping mode, string pcode, string teamCode) => mode switch
+        {
+            AnalyticsGrouping.PlayerCareer => pcode,
+            AnalyticsGrouping.Team => teamCode,
+            _ => $"{pcode}|{teamCode}",
+        };
+
+        var map = batters.ToDictionary(
+            row => MakeKey(grouping, row.Pcode, row.TeamCode),
+            StringComparer.Ordinal);
+        await using var command = connection.CreateCommand();
+        var (entityCode, entityTeam, groupBy) = grouping switch
+        {
+            AnalyticsGrouping.PlayerCareer => ("b.Pcode", "''", "b.Pcode, g.Stadium"),
+            AnalyticsGrouping.Team => ("b.TeamCode", "b.TeamCode", "b.TeamCode, g.Stadium"),
+            _ => ("b.Pcode", "b.TeamCode", "b.Pcode, b.TeamCode, g.Stadium"),
+        };
+        command.CommandText = $"""
+            {filter.Cte}
+            SELECT {entityCode}, {entityTeam}, COALESCE(g.Stadium,''), SUM(b.PA)
+            FROM BatterGameStats b
+            INNER JOIN FilteredGames g ON g.GameId=b.GameId
+            WHERE ($resultTeam='' OR b.TeamCode=$resultTeam)
+            GROUP BY {groupBy};
+            """;
+        AddParameters(command, filter.Parameters);
+        command.Parameters.AddWithValue("$resultTeam", resultTeam ?? string.Empty);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var entity = reader.GetString(0);
+            var team = reader.GetString(1);
+            var key = grouping switch
+            {
+                AnalyticsGrouping.PlayerCareer => entity,
+                AnalyticsGrouping.Team => team,
+                _ => $"{entity}|{team}",
+            };
+            if (!map.TryGetValue(key, out var batter)) continue;
+            batter.StadiumPA[reader.GetString(2)] = ReadInt32(reader, 3);
         }
     }
 

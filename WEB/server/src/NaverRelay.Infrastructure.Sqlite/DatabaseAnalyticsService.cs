@@ -46,7 +46,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .OrderByDescending(row => row.PA)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
-        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league))
+        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league, seasonYear))
             .OrderByDescending(row => row.PA)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -139,7 +139,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         };
     }
 
-    private static BatterSabermetricGridRow BuildBatterSaber(BatterAggregateRecord row, LeagueReference league)
+    private static BatterSabermetricGridRow BuildBatterSaber(BatterAggregateRecord row, LeagueReference league, int? seasonYear)
     {
         var avg = Divide(row.Hits, row.AtBats);
         var slg = Divide(row.TotalBases, row.AtBats);
@@ -167,6 +167,11 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             ? 100.0 * (obp.Value / league.Obp + slg.Value / league.Slg - 1.0)
             : null;
 
+        var parkFactor = ComputeBatterParkFactor(row, league, seasonYear);
+        double? wrcPlusParkAdjusted = wrcPlus.HasValue
+            ? wrcPlus.Value + (100.0 - parkFactor)
+            : null;
+
         return new BatterSabermetricGridRow
         {
             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode), Games = row.Games,
@@ -178,7 +183,44 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             Babip = Divide(row.Hits - row.HomeRuns,
                 row.AtBats - row.Strikeouts - row.HomeRuns + row.SacrificeFlies),
             Woba = woba, Wraa = wraa, Wrc = wrc, WrcPlus = wrcPlus, OpsPlus = opsPlus,
+            ParkFactor = parkFactor, WrcPlusParkAdjusted = wrcPlusParkAdjusted,
         };
+    }
+
+    // Weighted-average KBO PF v2 across the stadiums a batter actually had plate appearances in,
+    // mirroring the pitcher-side weighting in BuildPitcherValue. Falls back to a neutral 100 when
+    // no per-stadium PA breakdown is available (e.g. situational-split queries).
+    private static double ComputeBatterParkFactor(BatterAggregateRecord row, LeagueReference league, int? seasonYear)
+    {
+        if (row.PlateAppearances <= 0 || row.StadiumPA.Count == 0) return 100.0;
+
+        var v2Rows = league.KboParkFactorsV2
+            .Where(x => !string.IsNullOrWhiteSpace(x.Stadium))
+            .ToList();
+        var parkByStadium = v2Rows
+            .GroupBy(x => x.Stadium, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    if (seasonYear.HasValue)
+                    {
+                        var exact = g.FirstOrDefault(x => x.Year == seasonYear.Value);
+                        if (exact is not null) return exact.Factor;
+                    }
+                    return g.OrderByDescending(x => x.Year).First().Factor;
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        var totalPa = row.StadiumPA.Values.Sum();
+        if (totalPa <= 0) return 100.0;
+        var weightedNumerator = 0.0;
+        foreach (var item in row.StadiumPA)
+        {
+            var factor = parkByStadium.TryGetValue(item.Key, out var storedFactor) ? storedFactor : 100.0;
+            weightedNumerator += item.Value * factor;
+        }
+        return weightedNumerator / totalPa;
     }
 
     private static PitcherSummaryGridRow BuildPitcherClassic(PitcherAggregateRecord row) => new()

@@ -209,6 +209,7 @@ internal sealed class BatterAggregateRecord
     public double CenterFieldInnings { get; init; }
     public double RightFieldInnings { get; init; }
     public int DesignatedHitterPlateAppearances { get; init; }
+    public Dictionary<string, int> StadiumPA { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public PositionAdjustmentSummary Position => WarehousePositionAdjustment.Calculate(
         CatcherInnings,

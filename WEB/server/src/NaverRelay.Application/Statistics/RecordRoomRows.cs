@@ -37,6 +37,7 @@ public sealed class BatterBasicRecordRow
     [DisplayName("OPS")] public double? OPS { get; init; }
     [DisplayName("R/ePA*")] public double? RunsPerEffectivePa { get; init; }
     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
+    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
 }
 
 public sealed class BatterAdvancedRecordRow
@@ -58,6 +59,8 @@ public sealed class BatterAdvancedRecordRow
     [DisplayName("wRC*")] public double? Wrc { get; init; }
     [DisplayName("RC27*")] public double? RunsCreated27 { get; init; }
     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
+    [DisplayName("PF")] public double? ParkFactor { get; init; }
+    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
     [DisplayName("OPS+")] public double? OpsPlus { get; init; }
 }
 
@@ -447,6 +450,7 @@ public static class RecordRoomRowFactory
                     OPS = row.OPS,
                     RunsPerEffectivePa = effectivePa > 0 ? (saberRow?.Wraa ?? 0.0) / effectivePa : null,
                     WrcPlus = saberRow?.WrcPlus,
+                    WrcPlusParkAdjusted = saberRow?.WrcPlusParkAdjusted,
                 };
             })
             .OrderByDescending(row => row.War ?? double.MinValue)
@@ -488,6 +492,8 @@ public static class RecordRoomRowFactory
                     Wrc = row.Wrc,
                     RunsCreated27 = CalculateRunsCreated27(classicRow),
                     WrcPlus = row.WrcPlus,
+                    ParkFactor = row.ParkFactor,
+                    WrcPlusParkAdjusted = row.WrcPlusParkAdjusted,
                     OpsPlus = row.OpsPlus,
                 };
             })
