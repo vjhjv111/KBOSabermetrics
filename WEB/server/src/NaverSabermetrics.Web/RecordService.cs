@@ -202,6 +202,8 @@ public sealed partial class RecordService
     {
         if (r.Room == "constants")
         {
+            if (r.View == "parks-detail")
+                return (await _db.GetParkFactorByHitTypeAsync(token).ConfigureAwait(false)).Cast<object>().ToList();
             var lg = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
             return r.View == "parks" ? lg.ParkFactors.Cast<object>().ToList() : lg.Constants.Cast<object>().ToList();
         }

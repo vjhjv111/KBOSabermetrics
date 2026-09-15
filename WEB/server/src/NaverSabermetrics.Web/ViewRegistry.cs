@@ -38,6 +38,7 @@ public static class ViewRegistry
         new("pitcher", "pitch-types", "구종", typeof(PitcherPitchTypeRecordRow)),
         new("constants", "league", "리그 상수", typeof(LeagueConstantGridRow)),
         new("constants", "parks", "파크 팩터", typeof(ParkFactorGridRow)),
+        new("constants", "parks-detail", "파크 팩터 (Single)", typeof(ParkFactorByHitTypeRow)),
     };
     public static ViewDefinition Get(string role, string key) => Views.FirstOrDefault(v => v.Role == role && v.Key == key)
         ?? throw new RequestError("지원하지 않는 기록 탭입니다.");
