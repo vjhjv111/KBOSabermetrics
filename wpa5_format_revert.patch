@@ -1,0 +1,63 @@
+diff --git a/WEB/server/src/NaverSabermetrics.Web/Program.cs b/WEB/server/src/NaverSabermetrics.Web/Program.cs
+index 9b22d4d..1de65f8 100644
+--- a/WEB/server/src/NaverSabermetrics.Web/Program.cs
++++ b/WEB/server/src/NaverSabermetrics.Web/Program.cs
+@@ -316,7 +316,8 @@ app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bo
+     return Results.Ok(await gate.RunAsync(t=>records.QueryAsync(request,t),c.RequestAborted));
+ });
+ // 하루치 경기들 중 승부에 가장 큰 영향을 준 장면(|WPA| 상위) — 예전 /wpa5가 Statiz를 스크래핑하던 것을
+-// 대체. RelayGroups.WpaByPlate(플레이별 승리확률 변동, %p 단위)를 그대로 사용합니다.
++// 대체. PlateAppearances.WpaByPlate(타석별 승리확률 변동, %p 단위)를 그대로 사용하며, 투수/타자 이름과
++// 실제 타구 결과 텍스트, 경기 최종 스코어까지 함께 내려줍니다.
+ app.MapGet("/api/bot/wpa", async (string date, int? limit, HttpContext c, QueryGate gate, QuotaStore quotas) =>
+ {
+     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+@@ -329,10 +330,12 @@ app.MapGet("/api/bot/wpa", async (string date, int? limit, HttpContext c, QueryG
+         await using var conn=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());
+         await conn.OpenAsync(t);
+         await using var cmd=conn.CreateCommand();cmd.CommandTimeout=settings.QuerySeconds;
+-        cmd.CommandText="SELECT g.GameId Id,g.HomeTeamCode Home,g.AwayTeamCode Away,r.Inning,r.BattingTeamCode Team,r.Title,r.WpaByPlate Wpa,r.HomeWinRateAfter HomeWinRate,r.AwayWinRateAfter AwayWinRate "
+-            +"FROM RelayGroups r JOIN Games g ON g.GameId=r.GameId "
+-            +"WHERE SUBSTR(g.GameDate,1,10)=$date AND UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND r.WpaByPlate IS NOT NULL "
+-            +"ORDER BY ABS(r.WpaByPlate) DESC LIMIT $limit";
++        cmd.CommandText="SELECT g.GameId Id,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HomeScore,g.AwayScore AwayScore,"
++            +"p.Inning,p.BattingTeamCode Team,p.PitcherName Pitcher,p.BatterName Batter,p.ResultText Result,"
++            +"p.WpaByPlate Wpa,p.HomeWinRateAfter HomeWinRate,p.AwayWinRateAfter AwayWinRate "
++            +"FROM PlateAppearances p JOIN Games g ON g.GameId=p.GameId "
++            +"WHERE SUBSTR(g.GameDate,1,10)=$date AND UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND p.IsOfficial=1 AND p.WpaByPlate IS NOT NULL "
++            +"ORDER BY ABS(p.WpaByPlate) DESC LIMIT $limit";
+         cmd.Parameters.AddWithValue("$date",date);cmd.Parameters.AddWithValue("$limit",take);
+         using var cancel=t.Register(cmd.Cancel);
+         var list=new List<object>();
+@@ -341,19 +344,25 @@ app.MapGet("/api/bot/wpa", async (string date, int? limit, HttpContext c, QueryG
+         {
+             string? home=reader.IsDBNull(1)?null:Convert.ToString(reader.GetValue(1));
+             string? away=reader.IsDBNull(2)?null:Convert.ToString(reader.GetValue(2));
+-            string? team=reader.IsDBNull(4)?null:Convert.ToString(reader.GetValue(4));
++            string? team=reader.IsDBNull(6)?null:Convert.ToString(reader.GetValue(6));
++            var result=reader.IsDBNull(9)?null:Convert.ToString(reader.GetValue(9));
+             list.Add(new{
+                 gameId=reader.IsDBNull(0)?null:Convert.ToString(reader.GetValue(0)),
+                 home,away,
+                 homeName=home!=null&&botTeamNames.TryGetValue(home,out var hn)?hn:home,
+                 awayName=away!=null&&botTeamNames.TryGetValue(away,out var an)?an:away,
+-                inning=reader.IsDBNull(3)?(int?)null:Convert.ToInt32(reader.GetValue(3)),
++                homeScore=reader.IsDBNull(3)?(int?)null:Convert.ToInt32(reader.GetValue(3)),
++                awayScore=reader.IsDBNull(4)?(int?)null:Convert.ToInt32(reader.GetValue(4)),
++                inning=reader.IsDBNull(5)?(int?)null:Convert.ToInt32(reader.GetValue(5)),
+                 team,
+                 teamName=team!=null&&botTeamNames.TryGetValue(team,out var tn)?tn:team,
+-                title=reader.IsDBNull(5)?null:Convert.ToString(reader.GetValue(5)),
+-                wpa=reader.IsDBNull(6)?(double?)null:Convert.ToDouble(reader.GetValue(6)),
+-                homeWinRate=reader.IsDBNull(7)?(double?)null:Convert.ToDouble(reader.GetValue(7)),
+-                awayWinRate=reader.IsDBNull(8)?(double?)null:Convert.ToDouble(reader.GetValue(8))
++                pitcher=reader.IsDBNull(7)?null:Convert.ToString(reader.GetValue(7)),
++                batter=reader.IsDBNull(8)?null:Convert.ToString(reader.GetValue(8)),
++                result,
++                title=result,
++                wpa=reader.IsDBNull(10)?(double?)null:Convert.ToDouble(reader.GetValue(10)),
++                homeWinRate=reader.IsDBNull(11)?(double?)null:Convert.ToDouble(reader.GetValue(11)),
++                awayWinRate=reader.IsDBNull(12)?(double?)null:Convert.ToDouble(reader.GetValue(12))
+             });
+         }
+         return list;
