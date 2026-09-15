@@ -89,7 +89,7 @@ function navigation(){
   document.querySelector('.role-switch').hidden=constants;
   $('page-title').textContent=constants?'연도별 상수':`${roomNames[state.room]} ${state.role==='batter'?'타자':'투수'}`;
   $('page-description').textContent=descriptions[state.room];
-  $('year').disabled=state.room==='career'||constants;
+  $('year').disabled=state.room==='career'||(constants&&state.view!=='parks-detail');
   $('position').disabled=state.role==='pitcher'||state.room!=='season';
   $('qualification').disabled=state.room!=='season';
   if($('position').disabled)$('position').value='';
@@ -153,7 +153,7 @@ function readRequest(){
     startDate:custom?val('start-date'):null,endDate:custom?val('end-date'):null,recentDays:period?.startsWith('d')?Number(period.slice(1)):null,recentGames:period?.startsWith('g')?Number(period.slice(1)):null,
     weekday:val('weekday'),venue:val('venue'),opponent:val('opponent'),stadium:val('stadium'),playerName:val('player-name'),playerCode:state.playerCode,
     inning:val('inning'),outs:integer('outs'),runners:val('runners'),score:val('score'),balls:count?.[0]??null,strikes:count?.[1]??null,batOrder:integer('bat-order'),conditions,page:1,pageSize:Number(val('page-size')),sortBy:null,descending:true};
-  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,conditions:[],page:1,pageSize:r.pageSize};
+  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,year:state.view==='parks-detail'?integer('year'):null,conditions:[],page:1,pageSize:r.pageSize};
   return r;
 }
 function markDirty(){ $('draft-state').textContent='조건을 선택한 뒤 조회를 눌러 적용하세요.';$('draft-state').classList.add('dirty'); }
