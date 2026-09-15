@@ -315,6 +315,51 @@ app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bo
     quotas.Consume(Ip(c),request.PageSize);
     return Results.Ok(await gate.RunAsync(t=>records.QueryAsync(request,t),c.RequestAborted));
 });
+// 하루치 경기들 중 승부에 가장 큰 영향을 준 장면(|WPA| 상위) — 예전 /wpa5가 Statiz를 스크래핑하던 것을
+// 대체. RelayGroups.WpaByPlate(플레이별 승리확률 변동, %p 단위)를 그대로 사용합니다.
+app.MapGet("/api/bot/wpa", async (string date, int? limit, HttpContext c, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    if (!DateTime.TryParseExact(date,"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out _))
+        throw new RequestError("날짜 형식이 올바르지 않습니다. (예: 2026-03-28)");
+    var take=Math.Clamp(limit ?? 5,1,20);
+    quotas.Consume(Ip(c),10);
+    var rows=await gate.RunAsync(async t=>
+    {
+        await using var conn=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());
+        await conn.OpenAsync(t);
+        await using var cmd=conn.CreateCommand();cmd.CommandTimeout=settings.QuerySeconds;
+        cmd.CommandText="SELECT g.GameId Id,g.HomeTeamCode Home,g.AwayTeamCode Away,r.Inning,r.BattingTeamCode Team,r.Title,r.WpaByPlate Wpa,r.HomeWinRateAfter HomeWinRate,r.AwayWinRateAfter AwayWinRate "
+            +"FROM RelayGroups r JOIN Games g ON g.GameId=r.GameId "
+            +"WHERE SUBSTR(g.GameDate,1,10)=$date AND UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND r.WpaByPlate IS NOT NULL "
+            +"ORDER BY ABS(r.WpaByPlate) DESC LIMIT $limit";
+        cmd.Parameters.AddWithValue("$date",date);cmd.Parameters.AddWithValue("$limit",take);
+        using var cancel=t.Register(cmd.Cancel);
+        var list=new List<object>();
+        await using var reader=await cmd.ExecuteReaderAsync(t);
+        while(await reader.ReadAsync(t))
+        {
+            string? home=reader.IsDBNull(1)?null:Convert.ToString(reader.GetValue(1));
+            string? away=reader.IsDBNull(2)?null:Convert.ToString(reader.GetValue(2));
+            string? team=reader.IsDBNull(4)?null:Convert.ToString(reader.GetValue(4));
+            list.Add(new{
+                gameId=reader.IsDBNull(0)?null:Convert.ToString(reader.GetValue(0)),
+                home,away,
+                homeName=home!=null&&botTeamNames.TryGetValue(home,out var hn)?hn:home,
+                awayName=away!=null&&botTeamNames.TryGetValue(away,out var an)?an:away,
+                inning=reader.IsDBNull(3)?(int?)null:Convert.ToInt32(reader.GetValue(3)),
+                team,
+                teamName=team!=null&&botTeamNames.TryGetValue(team,out var tn)?tn:team,
+                title=reader.IsDBNull(5)?null:Convert.ToString(reader.GetValue(5)),
+                wpa=reader.IsDBNull(6)?(double?)null:Convert.ToDouble(reader.GetValue(6)),
+                homeWinRate=reader.IsDBNull(7)?(double?)null:Convert.ToDouble(reader.GetValue(7)),
+                awayWinRate=reader.IsDBNull(8)?(double?)null:Convert.ToDouble(reader.GetValue(8))
+            });
+        }
+        return list;
+    },c.RequestAborted);
+    return Results.Ok(new{date,rows});
+});
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});
 app.Run();
