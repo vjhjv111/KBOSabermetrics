@@ -124,6 +124,61 @@ public sealed partial class RecordService
             if (pc is null) throw new RequestError("선수별 조회를 지원하지 않는 탭입니다.");
             filtered = filtered.Where(r => Convert.ToString(pc.GetValue(r)) == request.PlayerCode);
         }
+        Dictionary<string, string>? draftTexts = null;
+        if (!string.IsNullOrEmpty(request.Nationality))
+        {
+            var name = definition.RowType.GetProperty("Name");
+            var team = definition.RowType.GetProperty("TeamCode");
+            var pc = definition.RowType.GetProperty("Pcode");
+            if (name is null) throw new RequestError("이 탭은 국적 조건을 지원하지 않습니다.");
+            // 국적 구분은 기본적으로 선수 개인페이지의 "지명순위"(DraftText) 문구를 보고
+            // 자동 판별합니다(아시아쿼터/자유선발 포함 여부). PlayerNationalityRegistry의
+            // 수동 명단은 그 자동 판별을 예외적으로 덮어쓰는 용도입니다.
+            draftTexts = await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            filtered = filtered.Where(r =>
+            {
+                var pcode = pc is null ? null : Convert.ToString(pc.GetValue(r));
+                var draftText = !string.IsNullOrEmpty(pcode) ? draftTexts.GetValueOrDefault(pcode) : null;
+                var category = PlayerNationalityRegistry.Resolve(
+                    Convert.ToString(name.GetValue(r)), team is null ? null : Convert.ToString(team.GetValue(r)), draftText);
+                return request.Nationality switch
+                {
+                    "국내" => category is null,
+                    "외국인" => category == PlayerNationalityCategory.Foreign,
+                    "아시아쿼터" => category == PlayerNationalityCategory.AsianQuota,
+                    "외국인+아쿼" => category is not null,
+                    _ => true,
+                };
+            });
+        }
+        if (request.RookieEligible)
+        {
+            var pc = definition.RowType.GetProperty("Pcode");
+            if (pc is null) throw new RequestError("이 탭은 신인왕 조건을 지원하지 않습니다.");
+            // 신인왕 요건: 해당 시즌 개막 전까지의 정규시즌 통산 누적 기록이
+            // 투수는 30이닝, 타자는 60타석 이하인 선수만 남깁니다. KBO 규정상 외국인·
+            // 아시아쿼터 선수는 신인왕 후보 자격이 없으므로 함께 제외합니다.
+            var limit = request.Role == "batter"
+                ? await _db.GetCareerPlateAppearancesBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false)
+                : await _db.GetCareerPitchingOutsBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false);
+            var threshold = request.Role == "batter" ? 60 : 90; // 30이닝 = 90아웃
+            var name = definition.RowType.GetProperty("Name");
+            var team = definition.RowType.GetProperty("TeamCode");
+            if (name is not null) draftTexts ??= await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            filtered = filtered.Where(r =>
+            {
+                var pcode = Convert.ToString(pc.GetValue(r)) ?? "";
+                if (limit.GetValueOrDefault(pcode, 0) > threshold) return false;
+                if (name is not null && draftTexts is not null)
+                {
+                    var draftText = draftTexts.GetValueOrDefault(pcode);
+                    var category = PlayerNationalityRegistry.Resolve(
+                        Convert.ToString(name.GetValue(r)), team is null ? null : Convert.ToString(team.GetValue(r)), draftText);
+                    if (category is not null) return false;
+                }
+                return true;
+            });
+        }
         foreach (var condition in request.Conditions)
         {
             var p = properties.Single(x => x.Name == condition.Stat);
@@ -181,9 +236,19 @@ public sealed partial class RecordService
         var league = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
         var snapshot = await _analytics.GetWebRoleSnapshotAsync(query, league, request.Role == "pitcher", token).ConfigureAwait(false);
         var fullLeague = string.IsNullOrWhiteSpace(request.Team);
-        var overview = request.Role == "pitcher"
-            ? LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague)
-            : LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+        LeagueOverview overview;
+        if (request.Role == "pitcher")
+        {
+            // 팀 완봉은 개인 완봉(한 투수가 던진 완봉)의 합이 아니라, 필터링된 경기 중
+            // 상대팀을 무실점으로 막은 경기 수입니다(여러 투수가 이어 던진 합작 완봉 포함).
+            var teamShutouts = await _db.GetTeamShutoutsAsync(query, token).ConfigureAwait(false);
+            var shutouts = fullLeague ? teamShutouts.Values.Sum() : teamShutouts.GetValueOrDefault(request.Team!, 0);
+            overview = LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague, shutouts);
+        }
+        else
+        {
+            overview = LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+        }
 
         if (request.Role == "pitcher")
         {
@@ -202,6 +267,12 @@ public sealed partial class RecordService
     {
         if (r.Room == "constants")
         {
+            if (r.View == "parks-detail")
+            {
+                var detail = await _db.GetParkFactorByHitTypeAsync(token).ConfigureAwait(false);
+                if (r.Year.HasValue) detail = detail.Where(x => x.Year == r.Year.Value).ToList();
+                return detail.Cast<object>().ToList();
+            }
             var lg = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
             return r.View == "parks" ? lg.ParkFactors.Cast<object>().ToList() : lg.Constants.Cast<object>().ToList();
         }
@@ -341,6 +412,8 @@ public sealed partial class RecordService
         var parts=new List<string> { r.Room=="career" ? "통산" : r.Year?.ToString()??"전체 연도", r.Competition };
         if(!string.IsNullOrEmpty(r.Team))parts.Add("팀 "+r.Team);
         if(!string.IsNullOrEmpty(r.Position))parts.Add(r.Position);
+        if(!string.IsNullOrEmpty(r.Nationality))parts.Add(r.Nationality);
+        if(r.RookieEligible)parts.Add("신인왕 요건");
         if(r.QualificationPercent>0)parts.Add($"규정 {r.QualificationPercent:0.#}%");
         if(q.StartDate.HasValue || q.EndDate.HasValue) parts.Add($"{q.StartDate:yyyy-MM-dd}~{q.EndDate:yyyy-MM-dd}");
         if(r.RecentGames.HasValue)parts.Add($"최근 {r.RecentGames}경기");

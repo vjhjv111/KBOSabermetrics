@@ -17,7 +17,7 @@ function diamondRoute(){
   if(active){
     abortQuery();
     for(const id of ['workspace','home-page','player-page','team-page','game-page']){const page=$(id);if(page)page.hidden=true;}
-    document.title='야구게임 · KBO Sabermetrics';
+    document.title='야구게임 · FANZAI';
     if(!diamondFrame.getAttribute('src'))diamondFrame.src='/diamond/index.html';
   }
   // Existing record navigation also updates these classes; apply route ownership last.

@@ -22,7 +22,11 @@ public static class LeagueOverviewBuilder
         });
     }
 
-    public static LeagueOverview FromPitchers(IEnumerable<PitcherBasicRecordRow> source, bool fullLeague)
+    // teamShutouts: 필터링된 경기에서 상대를 무실점으로 막은 경기 수(합작 완봉 포함).
+    // 개인 완봉(한 투수가 혼자 던진 완봉) 합계로 대신 계산하면 안 됩니다 — 여러 투수가
+    // 이어 던져 막은 경기가 통째로 누락됩니다. 호출부(RecordService)에서 Games 테이블
+    // 기준으로 따로 집계해 전달합니다.
+    public static LeagueOverview FromPitchers(IEnumerable<PitcherBasicRecordRow> source, bool fullLeague, int teamShutouts)
     {
         var rows = source.ToList();
         var ip = rows.Where(x=>x.InningsPitched.HasValue).Sum(x=>x.InningsPitched!.Value); var er = rows.Sum(x=>x.EarnedRuns); var r = rows.Sum(x=>x.RunsAllowed); var h = rows.Sum(x=>x.HitsAllowed); var bb = rows.Sum(x=>x.Walks);
@@ -33,7 +37,7 @@ public static class LeagueOverviewBuilder
         return new LeagueOverview(fullLeague ? "리그 전체" : "선택 조건 합계", new[]
         {
             M("G", games, "0"), M("IP", ip, "0.0"), M("ER", er), M("R", r), M("H", h), M("HR", rows.Sum(x=>x.HomeRunsAllowed)), M("BB", bb), M("SO", rows.Sum(x=>x.Strikeouts)),
-            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("KBO fWAR", rows.Where(x=>x.War.HasValue).Sum(x=>x.War!.Value), "0.00", true),
+            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("완봉", teamShutouts), M("KBO fWAR", rows.Where(x=>x.War.HasValue).Sum(x=>x.War!.Value), "0.00", true),
             M("RA9-WAR", rows.Where(x=>x.Ra9War.HasValue).Sum(x=>x.Ra9War!.Value), "0.00"), M("Blend WAR", rows.Where(x=>x.BlendWar.HasValue).Sum(x=>x.BlendWar!.Value), "0.00"),
         });
     }

@@ -64,7 +64,7 @@ function analysisConfigure(){
   $('an-field-window').hidden=section!=='trend';$('an-field-gameId').hidden=!['replay','provenance'].includes(section);
   $('an-field-start').hidden=section==='workload';
   $('an-field-code').hidden=section==='expectancy';$('an-field-role').hidden=section==='expectancy';
-  document.title=`${tab[1]} · 분석실 | KBO Sabermetrics`;
+  document.title=`${tab[1]} · 분석실 | FANZAI`;
 }
 async function analysisRoute(){
   analysisState.controller?.abort();++analysisState.seq;analysisStopPlayback();

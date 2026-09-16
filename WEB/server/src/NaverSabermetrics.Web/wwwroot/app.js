@@ -23,12 +23,18 @@ function colorTeamSelect(select){
 }
 function showError(message){ $('error-box').textContent=message; $('error-box').hidden=false; }
 function clearError(){ $('error-box').hidden=true; $('error-box').textContent=''; }
-async function api(path, body, signal){
+async function api(path, body, signal, _retried){
   const response = await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal,
     headers:body===undefined?{}:{'Content-Type':'application/json','X-CSRF-TOKEN':state.session?.csrfToken??''},
     body:body===undefined?undefined:JSON.stringify(body)});
   const data = await response.json().catch(()=>({message:'서버 응답을 읽지 못했습니다.'}));
   if(!response.ok){
+    // 페이지 초기 로드 시 세션 토큰을 받기 전에 요청이 먼저 나가면 CSRF 검증이
+    // 실패할 수 있다. 이 경우 세션을 한 번 다시 받아 원래 요청을 자동으로
+    // 재시도해서, 사용자가 수동으로 새로고침하지 않아도 되게 한다.
+    if(response.status===400 && data.code==='CSRF' && body!==undefined && !_retried){
+      try{ state.session=await api('/api/session'); return await api(path, body, signal, true); }catch{}
+    }
     const error = new Error(data.message??`조회에 실패했습니다. (${response.status})`);
     error.status=response.status; error.code=data.code; error.requestId=data.requestId;
     throw error;
@@ -89,11 +95,15 @@ function navigation(){
   document.querySelector('.role-switch').hidden=constants;
   $('page-title').textContent=constants?'연도별 상수':`${roomNames[state.room]} ${state.role==='batter'?'타자':'투수'}`;
   $('page-description').textContent=descriptions[state.room];
-  $('year').disabled=state.room==='career'||constants;
+  $('year').disabled=state.room==='career'||(constants&&state.view!=='parks-detail');
   $('position').disabled=state.role==='pitcher'||state.room!=='season';
   $('qualification').disabled=state.room!=='season';
+  $('nationality').disabled=state.room!=='season';
+  $('rookie-eligible').disabled=state.room!=='season';
   if($('position').disabled)$('position').value='';
-  if($('qualification').disabled)$('qualification').value='0';
+  if($('qualification').disabled||(state.room==='season'&&$('year').value===''))$('qualification').value='0';
+  if($('nationality').disabled)$('nationality').value='';
+  if($('rookie-eligible').disabled)$('rookie-eligible').checked=false;
   $('qual-label').textContent=state.role==='batter'?'규정타석':'규정이닝';
   // Constants describe the complete source environment; hide irrelevant filters.
   $('detail-filters').hidden=constants||$('detail-toggle').getAttribute('aria-expanded')==='false';
@@ -149,11 +159,11 @@ function readRequest(){
   const period=val('period'), custom=period==='custom', count=val('count')?.split('-').map(Number);
   if(custom && (!val('start-date')||!val('end-date')))throw new Error('시작일과 종료일을 지정하세요.');
   if(custom && val('start-date')>val('end-date'))throw new Error('시작일은 종료일보다 늦을 수 없습니다.');
-  const r={room:state.room,role:state.role,view:state.view,year:state.room==='career'?null:integer('year'),competition:val('competition'),team:val('team'),position:val('position'),qualificationPercent:Number(val('qualification')),
+  const r={room:state.room,role:state.role,view:state.view,year:state.room==='career'?null:integer('year'),competition:val('competition'),team:val('team'),position:val('position'),nationality:val('nationality'),rookieEligible:$('rookie-eligible').checked,qualificationPercent:Number(val('qualification')),
     startDate:custom?val('start-date'):null,endDate:custom?val('end-date'):null,recentDays:period?.startsWith('d')?Number(period.slice(1)):null,recentGames:period?.startsWith('g')?Number(period.slice(1)):null,
     weekday:val('weekday'),venue:val('venue'),opponent:val('opponent'),stadium:val('stadium'),playerName:val('player-name'),playerCode:state.playerCode,
     inning:val('inning'),outs:integer('outs'),runners:val('runners'),score:val('score'),balls:count?.[0]??null,strikes:count?.[1]??null,batOrder:integer('bat-order'),conditions,page:1,pageSize:Number(val('page-size')),sortBy:null,descending:true};
-  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,conditions:[],page:1,pageSize:r.pageSize};
+  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,year:state.view==='parks-detail'?integer('year'):null,conditions:[],page:1,pageSize:r.pageSize};
   return r;
 }
 function markDirty(){ $('draft-state').textContent='조건을 선택한 뒤 조회를 눌러 적용하세요.';$('draft-state').classList.add('dirty'); }
@@ -170,7 +180,7 @@ async function query(r){
   }catch(e){if(e.name!=='AbortError'&&seq===state.sequence)showError(e.message+(e.requestId?` (요청 ID: ${e.requestId})`:''));}
   finally{if(seq===state.sequence){setBusy(false);state.controller=null;}}
 }
-const STAT_HEADER_TITLES={"Rank":"Rank · 순위","Name":"Name · 선수명","적용 조건":"Applied condition · 적용 조건","Team":"Team · 팀","G":"Games · 경기","GS":"Games Started · 선발 등판","GR":"Relief Games · 구원 등판","CG":"Complete Games · 완투","SHO":"Shutouts · 완봉","IP":"Innings Pitched · 투구 이닝","ER":"Earned Runs · 자책점","R":"Runs Allowed · 실점","TBF":"Total Batters Faced · 상대 타자 수","H":"Hits Allowed · 피안타","HR":"Home Runs Allowed · 피홈런","BB":"Walks · 볼넷","HBP":"Hit By Pitch · 사구","SO":"Strikeouts · 탈삼진","IFFB":"Infield Fly Balls · 내야 뜬공","WP":"Wild Pitches · 폭투","ERA":"Earned Run Average · 평균자책점","RA9":"Runs Allowed per 9 · 9이닝당 실점","FIP":"Fielding Independent Pitching · 수비무관 평균자책","WHIP":"Walks plus Hits per Inning Pitched · 이닝당 출루 허용","피OBP":"Opponent On-base Percentage · 피출루율","피OPS":"Opponent OPS · 피OPS","K/9":"Strikeouts per 9 innings · 9이닝당 탈삼진","BB/9":"Walks per 9 innings · 9이닝당 볼넷","K/BB":"Strikeout-to-Walk Ratio · 탈삼진/볼넷 비율","HR/9":"Home Runs per 9 innings · 9이닝당 피홈런","K%":"Strikeout Rate · 탈삼진율","BB%":"Walk Rate · 볼넷율","K-BB%":"Strikeout minus Walk Rate · 탈삼진율-볼넷율","BABIP":"Batting Average on Balls in Play · 인플레이 타구 피안타율","LOB%*":"Left On Base Percentage · 잔루율","xFIP":"Expected FIP · 기대 수비무관 평균자책","FIP-":"FIP Minus · 리그/구장 보정 FIP 지수","xFIP-":"xFIP Minus · 리그 보정 xFIP 지수","ERA-FIP":"ERA minus FIP · ERA-FIP 차이","피AVG":"Opponent Batting Average · 피안타율","NP":"Number of Pitches · 투구 수","P/G":"Pitches per Game · 경기당 투구 수","P/IP":"Pitches per Inning · 이닝당 투구 수","P/PA":"Pitches per Plate Appearance · 타석당 투구 수","KBO fWAR":"KBO Fielding Independent WAR · KBO 수비무관 투수 WAR","KBO fWAR v4":"KBO Fielding Independent WAR v4 · KBO 수비무관 투수 WAR v4","gmLI*":"Game-entering Leverage Index · 등판 시 레버리지 지수","QS":"Quality Starts · 퀄리티스타트","QS%":"Quality Start Rate · 퀄리티스타트 비율","QS+":"Quality Start Plus · 퀄리티스타트 플러스","QS+%":"Quality Start Plus Rate · QS+ 비율","RS*":"Run Support · 득점 지원","RS9*":"Run Support per 9 innings · 9이닝당 득점 지원","팀 W":"Team Wins · 팀 승","팀 L":"Team Losses · 팀 패","팀 W%":"Team Winning Percentage · 팀 승률","IP/GS":"Innings per Start · 선발 경기당 이닝","P/GS":"Pitches per Start · 선발 경기당 투구 수","2연투":"Back-to-back Appearances · 2연투","3연투":"Three-day Streaks · 3연투","4연투":"Four-day Streaks · 4연투","1+이닝":"One-plus Inning Relief Games · 1이닝 초과 구원 등판","IP/GR":"Innings per Relief Game · 구원 경기당 이닝","P/GR":"Pitches per Relief Game · 구원 경기당 투구 수","WAR":"Wins Above Replacement · 대체선수 대비 승리기여","wRC+":"Weighted Runs Created Plus · 조정 득점생산력","AVG":"Batting Average · 타율","OBP":"On-base Percentage · 출루율","SLG":"Slugging Percentage · 장타율","OPS":"On-base Plus Slugging · 출루율+장타율","PA":"Plate Appearances · 타석","AB":"At Bats · 타수","2B":"Doubles · 2루타","3B":"Triples · 3루타","RBI":"Runs Batted In · 타점","SB":"Stolen Bases · 도루","CS":"Caught Stealing · 도루 실패"};
+const STAT_HEADER_TITLES={"Rank":"Rank · 순위","Name":"Name · 선수명","적용 조건":"Applied condition · 적용 조건","Team":"Team · 팀","G":"Games · 경기","GS":"Games Started · 선발 등판","GR":"Relief Games · 구원 등판","CG":"Complete Games · 완투","SHO":"Shutouts · 완봉","IP":"Innings Pitched · 투구 이닝","ER":"Earned Runs · 자책점","R":"Runs Allowed · 실점","TBF":"Total Batters Faced · 상대 타자 수","H":"Hits Allowed · 피안타","HR":"Home Runs Allowed · 피홈런","BB":"Walks · 볼넷","HBP":"Hit By Pitch · 사구","SO":"Strikeouts · 탈삼진","IFFB":"Infield Fly Balls · 내야 뜬공","WP":"Wild Pitches · 폭투","ERA":"Earned Run Average · 평균자책점","RA9":"Runs Allowed per 9 · 9이닝당 실점","FIP":"Fielding Independent Pitching · 수비무관 평균자책","WHIP":"Walks plus Hits per Inning Pitched · 이닝당 출루 허용","피OBP":"Opponent On-base Percentage · 피출루율","피OPS":"Opponent OPS · 피OPS","K/9":"Strikeouts per 9 innings · 9이닝당 탈삼진","BB/9":"Walks per 9 innings · 9이닝당 볼넷","K/BB":"Strikeout-to-Walk Ratio · 탈삼진/볼넷 비율","HR/9":"Home Runs per 9 innings · 9이닝당 피홈런","K%":"Strikeout Rate · 탈삼진율","BB%":"Walk Rate · 볼넷율","K-BB%":"Strikeout minus Walk Rate · 탈삼진율-볼넷율","BABIP":"Batting Average on Balls in Play · 인플레이 타구 피안타율","LOB%*":"Left On Base Percentage · 잔루율","xFIP":"Expected FIP · 기대 수비무관 평균자책","FIP-":"FIP Minus · 리그/구장 보정 FIP 지수","xFIP-":"xFIP Minus · 리그 보정 xFIP 지수","ERA-FIP":"ERA minus FIP · ERA-FIP 차이","피AVG":"Opponent Batting Average · 피안타율","NP":"Number of Pitches · 투구 수","P/G":"Pitches per Game · 경기당 투구 수","P/IP":"Pitches per Inning · 이닝당 투구 수","P/PA":"Pitches per Plate Appearance · 타석당 투구 수","KBO fWAR":"KBO Fielding Independent WAR · KBO 수비무관 투수 WAR","KBO fWAR v4":"KBO Fielding Independent WAR v4 · KBO 수비무관 투수 WAR v4","gmLI*":"Game-entering Leverage Index · 등판 시 레버리지 지수","QS":"Quality Starts · 퀄리티스타트","QS%":"Quality Start Rate · 퀄리티스타트 비율","QS+":"Quality Start Plus · 퀄리티스타트 플러스","QS+%":"Quality Start Plus Rate · QS+ 비율","RS*":"Run Support · 득점 지원","RS9*":"Run Support per 9 innings · 9이닝당 득점 지원","팀 W":"Team Wins · 팀 승","팀 L":"Team Losses · 팀 패","팀 W%":"Team Winning Percentage · 팀 승률","IP/GS":"Innings per Start · 선발 경기당 이닝","P/GS":"Pitches per Start · 선발 경기당 투구 수","2연투":"Back-to-back Appearances · 2연투","3연투":"Three-day Streaks · 3연투","4연투":"Four-day Streaks · 4연투","1+이닝":"One-plus Inning Relief Games · 1이닝 초과 구원 등판","IP/GR":"Innings per Relief Game · 구원 경기당 이닝","P/GR":"Pitches per Relief Game · 구원 경기당 투구 수","WAR":"Wins Above Replacement · 대체선수 대비 승리기여","wRC+":"Weighted Runs Created Plus · 조정 득점생산력","AVG":"Batting Average · 타율","OBP":"On-base Percentage · 출루율","SLG":"Slugging Percentage · 장타율","OPS":"On-base Plus Slugging · 출루율+장타율","PA":"Plate Appearances · 타석","AB":"At Bats · 타수","2B":"Doubles · 2루타","3B":"Triples · 3루타","RBI":"Runs Batted In · 타점","SB":"Stolen Bases · 도루","CS":"Caught Stealing · 도루 실패","PF":"Park Factor · 파크 팩터 (100 = 리그 평균)","wRC+(파크)*":"Park-adjusted wRC+ · 파크 팩터 보정 조정 득점생산력","원시 FIP PF":"Raw FIP Park Factor · 원시 FIP 파크 팩터","사용 FIP PF":"Applied FIP Park Factor · 실제 계산에 사용한 FIP 파크 팩터","득점 PF":"Runs Park Factor (single season) · 득점 파크 팩터 (해당 연도 단일 시즌)","단타 PF":"Single Park Factor (single season) · 단타 파크 팩터 (해당 연도 단일 시즌)","2루타 PF":"Double Park Factor (single season) · 2루타 파크 팩터 (해당 연도 단일 시즌)","3루타 PF":"Triple Park Factor (single season) · 3루타 파크 팩터 (해당 연도 단일 시즌)","홈런 PF":"Home Run Park Factor (single season) · 홈런 파크 팩터 (해당 연도 단일 시즌)","장타 PF":"Extra-base Hit Park Factor (single season) · 장타(2루타+3루타+홈런) 파크 팩터 (해당 연도 단일 시즌)"};
 function statHeaderTitle(c){return STAT_HEADER_TITLES[c.label]||STAT_HEADER_TITLES[c.key]||c.label;}
 function makeSortHeader(c){
   const th=document.createElement('th');th.scope='col';
@@ -218,6 +228,17 @@ function renderLeagueOverview(result){
   }
   metrics.replaceChildren(frag);box.hidden=false;
 }
+// Park-factor style columns (any "…PF" label, on the 100-neutral scale used across
+// the site) get a color-coded badge instead of plain text: blue when the park
+// suppresses the stat, gray near league-neutral, pink/red when it inflates it.
+function pfBadgeNode(rawValue){
+  const n=Number(rawValue);
+  if(!Number.isFinite(n))return text('span',rawValue);
+  const span=text('span',n.toFixed(1),'pf-badge');
+  span.classList.add(n<=96?'pf-low':n>=104?'pf-high':'pf-mid');
+  return span;
+}
+function isParkFactorColumn(col){return col.kind!=='text'&&/PF$/.test((col.label||'').trim());}
 function renderTable(result){
   renderLeagueOverview(result);
   renderHeader(result.columns);
@@ -228,7 +249,8 @@ function renderTable(result){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
       if(col.key==='TeamCode')td.replaceChildren(teamNamesNode(value));
-      if(['WrcPlus','OPS','ERA'].includes(col.key))td.classList.add('stat-emphasis');
+      if(['WrcPlus','OPS','ERA','WrcPlusParkAdjusted'].includes(col.key))td.classList.add('stat-emphasis');
+      if(value!=='-'&&isParkFactorColumn(col)){td.replaceChildren(pfBadgeNode(value));td.classList.add('pf-cell');}
       if(state.room==='team'&&['Name','TeamCode'].includes(col.key)&&row.entityCode){
         const a=teamNameNode(row.entityCode,teamNames[row.entityCode]??value,'a');a.classList.add('player-link');a.href=`#team=${encodeURIComponent(row.entityCode)}&year=${$('year').value}`;td.replaceChildren(a);
       }else if(col.key==='Name'&&row.entityCode&&state.room!=='team'){
@@ -256,6 +278,16 @@ function selectPlayer(code,name){
 $('filters').onsubmit=e=>{e.preventDefault();try{query(readRequest());}catch(err){showError(err.message);}};
 $('filters').addEventListener('input',markDirty);$('filters').addEventListener('change',markDirty);
 $('period').onchange=()=>{const custom=val('period')==='custom';$('start-date').disabled=$('end-date').disabled=!custom;};
+// 신인왕 요건(저경력) 선수는 규정타석/이닝을 충족할 수 없는 경우가 거의 전부라,
+// 규정 비율 필터가 100% 등으로 남아 있으면 결과가 사실상 항상 비어 보인다.
+// 신인왕 요건을 켜면 규정 비율은 자동으로 전체(0%)로 초기화한다.
+$('rookie-eligible').addEventListener('change',()=>{if($('rookie-eligible').checked)$('qualification').value='0';});
+// 규정타석/이닝은 한 시즌 팀 경기 수(×3.1 등) 기준으로 계산되는데, 연도를 '전체'로
+// 선택해 여러 시즌을 한 번에 합쳐서 보면 그 기준이 더 이상 맞지 않는다(시즌 수만큼
+// 부풀려진 팀 경기 수에 비례 계산되어 결과가 왜곡된다). 연도를 전체로 바꾸면 규정
+// 비율도 자동으로 전체(0%)로 초기화한다. (통산기록실은 연도 선택 자체가 막혀 있고
+// 위 navigation()에서 이미 처리하므로 여기서는 시즌기록실만 해당된다.)
+$('year').addEventListener('change',()=>{if($('year').value==='')$('qualification').value='0';});
 $('player-name').oninput=()=>{state.playerCode=null;$('player-chip').hidden=true;};
 $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;markDirty();};
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};
@@ -369,7 +401,7 @@ async function playerRoute(keep=false){
   const params=new URLSearchParams(location.hash.slice(1)),code=params.get('player');
   playerState.profileController?.abort();playerState.controller?.abort();++playerState.sequence;
   const seq=++playerState.profileSequence;
-  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='KBO Sabermetrics';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
+  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='FANZAI';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
   abortQuery();$('workspace').hidden=true;$('player-page').hidden=false;playerState.code=code;
   if(!keep){playerState.section='summary';playerState.view='basic';playerState.role=params.get('role')==='pitcher'?'pitcher':'batter';$('pp-competition').value='정규시즌';$('pp-opponent').value='';$('pp-start').value=$('pp-end').value='';}
   playerState.page=1;$('player-content').replaceChildren();$('player-pagination').hidden=true;$('player-compare-link').hidden=true;$('player-status').textContent='선수 정보를 불러오는 중…';$('player-title').textContent='선수 불러오는 중…';$('player-bio').textContent=$('player-history').textContent='';resetPlayerOfficialProfile();
@@ -377,7 +409,7 @@ async function playerRoute(keep=false){
   try{
     const data=await api('/api/player',{code,section:'profile',competition:$('pp-competition').value,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25)},controller.signal);
     if(seq!==playerState.profileSequence)return;playerState.profile=data;
-    const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | KBO Sabermetrics`;
+    const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | FANZAI`;
     $('player-bio').replaceChildren(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
     $('player-history').textContent=`경기 DB · 생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
     if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
@@ -392,7 +424,9 @@ async function playerRoute(keep=false){
   }catch(e){if(e.name!=='AbortError'&&seq===playerState.profileSequence)$('player-status').textContent=e.message;}
 }
 function setPlayerYears(){
-  const years=[...new Set((playerState.profile?.seasons??[]).filter(s=>s.Role===playerState.role).map(s=>Number(s.Year)))].sort((a,b)=>b-a);
+  // SeasonYear=0(연도 파싱이 안 된 시범경기 등 오염 데이터)은 선택해도 정상 조회가
+  // 안 되므로 연도 선택 목록에서 제외합니다.
+  const years=[...new Set((playerState.profile?.seasons??[]).filter(s=>s.Role===playerState.role && Number(s.Year)>0).map(s=>Number(s.Year)))].sort((a,b)=>b-a);
   if(!years.includes(playerState.year))playerState.year=years[0]??null;
   $('pp-year').replaceChildren(...years.map(y=>new Option(String(y),String(y))));$('pp-year').value=String(playerState.year);
 }
@@ -530,7 +564,7 @@ async function loadTeam(){
   $('tp-record').textContent='';
   teamState.controller?.abort();const controller=new AbortController();teamState.controller=controller;const seq=++teamState.seq;
   const section=teamState.section;for(const b of $('tp-tabs').children){b.classList.toggle('active',b.dataset.section===section);b.setAttribute('aria-current',b.dataset.section===section?'page':'false');}$('tp-role-label').hidden=section!=='roster';$('tp-content').replaceChildren();$('tp-pages').hidden=true;$('tp-status').textContent='팀 기록을 불러오는 중…';
-  const year=Number($('tp-year').value);$('tp-title').replaceChildren(document.createTextNode(`${year} `),teamNameNode(teamState.team));$('tp-mark').replaceChildren(teamNameNode(teamState.team));document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
+  const year=Number($('tp-year').value);$('tp-title').replaceChildren(document.createTextNode(`${year} `),teamNameNode(teamState.team));$('tp-mark').replaceChildren(teamNameNode(teamState.team));document.title=`${$('tp-title').textContent} · FANZAI`;
   try{const data=await api('/api/team',{team:teamState.team,year,competition:$('tp-competition').value,section,role:$('tp-role').value,page:teamState.page},controller.signal);if(seq!==teamState.seq)return;$('tp-status').textContent='';
     if(section==='overview')renderTeamOverview(data);else if(section==='scores')renderTeamScores(data);else{$('tp-content').append(teamCard(section==='roster'?'팀 소속 선수 기록':'경기 일정 · 결과',data.columns,data.rows));$('tp-pages').hidden=false;$('tp-page').textContent=teamState.page;$('tp-prev').disabled=teamState.page===1;$('tp-next').disabled=!data.hasMore;}
   }catch(e){if(e.name!=='AbortError'&&seq===teamState.seq)$('tp-status').textContent=e.message;}
@@ -582,7 +616,7 @@ function initHome(){
 async function homeRoute(){
   if(!state.catalog)return;const hash=location.hash;const home=!hash||hash==='#'||hash==='#home';homeState.controller?.abort();++homeState.seq;$('home-page').hidden=!home;
   if(!home){if(hash==='#records'){$('workspace').hidden=false;if(!state.schema.length)await changeView();}return;}
-  abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=true;document.title='KBO Sabermetrics · 홈';
+  abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=true;document.title='FANZAI · 홈';
   if(!$('home-year').options.length)$('home-year').replaceChildren(...[...state.catalog.years].sort((a,b)=>b-a).map(y=>new Option(y,y)));
   await loadHome();
 }

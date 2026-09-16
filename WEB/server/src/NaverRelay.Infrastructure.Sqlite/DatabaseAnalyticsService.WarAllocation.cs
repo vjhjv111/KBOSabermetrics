@@ -48,7 +48,7 @@ public sealed partial class DatabaseAnalyticsService
 
         // Batter allocation: preserve batting/running/position components and solve only replacement Runs/PA
         // so league batter WAR equals 57% of the common replacement-WAR pool.
-        var batterSaber = leagueData.Batters.Select(row => BuildBatterSaber(row, league)).ToList();
+        var batterSaber = leagueData.Batters.Select(row => BuildBatterSaber(row, league, query.SeasonYear)).ToList();
         var saberByKey = batterSaber.ToDictionary(
             row => PlayerKey(row.Pcode, row.TeamCode), StringComparer.Ordinal);
         var nonReplacementRuns = 0.0;

@@ -12,15 +12,18 @@
     <!-- Explicit physical items prevent an absent project wwwroot in the SDK manifest.
          Only these public files are packaged. frontend/ remains the editable source. -->
     <Content Remove="wwwroot/**" />
-    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/home.css;wwwroot/forecast-method.css;wwwroot/forecast-method.js;wwwroot/player-profile.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css;wwwroot/comparison.js;wwwroot/comparison.css"
+    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/home.css;wwwroot/forecast-method.css;wwwroot/forecast-method.js;wwwroot/player-profile.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css;wwwroot/comparison.js;wwwroot/comparison.css;wwwroot/robots.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/index.html" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/robots.txt" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/home.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/forecast-method.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/forecast-method.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/player-profile.css" />
     <TeamLogoAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/teams/*.png" />
+    <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.png" />
+    <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.ico" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/games.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond.js" />
@@ -52,8 +55,13 @@
     <Copy SourceFiles="@(TeamLogoAsset)"
           DestinationFiles="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BrandAsset)"
+          DestinationFiles="@(BrandAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
     <ItemGroup>
       <Content Include="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <Content Include="@(BrandAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/%(Filename)%(Extension)')"
                CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
       <Content Include="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
                CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

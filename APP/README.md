@@ -1,6 +1,6 @@
-# KBO Sabermetrics Android
+# FANZAI Android
 
-기존 [KBO Sabermetrics 웹사이트](https://kbosabermetrics.onrender.com/)를 Android WebView에서 여는 앱 프로젝트입니다. 기록실·선수 프로필·분석실·웹 야구게임은 연결한 서버가 제공하는 버전으로 표시됩니다. 이 저장소의 `WEB` 코드를 수정했다면 서버에도 배포해야 앱에서 변경 사항을 볼 수 있습니다.
+기존 [FANZAI 웹사이트](https://kbosabermetrics.onrender.com/)를 Android WebView에서 여는 앱 프로젝트입니다. 기록실·선수 프로필·분석실·웹 야구게임은 연결한 서버가 제공하는 버전으로 표시됩니다. 이 저장소의 `WEB` 코드를 수정했다면 서버에도 배포해야 앱에서 변경 사항을 볼 수 있습니다.
 
 APK에는 경기 SQLite DB나 선수 사진 묶음을 넣지 않습니다. 기록 조회·사진·게임 데이터는 서버에서 불러오므로 인터넷 연결이 필요합니다. WebView가 일부 리소스와 로그인 정보를 기기에 캐시할 수 있지만 오프라인 기록 조회나 게임 실행을 보장하지 않습니다.
 
