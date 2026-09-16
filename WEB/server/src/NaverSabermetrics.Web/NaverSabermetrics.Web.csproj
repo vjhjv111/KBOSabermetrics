@@ -21,6 +21,8 @@
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/forecast-method.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/player-profile.css" />
     <TeamLogoAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/teams/*.png" />
+    <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.png" />
+    <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.ico" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/games.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond.js" />
@@ -52,8 +54,13 @@
     <Copy SourceFiles="@(TeamLogoAsset)"
           DestinationFiles="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BrandAsset)"
+          DestinationFiles="@(BrandAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
     <ItemGroup>
       <Content Include="@(TeamLogoAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/teams/%(Filename)%(Extension)')"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <Content Include="@(BrandAsset->'$(MSBuildProjectDirectory)/wwwroot/assets/%(Filename)%(Extension)')"
                CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
       <Content Include="@(DiamondAsset->'$(MSBuildProjectDirectory)/wwwroot/diamond/%(RecursiveDir)%(Filename)%(Extension)')"
                CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

@@ -1,4 +1,4 @@
-# KBO Sabermetrics Web — WAR v3 기준
+# FANZAI Web — WAR v3 기준
 
 ## KBO 공식 선수 사진·프로필 (2026-09-12)
 
