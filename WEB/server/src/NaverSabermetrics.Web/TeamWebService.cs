@@ -81,13 +81,32 @@ public sealed class TeamWebService(DatabaseCacheService db,SiteOptions options)
         var field=new List<object>();
         var mainPitcher=pitchers.FirstOrDefault(x=>N(x,"Outs")>0);
         if(mainPitcher is not null)field.Add(new{position="P",code=S(mainPitcher,"Code"),name=S(mainPitcher,"Name"),volume=N(mainPitcher,"Outs")/3,innings=S(mainPitcher,"IP")});
-        foreach(var (pos,column) in new[]{("C","CatcherInnings"),("1B","FirstBaseInnings"),("2B","SecondBaseInnings"),("3B","ThirdBaseInnings"),("SS","ShortstopInnings"),("LF","LeftFieldInnings"),("CF","CenterFieldInnings"),("RF","RightFieldInnings"),("DH","DhPa")})
+        // 포지션별로 최다 수비량 선수를 각각 독립적으로 뽑으면(예전 방식) 멀티포지션 선수가
+        // 여러 포지션에 동시에 나올 수 있습니다. 그래서 선수별로 9개 포지션의 수비량을 한
+        // 번에 모두 구한 뒤, (선수,포지션) 쌍을 수비량이 큰 순서로 정렬해 그리디하게
+        // 배정합니다 — 이미 다른 포지션에 배정된 선수나 이미 채워진 포지션은 건너뛰므로
+        // 한 선수는 정확히 한 포지션에만 나타납니다.
+        var positionColumns=new[]{("C","CatcherInnings"),("1B","FirstBaseInnings"),("2B","SecondBaseInnings"),("3B","ThirdBaseInnings"),("SS","ShortstopInnings"),("LF","LeftFieldInnings"),("CF","CenterFieldInnings"),("RF","RightFieldInnings"),("DH","DhPa")};
+        var volumeSelect=string.Join(",",positionColumns.Select(x=>$"SUM(s.{x.Item2}) \"{x.Item1}\""));
+        var fieldRows=await Sql($"SELECT s.Pcode Code,MAX(s.Name) Name,{volumeSelect} FROM BatterGameStats s JOIN Games g ON g.GameId=s.GameId WHERE s.TeamCode=$team AND g.SeasonYear=$year AND {Round(r.Competition)} AND UPPER(g.StatusCode)='RESULT' GROUP BY s.Pcode",r,ct);
+        var candidates=new List<(string Pos,string Code,string Name,double Volume)>();
+        foreach(var row in fieldRows)
+            foreach(var (pos,_) in positionColumns)
+            {
+                var volume=N(row,pos);
+                if(volume>0)candidates.Add((pos,S(row,"Code"),S(row,"Name"),volume));
+            }
+        var filled=new Dictionary<string,(string Code,string Name,double Volume)>();
+        var usedPlayers=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var c in candidates.OrderByDescending(x=>x.Volume).ThenBy(x=>x.Pos,StringComparer.Ordinal).ThenBy(x=>x.Code,StringComparer.Ordinal))
         {
-            var rows=await Sql($"SELECT s.Pcode Code,MAX(s.Name) Name,SUM(s.{column}) Volume FROM BatterGameStats s JOIN Games g ON g.GameId=s.GameId WHERE s.TeamCode=$team AND g.SeasonYear=$year AND {Round(r.Competition)} AND UPPER(g.StatusCode)='RESULT' GROUP BY s.Pcode HAVING SUM(s.{column})>0 ORDER BY Volume DESC,s.Pcode LIMIT 1",r,ct);
-            if(rows.Count>0)field.Add(new{position=pos,code=S(rows[0],"Code"),name=S(rows[0],"Name"),volume=N(rows[0],"Volume")});
+            if(filled.ContainsKey(c.Pos)||usedPlayers.Contains(c.Code))continue;
+            filled[c.Pos]=(c.Code,c.Name,c.Volume);usedPlayers.Add(c.Code);
         }
+        foreach(var (pos,_) in positionColumns)
+            if(filled.TryGetValue(pos,out var f))field.Add(new{position=pos,code=f.Code,name=f.Name,volume=f.Volume});
         var latest=completed.FirstOrDefault();var line=new List<Dictionary<string,object?>>();
         if(latest is not null){var latestId=S(latest,"Id");var all=await Sql($"SELECT p.GameId,p.Inning,p.BattingTeamCode Team,MIN(CASE WHEN p.BattingTeamCode=g.HomeTeamCode THEN p.BeforeHomeScore ELSE p.BeforeAwayScore END) StartScore,MAX(CASE WHEN p.BattingTeamCode=g.HomeTeamCode THEN p.AfterHomeScore ELSE p.AfterAwayScore END) EndScore FROM RelayGroups p JOIN Games g ON g.GameId=p.GameId WHERE g.GameId=(SELECT g.GameId FROM Games g WHERE g.SeasonYear=$year AND {Round(r.Competition)} AND UPPER(g.StatusCode)='RESULT' AND (g.HomeTeamCode=$team OR g.AwayTeamCode=$team) AND g.HomeScore IS NOT NULL AND g.AwayScore IS NOT NULL ORDER BY g.GameDate DESC,g.GameId DESC LIMIT 1) AND p.Inning BETWEEN 1 AND 30 AND p.BattingTeamCode IN (g.HomeTeamCode,g.AwayTeamCode) GROUP BY p.GameId,p.Inning,p.BattingTeamCode ORDER BY p.Inning",r,ct);line=all;}
-        return new{record=Record(completed),standings,leaders,field,latest,line,recent=games.Take(21),next=games.Where(x=>!Final(x)&&DateTime.TryParse(S(x,"Date"),out var d)&&d.Date>=DateTime.UtcNow.AddHours(9).Date).OrderBy(x=>S(x,"Date")).FirstOrDefault(),opponents=completed.GroupBy(x=>S(x,"Opponent")).OrderBy(g=>g.Key).Select(g=>new{team=g.Key,record=Record(g)}),note="적재된 경기 기준 순위·전적입니다. 비율 타이틀은 팀 경기수 × 3.1타석 / 1이닝 이상. 주전은 포지션별 최다 수비 이닝(지명타자는 타석) 기준이며 동일 선수가 여러 포지션에 표시될 수 있습니다."};
+        return new{record=Record(completed),standings,leaders,field,latest,line,recent=games.Take(21),next=games.Where(x=>!Final(x)&&DateTime.TryParse(S(x,"Date"),out var d)&&d.Date>=DateTime.UtcNow.AddHours(9).Date).OrderBy(x=>S(x,"Date")).FirstOrDefault(),opponents=completed.GroupBy(x=>S(x,"Opponent")).OrderBy(g=>g.Key).Select(g=>new{team=g.Key,record=Record(g)}),note="적재된 경기 기준 순위·전적입니다. 비율 타이틀은 팀 경기수 × 3.1타석 / 1이닝 이상. 주전은 포지션별 수비량(이닝, 지명타자는 타석) 기준으로 배정하며, 한 선수는 가장 수비량이 많은 한 포지션에만 표시됩니다."};
     }
 }

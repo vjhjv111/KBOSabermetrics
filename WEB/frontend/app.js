@@ -101,7 +101,7 @@ function navigation(){
   $('nationality').disabled=state.room!=='season';
   $('rookie-eligible').disabled=state.room!=='season';
   if($('position').disabled)$('position').value='';
-  if($('qualification').disabled)$('qualification').value='0';
+  if($('qualification').disabled||(state.room==='season'&&$('year').value===''))$('qualification').value='0';
   if($('nationality').disabled)$('nationality').value='';
   if($('rookie-eligible').disabled)$('rookie-eligible').checked=false;
   $('qual-label').textContent=state.role==='batter'?'규정타석':'규정이닝';
@@ -282,6 +282,12 @@ $('period').onchange=()=>{const custom=val('period')==='custom';$('start-date').
 // 규정 비율 필터가 100% 등으로 남아 있으면 결과가 사실상 항상 비어 보인다.
 // 신인왕 요건을 켜면 규정 비율은 자동으로 전체(0%)로 초기화한다.
 $('rookie-eligible').addEventListener('change',()=>{if($('rookie-eligible').checked)$('qualification').value='0';});
+// 규정타석/이닝은 한 시즌 팀 경기 수(×3.1 등) 기준으로 계산되는데, 연도를 '전체'로
+// 선택해 여러 시즌을 한 번에 합쳐서 보면 그 기준이 더 이상 맞지 않는다(시즌 수만큼
+// 부풀려진 팀 경기 수에 비례 계산되어 결과가 왜곡된다). 연도를 전체로 바꾸면 규정
+// 비율도 자동으로 전체(0%)로 초기화한다. (통산기록실은 연도 선택 자체가 막혀 있고
+// 위 navigation()에서 이미 처리하므로 여기서는 시즌기록실만 해당된다.)
+$('year').addEventListener('change',()=>{if($('year').value==='')$('qualification').value='0';});
 $('player-name').oninput=()=>{state.playerCode=null;$('player-chip').hidden=true;};
 $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;markDirty();};
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};
