@@ -272,6 +272,10 @@ function selectPlayer(code,name){
 $('filters').onsubmit=e=>{e.preventDefault();try{query(readRequest());}catch(err){showError(err.message);}};
 $('filters').addEventListener('input',markDirty);$('filters').addEventListener('change',markDirty);
 $('period').onchange=()=>{const custom=val('period')==='custom';$('start-date').disabled=$('end-date').disabled=!custom;};
+// 신인왕 요건(저경력) 선수는 규정타석/이닝을 충족할 수 없는 경우가 거의 전부라,
+// 규정 비율 필터가 100% 등으로 남아 있으면 결과가 사실상 항상 비어 보인다.
+// 신인왕 요건을 켜면 규정 비율은 자동으로 전체(0%)로 초기화한다.
+$('rookie-eligible').addEventListener('change',()=>{if($('rookie-eligible').checked)$('qualification').value='0';});
 $('player-name').oninput=()=>{state.playerCode=null;$('player-chip').hidden=true;};
 $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;markDirty();};
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};

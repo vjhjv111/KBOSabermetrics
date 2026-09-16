@@ -155,7 +155,7 @@ public sealed partial class RecordService
         {
             var pc = definition.RowType.GetProperty("Pcode");
             if (pc is null) throw new RequestError("이 탭은 신인왕 조건을 지원하지 않습니다.");
-            // 신인왕 요건: 해당 시즌 개막 전까지의 1군(퓨처스리그 제외) 통산 누적 기록이
+            // 신인왕 요건: 해당 시즌 개막 전까지의 정규시즌 통산 누적 기록이
             // 투수는 30이닝, 타자는 60타석 이하인 선수만 남깁니다. KBO 규정상 외국인·
             // 아시아쿼터 선수는 신인왕 후보 자격이 없으므로 함께 제외합니다.
             var limit = request.Role == "batter"
