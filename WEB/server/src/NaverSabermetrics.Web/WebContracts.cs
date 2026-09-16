@@ -14,6 +14,8 @@ public sealed record RecordRequest
     public string Competition { get; init; } = "정규시즌";
     public string? Team { get; init; }
     public string? Position { get; init; }
+    public string? Nationality { get; init; }
+    public bool RookieEligible { get; init; }
     public double QualificationPercent { get; init; }
     public DateTime? StartDate { get; init; }
     public DateTime? EndDate { get; init; }
@@ -43,6 +45,8 @@ public sealed record RecordRequest
         if (!new[] { "season", "career", "team", "constants" }.Contains(Room)) throw new RequestError("기록실 구분이 잘못되었습니다.");
         if (Room != "season" && !string.IsNullOrEmpty(Position)) throw new RequestError("포지션 조건은 시즌 선수 기록에서만 사용합니다.");
         if (Role == "pitcher" && !string.IsNullOrEmpty(Position)) throw new RequestError("투수 조회에서는 포지션 조건을 해제하세요.");
+        if (Room != "season" && !string.IsNullOrEmpty(Nationality)) throw new RequestError("국적 조건은 시즌 선수 기록에서만 사용합니다.");
+        if (RookieEligible && (Room != "season" || !Year.HasValue)) throw new RequestError("신인왕 요건 필터는 연도를 지정한 시즌 기록에서만 사용합니다.");
         if (Role is not ("batter" or "pitcher")) throw new RequestError("타자/투수를 선택하세요.");
         if (Year is < 1900 or > 2200) throw new RequestError("연도 범위가 잘못되었습니다.");
         if (!new[] { "정규시즌", "전체", "시범경기", "포스트시즌", "올스타전" }.Contains(Competition)) throw new RequestError("경기 구분이 잘못되었습니다.");
@@ -59,6 +63,7 @@ public sealed record RecordRequest
         Check(Weekday, ["월", "화", "수", "목", "금", "토", "일"], "요일");
         Check(Venue, ["홈", "원정"], "홈/원정");
         Check(Position, ["C","1B","2B","3B","SS","LF","CF","RF","DH"], "포지션");
+        Check(Nationality, ["국내","외국인","아시아쿼터","외국인+아쿼"], "국적");
         Check(Inning, ["1~3회","4~6회","7~9회","연장","1회","2회","3회","4회","5회","6회","7회","8회","9회"], "이닝");
         Check(Runners, ["주자 없음","1루","2루","3루","1·2루","1·3루","2·3루","만루","득점권"], "주자");
         Check(Score, ["동점","리드","열세","1점 리드","2점 리드","3점 이상 리드","1점 열세","2점 열세","3점 이상 열세","1점차 이내","2점차 이내","3점차 이내"], "점수");

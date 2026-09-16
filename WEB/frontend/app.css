@@ -65,3 +65,6 @@ table,.player-table-wrap table{font-size:13px}th,td{height:36px;padding:7px 10px
 .pf-badge.pf-mid{background:#eef0f4;color:#596779}
 .pf-badge.pf-high{background:#fdeee7;color:var(--pink)}
 td.pf-cell{text-align:center}
+
+.checkbox-label{gap:5px!important}
+.checkbox-label input[type=checkbox]{width:15px;height:15px;accent-color:var(--pink);cursor:pointer}

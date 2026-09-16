@@ -92,8 +92,12 @@ function navigation(){
   $('year').disabled=state.room==='career'||(constants&&state.view!=='parks-detail');
   $('position').disabled=state.role==='pitcher'||state.room!=='season';
   $('qualification').disabled=state.room!=='season';
+  $('nationality').disabled=state.room!=='season';
+  $('rookie-eligible').disabled=state.room!=='season';
   if($('position').disabled)$('position').value='';
   if($('qualification').disabled)$('qualification').value='0';
+  if($('nationality').disabled)$('nationality').value='';
+  if($('rookie-eligible').disabled)$('rookie-eligible').checked=false;
   $('qual-label').textContent=state.role==='batter'?'규정타석':'규정이닝';
   // Constants describe the complete source environment; hide irrelevant filters.
   $('detail-filters').hidden=constants||$('detail-toggle').getAttribute('aria-expanded')==='false';
@@ -149,7 +153,7 @@ function readRequest(){
   const period=val('period'), custom=period==='custom', count=val('count')?.split('-').map(Number);
   if(custom && (!val('start-date')||!val('end-date')))throw new Error('시작일과 종료일을 지정하세요.');
   if(custom && val('start-date')>val('end-date'))throw new Error('시작일은 종료일보다 늦을 수 없습니다.');
-  const r={room:state.room,role:state.role,view:state.view,year:state.room==='career'?null:integer('year'),competition:val('competition'),team:val('team'),position:val('position'),qualificationPercent:Number(val('qualification')),
+  const r={room:state.room,role:state.role,view:state.view,year:state.room==='career'?null:integer('year'),competition:val('competition'),team:val('team'),position:val('position'),nationality:val('nationality'),rookieEligible:$('rookie-eligible').checked,qualificationPercent:Number(val('qualification')),
     startDate:custom?val('start-date'):null,endDate:custom?val('end-date'):null,recentDays:period?.startsWith('d')?Number(period.slice(1)):null,recentGames:period?.startsWith('g')?Number(period.slice(1)):null,
     weekday:val('weekday'),venue:val('venue'),opponent:val('opponent'),stadium:val('stadium'),playerName:val('player-name'),playerCode:state.playerCode,
     inning:val('inning'),outs:integer('outs'),runners:val('runners'),score:val('score'),balls:count?.[0]??null,strikes:count?.[1]??null,batOrder:integer('bat-order'),conditions,page:1,pageSize:Number(val('page-size')),sortBy:null,descending:true};

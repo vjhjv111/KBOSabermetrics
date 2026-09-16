@@ -43,6 +43,7 @@
         <label>경기<select id="competition"><option>정규시즌</option><option>전체</option><option>시범경기</option><option>포스트시즌</option><option>올스타전</option></select></label>
         <label>팀<select id="team"><option value="">전체</option></select></label>
         <label>포지션<select id="position"><option value="">전체</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option><option>DH</option></select></label>
+        <label>국적<select id="nationality"><option value="">전체</option><option value="국내">국내선수</option><option value="외국인">외국인선수</option><option value="아시아쿼터">아시아쿼터선수</option><option value="외국인+아쿼">외국인+아쿼</option></select></label>
         <label><span id="qual-label">규정타석</span><select id="qualification"><option value="0">전체</option><option value="10">10%</option><option value="30">30%</option><option value="50">50%</option><option value="70">70%</option><option value="100" selected>100%</option></select></label>
         <button id="detail-toggle" class="button outline" type="button" aria-controls="detail-filters" aria-expanded="false">상세 열기 +</button>
         <button class="button primary" type="submit">조회</button><button id="cancel-query" type="button" class="button outline" hidden>취소</button>
@@ -72,8 +73,9 @@
           <label>조건1<select id="stat1"><option value="">없음</option></select></label><input id="value1" type="number" step="any" aria-label="조건1 기준값" placeholder="값"><select id="op1" aria-label="조건1 비교"><option value="gte">이상</option><option value="gt">초과</option><option value="lte">이하</option><option value="lt">미만</option><option value="eq">같음</option></select>
           <span class="and">AND</span>
           <label>조건2<select id="stat2"><option value="">없음</option></select></label><input id="value2" type="number" step="any" aria-label="조건2 기준값" placeholder="값"><select id="op2" aria-label="조건2 비교"><option value="gte">이상</option><option value="gt">초과</option><option value="lte">이하</option><option value="lt">미만</option><option value="eq">같음</option></select>
+          <label class="checkbox-label"><input type="checkbox" id="rookie-eligible"> 신인왕 요건 선수만</label>
           <button id="reset" class="button outline" type="button">초기화</button>
-          <span class="filter-hint">비율은 20 = 20%, 타율은 0.300 · 조건을 정한 뒤 조회하세요.</span>
+          <span class="filter-hint">비율은 20 = 20%, 타율은 0.300 · 조건을 정한 뒤 조회하세요. 신인왕 요건은 시즌 개막 전까지 1군 통산 투수 30이닝·타자 60타석 이하인 선수입니다.</span>
         </div>
       </div>
       <div class="filter-footer"><span id="draft-state" class="muted">필터를 선택해 조회하세요.</span><span id="player-chip" class="player-chip" hidden><span></span><button type="button" aria-label="선수 지정 해제">×</button></span><span class="private-note"><span class="dot"></span> 서버 조회 · 페이지 단위 제공</span></div>

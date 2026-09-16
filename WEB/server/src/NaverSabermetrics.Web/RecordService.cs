@@ -124,6 +124,44 @@ public sealed partial class RecordService
             if (pc is null) throw new RequestError("선수별 조회를 지원하지 않는 탭입니다.");
             filtered = filtered.Where(r => Convert.ToString(pc.GetValue(r)) == request.PlayerCode);
         }
+        if (!string.IsNullOrEmpty(request.Nationality))
+        {
+            var name = definition.RowType.GetProperty("Name");
+            var team = definition.RowType.GetProperty("TeamCode");
+            var pc = definition.RowType.GetProperty("Pcode");
+            if (name is null) throw new RequestError("이 탭은 국적 조건을 지원하지 않습니다.");
+            // 국적 구분은 기본적으로 선수 개인페이지의 "지명순위"(DraftText) 문구를 보고
+            // 자동 판별합니다(아시아쿼터/자유선발 포함 여부). PlayerNationalityRegistry의
+            // 수동 명단은 그 자동 판별을 예외적으로 덮어쓰는 용도입니다.
+            var draftTexts = await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            filtered = filtered.Where(r =>
+            {
+                var pcode = pc is null ? null : Convert.ToString(pc.GetValue(r));
+                var draftText = !string.IsNullOrEmpty(pcode) ? draftTexts.GetValueOrDefault(pcode) : null;
+                var category = PlayerNationalityRegistry.Resolve(
+                    Convert.ToString(name.GetValue(r)), team is null ? null : Convert.ToString(team.GetValue(r)), draftText);
+                return request.Nationality switch
+                {
+                    "국내" => category is null,
+                    "외국인" => category == PlayerNationalityCategory.Foreign,
+                    "아시아쿼터" => category == PlayerNationalityCategory.AsianQuota,
+                    "외국인+아쿼" => category is not null,
+                    _ => true,
+                };
+            });
+        }
+        if (request.RookieEligible)
+        {
+            var pc = definition.RowType.GetProperty("Pcode");
+            if (pc is null) throw new RequestError("이 탭은 신인왕 조건을 지원하지 않습니다.");
+            // 신인왕 요건: 해당 시즌 개막 전까지의 1군(퓨처스리그 제외) 통산 누적 기록이
+            // 투수는 30이닝, 타자는 60타석 이하인 선수만 남깁니다.
+            var limit = request.Role == "batter"
+                ? await _db.GetCareerPlateAppearancesBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false)
+                : await _db.GetCareerPitchingOutsBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false);
+            var threshold = request.Role == "batter" ? 60 : 90; // 30이닝 = 90아웃
+            filtered = filtered.Where(r => limit.GetValueOrDefault(Convert.ToString(pc.GetValue(r)) ?? "", 0) <= threshold);
+        }
         foreach (var condition in request.Conditions)
         {
             var p = properties.Single(x => x.Name == condition.Stat);
@@ -347,6 +385,8 @@ public sealed partial class RecordService
         var parts=new List<string> { r.Room=="career" ? "통산" : r.Year?.ToString()??"전체 연도", r.Competition };
         if(!string.IsNullOrEmpty(r.Team))parts.Add("팀 "+r.Team);
         if(!string.IsNullOrEmpty(r.Position))parts.Add(r.Position);
+        if(!string.IsNullOrEmpty(r.Nationality))parts.Add(r.Nationality);
+        if(r.RookieEligible)parts.Add("신인왕 요건");
         if(r.QualificationPercent>0)parts.Add($"규정 {r.QualificationPercent:0.#}%");
         if(q.StartDate.HasValue || q.EndDate.HasValue) parts.Add($"{q.StartDate:yyyy-MM-dd}~{q.EndDate:yyyy-MM-dd}");
         if(r.RecentGames.HasValue)parts.Add($"최근 {r.RecentGames}경기");
