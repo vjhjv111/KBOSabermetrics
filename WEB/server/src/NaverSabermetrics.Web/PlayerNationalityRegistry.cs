@@ -63,14 +63,15 @@ public static class PlayerNationalityRegistry
     /// <summary>
     /// 선수 개인페이지의 "지명순위"(OfficialPlayerProfiles.DraftText) 문구로부터
     /// 국적 구분을 자동 판별합니다. 문구에 "아시아쿼터"가 있으면 아시아쿼터,
-    /// "자유선발"이 있으면 외국인, 그 외(국내 선수의 일반 지명 순위 표기 등)는
-    /// null(국내)입니다.
+    /// "자유선발" 또는 "부상 대체 외국인선수"가 있으면 외국인, 그 외(국내 선수의
+    /// 일반 지명 순위 표기 등)는 null(국내)입니다.
     /// </summary>
     public static PlayerNationalityCategory? ClassifyByDraftText(string? draftText)
     {
         if (string.IsNullOrEmpty(draftText)) return null;
         if (draftText.Contains("아시아쿼터", StringComparison.Ordinal)) return PlayerNationalityCategory.AsianQuota;
         if (draftText.Contains("자유선발", StringComparison.Ordinal)) return PlayerNationalityCategory.Foreign;
+        if (draftText.Contains("부상 대체 외국인선수", StringComparison.Ordinal)) return PlayerNationalityCategory.Foreign;
         return null;
     }
 
