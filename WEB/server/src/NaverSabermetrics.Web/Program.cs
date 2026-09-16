@@ -184,12 +184,16 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = context =>
     {
         // DefaultFiles rewrites / to index.html before static files are served.
-        // Keep the HTML entry point and tooltip script fresh across deployments.
+        // Keep the HTML entry point and tooltip script fresh across deployments —
+        // but "no-store"는 브라우저가 아예 캐시를 안 남기게 만들어서 재방문마다
+        // 전체 파일을 새로 받아가게 했습니다(대역폭 낭비). StaticFileMiddleware는
+        // 파일별 ETag를 이미 자동으로 계산해서 If-None-Match 조건부 요청에 304로
+        // 응답해주므로, "no-cache"만 쓰면 브라우저가 매번 서버에 확인은 하되(그래서
+        // 배포마다 최신 파일로 즉시 갱신됨) 내용이 그대로면 304만 받고 본문은 다시
+        // 안 받습니다 — 신선도 보장은 그대로 유지하면서 대역폭만 절약됩니다.
         if (context.File.Name is "index.html" or "app.js" or "forecast-method.js" or "forecast-method.css" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css")
         {
-            context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-            context.Context.Response.Headers.Pragma = "no-cache";
-            context.Context.Response.Headers.Expires = "0";
+            context.Context.Response.Headers.CacheControl = "no-cache";
         }
     }
 });
