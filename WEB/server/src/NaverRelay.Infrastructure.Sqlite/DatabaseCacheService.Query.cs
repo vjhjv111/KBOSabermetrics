@@ -26,8 +26,11 @@ public sealed partial class DatabaseCacheService
             }
         }
 
+        // SeasonYear=0인 행은 정상 시즌이 아니라 일부 시범경기 등에서 연도 파싱이
+        // 안 된 오염 데이터입니다(예: 정규시즌 이전 통산 기록에 잘못 합산되던 문제와
+        // 같은 원인). 연도 선택 목록에는 노출하지 않습니다.
         var years = await ReadDistinctIntsAsync(connection,
-            "SELECT DISTINCT SeasonYear FROM Games WHERE SeasonYear IS NOT NULL ORDER BY SeasonYear DESC;",
+            "SELECT DISTINCT SeasonYear FROM Games WHERE SeasonYear IS NOT NULL AND SeasonYear > 0 ORDER BY SeasonYear DESC;",
             cancellationToken).ConfigureAwait(false);
         var teams = await ReadDistinctStringsAsync(connection,
             """

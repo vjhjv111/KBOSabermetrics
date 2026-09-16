@@ -412,7 +412,9 @@ async function playerRoute(keep=false){
   }catch(e){if(e.name!=='AbortError'&&seq===playerState.profileSequence)$('player-status').textContent=e.message;}
 }
 function setPlayerYears(){
-  const years=[...new Set((playerState.profile?.seasons??[]).filter(s=>s.Role===playerState.role).map(s=>Number(s.Year)))].sort((a,b)=>b-a);
+  // SeasonYear=0(연도 파싱이 안 된 시범경기 등 오염 데이터)은 선택해도 정상 조회가
+  // 안 되므로 연도 선택 목록에서 제외합니다.
+  const years=[...new Set((playerState.profile?.seasons??[]).filter(s=>s.Role===playerState.role && Number(s.Year)>0).map(s=>Number(s.Year)))].sort((a,b)=>b-a);
   if(!years.includes(playerState.year))playerState.year=years[0]??null;
   $('pp-year').replaceChildren(...years.map(y=>new Option(String(y),String(y))));$('pp-year').value=String(playerState.year);
 }
