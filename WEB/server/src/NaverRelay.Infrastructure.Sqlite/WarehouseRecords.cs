@@ -299,8 +299,11 @@ internal readonly record struct PositionAdjustmentSummary(
 
 internal static class WarehousePositionAdjustment
 {
-    private const double FullSeasonInnings = 1458.0;
-    private static readonly IReadOnlyDictionary<string, double> Rates = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+    // FanGraphs 방식 포지션당 보정치(풀타임 1458이닝=162경기×9이닝 기준, DH는 600PA 기준).
+    // 리그 상수(연도별 상수) 화면에도 그대로 노출하므로 여기 값을 바꾸면 그 화면 표시도 함께 바뀝니다.
+    internal const double FullSeasonInnings = 1458.0;
+    internal const double DesignatedHitterFullSeasonPlateAppearances = 600.0;
+    internal static readonly IReadOnlyDictionary<string, double> Rates = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
     {
         ["C"] = 12.5,
         ["SS"] = 7.5,
@@ -338,7 +341,7 @@ internal static class WarehousePositionAdjustment
 
         var runs = innings.Sum(item => item.Value / FullSeasonInnings * Rates[item.Key]);
         if (designatedHitterPlateAppearances > 0)
-            runs += designatedHitterPlateAppearances / 600.0 * Rates["DH"];
+            runs += designatedHitterPlateAppearances / DesignatedHitterFullSeasonPlateAppearances * Rates["DH"];
 
         var positive = innings.Where(item => item.Value > 0.0001)
             .OrderByDescending(item => item.Value)

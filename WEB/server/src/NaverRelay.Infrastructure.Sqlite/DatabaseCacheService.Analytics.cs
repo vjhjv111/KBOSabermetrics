@@ -398,7 +398,17 @@ public sealed partial class DatabaseCacheService
         Row("Blend RA9 가중치", value.PitcherWar.BlendRa9Weight, "KBO Blend WAR에서 RA9-WAR 비중"),
         Row("대체선수 Runs/600PA*", 20.0, "타자 Site WAR v1"),
         Row("Runs Per Win*", 10.0, "타자 Site WAR v1"),
-        Row("FG 포지션 기준 이닝", 1458.0, "162경기 × 9이닝"),
+        Row("FG 포지션 기준 이닝", WarehousePositionAdjustment.FullSeasonInnings, "162경기 × 9이닝 (수비 포지션 보정치의 풀타임 기준)"),
+        Row("FG 포지션 기준 PA(DH)", WarehousePositionAdjustment.DesignatedHitterFullSeasonPlateAppearances, "지명타자 보정치의 풀타임 기준 타석"),
+        Row("포지션 보정 C*", WarehousePositionAdjustment.Rates["C"], "포수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 SS*", WarehousePositionAdjustment.Rates["SS"], "유격수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 2B*", WarehousePositionAdjustment.Rates["2B"], "2루수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 3B*", WarehousePositionAdjustment.Rates["3B"], "3루수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 CF*", WarehousePositionAdjustment.Rates["CF"], "중견수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 LF*", WarehousePositionAdjustment.Rates["LF"], "좌익수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 RF*", WarehousePositionAdjustment.Rates["RF"], "우익수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 1B*", WarehousePositionAdjustment.Rates["1B"], "1루수, 풀타임(1458이닝) 기준 run/season"),
+        Row("포지션 보정 DH*", WarehousePositionAdjustment.Rates["DH"], "지명타자, 풀타임(600PA) 기준 run/season"),
     ];
 
     private static LeagueConstantGridRow Row(string metric, double value, string description) =>
