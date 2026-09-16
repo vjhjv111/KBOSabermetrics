@@ -23,12 +23,18 @@ function colorTeamSelect(select){
 }
 function showError(message){ $('error-box').textContent=message; $('error-box').hidden=false; }
 function clearError(){ $('error-box').hidden=true; $('error-box').textContent=''; }
-async function api(path, body, signal){
+async function api(path, body, signal, _retried){
   const response = await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal,
     headers:body===undefined?{}:{'Content-Type':'application/json','X-CSRF-TOKEN':state.session?.csrfToken??''},
     body:body===undefined?undefined:JSON.stringify(body)});
   const data = await response.json().catch(()=>({message:'서버 응답을 읽지 못했습니다.'}));
   if(!response.ok){
+    // 페이지 초기 로드 시 세션 토큰을 받기 전에 요청이 먼저 나가면 CSRF 검증이
+    // 실패할 수 있다. 이 경우 세션을 한 번 다시 받아 원래 요청을 자동으로
+    // 재시도해서, 사용자가 수동으로 새로고침하지 않아도 되게 한다.
+    if(response.status===400 && data.code==='CSRF' && body!==undefined && !_retried){
+      try{ state.session=await api('/api/session'); return await api(path, body, signal, true); }catch{}
+    }
     const error = new Error(data.message??`조회에 실패했습니다. (${response.status})`);
     error.status=response.status; error.code=data.code; error.requestId=data.requestId;
     throw error;
@@ -389,7 +395,7 @@ async function playerRoute(keep=false){
   const params=new URLSearchParams(location.hash.slice(1)),code=params.get('player');
   playerState.profileController?.abort();playerState.controller?.abort();++playerState.sequence;
   const seq=++playerState.profileSequence;
-  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='KBO Sabermetrics';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
+  if(!code){const previous=playerState.code;playerState.code=null;$('player-page').hidden=true;$('workspace').hidden=params.has('team');document.title='FANZAI';if(previous&&!state.schema.length&&!params.has('team'))await changeView();return;}
   abortQuery();$('workspace').hidden=true;$('player-page').hidden=false;playerState.code=code;
   if(!keep){playerState.section='summary';playerState.view='basic';playerState.role=params.get('role')==='pitcher'?'pitcher':'batter';$('pp-competition').value='정규시즌';$('pp-opponent').value='';$('pp-start').value=$('pp-end').value='';}
   playerState.page=1;$('player-content').replaceChildren();$('player-pagination').hidden=true;$('player-compare-link').hidden=true;$('player-status').textContent='선수 정보를 불러오는 중…';$('player-title').textContent='선수 불러오는 중…';$('player-bio').textContent=$('player-history').textContent='';resetPlayerOfficialProfile();
@@ -397,7 +403,7 @@ async function playerRoute(keep=false){
   try{
     const data=await api('/api/player',{code,section:'profile',competition:$('pp-competition').value,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25)},controller.signal);
     if(seq!==playerState.profileSequence)return;playerState.profile=data;
-    const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | KBO Sabermetrics`;
+    const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | FANZAI`;
     $('player-bio').replaceChildren(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
     $('player-history').textContent=`경기 DB · 생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
     if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
@@ -552,7 +558,7 @@ async function loadTeam(){
   $('tp-record').textContent='';
   teamState.controller?.abort();const controller=new AbortController();teamState.controller=controller;const seq=++teamState.seq;
   const section=teamState.section;for(const b of $('tp-tabs').children){b.classList.toggle('active',b.dataset.section===section);b.setAttribute('aria-current',b.dataset.section===section?'page':'false');}$('tp-role-label').hidden=section!=='roster';$('tp-content').replaceChildren();$('tp-pages').hidden=true;$('tp-status').textContent='팀 기록을 불러오는 중…';
-  const year=Number($('tp-year').value);$('tp-title').replaceChildren(document.createTextNode(`${year} `),teamNameNode(teamState.team));$('tp-mark').replaceChildren(teamNameNode(teamState.team));document.title=`${$('tp-title').textContent} · KBO Sabermetrics`;
+  const year=Number($('tp-year').value);$('tp-title').replaceChildren(document.createTextNode(`${year} `),teamNameNode(teamState.team));$('tp-mark').replaceChildren(teamNameNode(teamState.team));document.title=`${$('tp-title').textContent} · FANZAI`;
   try{const data=await api('/api/team',{team:teamState.team,year,competition:$('tp-competition').value,section,role:$('tp-role').value,page:teamState.page},controller.signal);if(seq!==teamState.seq)return;$('tp-status').textContent='';
     if(section==='overview')renderTeamOverview(data);else if(section==='scores')renderTeamScores(data);else{$('tp-content').append(teamCard(section==='roster'?'팀 소속 선수 기록':'경기 일정 · 결과',data.columns,data.rows));$('tp-pages').hidden=false;$('tp-page').textContent=teamState.page;$('tp-prev').disabled=teamState.page===1;$('tp-next').disabled=!data.hasMore;}
   }catch(e){if(e.name!=='AbortError'&&seq===teamState.seq)$('tp-status').textContent=e.message;}
@@ -604,7 +610,7 @@ function initHome(){
 async function homeRoute(){
   if(!state.catalog)return;const hash=location.hash;const home=!hash||hash==='#'||hash==='#home';homeState.controller?.abort();++homeState.seq;$('home-page').hidden=!home;
   if(!home){if(hash==='#records'){$('workspace').hidden=false;if(!state.schema.length)await changeView();}return;}
-  abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=true;document.title='KBO Sabermetrics · 홈';
+  abortQuery();$('workspace').hidden=true;$('player-page').hidden=true;$('team-page').hidden=true;document.title='FANZAI · 홈';
   if(!$('home-year').options.length)$('home-year').replaceChildren(...[...state.catalog.years].sort((a,b)=>b-a).map(y=>new Option(y,y)));
   await loadHome();
 }

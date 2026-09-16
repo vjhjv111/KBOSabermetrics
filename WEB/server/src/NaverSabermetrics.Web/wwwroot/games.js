@@ -13,7 +13,7 @@ async function gameRoute(){
   }}catch(e){if(e.name!=='AbortError'&&seq===gameState.seq)gameRoot.replaceChildren(text('h1','경기기록'),text('p',e.message));}
 }
 function renderCalendar(d,year,month){
-  document.title='경기기록 · KBO Sabermetrics';gameRoot.replaceChildren(text('h1','경기기록'));
+  document.title='경기기록 · FANZAI';gameRoot.replaceChildren(text('h1','경기기록'));
   const controls=text('div','','game-month-controls');const prev=text('button','← 이전 달','button outline'),next=text('button','다음 달 →','button outline'),input=document.createElement('input');input.type='month';input.value=gameState.month;input.min='1900-01';input.max='2200-12';input.setAttribute('aria-label','조회 월');
   input.onchange=()=>{if(input.validity.valid&&input.value){gameState.month=input.value;gameRoute();}};
   function shift(delta){const date=new Date(year,month-1+delta,1);if(date.getFullYear()<1900||date.getFullYear()>2200)return;gameState.month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;gameRoute();}prev.onclick=()=>shift(-1);next.onclick=()=>shift(1);controls.append(prev,input,next);gameRoot.append(controls,text('p','수집된 경기만 표시합니다. 날짜별 점수를 누르면 상세 기록을 볼 수 있습니다.','player-note'));

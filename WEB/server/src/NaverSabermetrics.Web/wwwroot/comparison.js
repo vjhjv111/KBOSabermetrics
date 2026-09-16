@@ -64,7 +64,7 @@ function comparisonInitialize(){
 async function comparisonRoute(){
   comparisonState.controller?.abort();++comparisonState.seq;comparisonMessage();const active=comparisonActive();comparisonRoot.hidden=!active;syncRoomNavigation();if(!active||!state.catalog)return;
   for(const id of ['workspace','home-page','player-page','team-page','game-page','diamond-page','analysis-page']){const element=$(id);if(element)element.hidden=true;}
-  abortQuery();if(typeof diamondVisibility==='function')diamondVisibility();comparisonInitialize();document.title='타자 비교실 | KBO Sabermetrics';
+  abortQuery();if(typeof diamondVisibility==='function')diamondVisibility();comparisonInitialize();document.title='타자 비교실 | FANZAI';
   const params=new URLSearchParams(location.hash.slice(1)),code=params.get('comparison'),codes=(params.get('codes')??'').split(',').filter(c=>/^\d{4,10}$/.test(c));
   if(code&&/^\d{4,10}$/.test(code)){comparisonState.target=code;if(!codes.length)codes.push(code);}if(codes.length)comparisonState.selected=[...new Set(codes)].slice(0,4);
   const year=params.get('year');if(year&&[...$('cmp-year').options].some(option=>option.value===year))$('cmp-year').value=year;
