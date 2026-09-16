@@ -236,9 +236,19 @@ public sealed partial class RecordService
         var league = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
         var snapshot = await _analytics.GetWebRoleSnapshotAsync(query, league, request.Role == "pitcher", token).ConfigureAwait(false);
         var fullLeague = string.IsNullOrWhiteSpace(request.Team);
-        var overview = request.Role == "pitcher"
-            ? LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague)
-            : LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+        LeagueOverview overview;
+        if (request.Role == "pitcher")
+        {
+            // 팀 완봉은 개인 완봉(한 투수가 던진 완봉)의 합이 아니라, 필터링된 경기 중
+            // 상대팀을 무실점으로 막은 경기 수입니다(여러 투수가 이어 던진 합작 완봉 포함).
+            var teamShutouts = await _db.GetTeamShutoutsAsync(query, token).ConfigureAwait(false);
+            var shutouts = fullLeague ? teamShutouts.Values.Sum() : teamShutouts.GetValueOrDefault(request.Team!, 0);
+            overview = LeagueOverviewBuilder.FromPitchers(PitcherRecordRoomRowFactory.BuildBasic(snapshot), fullLeague, shutouts);
+        }
+        else
+        {
+            overview = LeagueOverviewBuilder.FromBatters(RecordRoomRowFactory.BuildBasic(snapshot), fullLeague);
+        }
 
         if (request.Role == "pitcher")
         {
