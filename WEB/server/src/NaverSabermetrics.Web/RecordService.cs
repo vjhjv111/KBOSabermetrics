@@ -124,6 +124,7 @@ public sealed partial class RecordService
             if (pc is null) throw new RequestError("선수별 조회를 지원하지 않는 탭입니다.");
             filtered = filtered.Where(r => Convert.ToString(pc.GetValue(r)) == request.PlayerCode);
         }
+        Dictionary<string, string>? draftTexts = null;
         if (!string.IsNullOrEmpty(request.Nationality))
         {
             var name = definition.RowType.GetProperty("Name");
@@ -133,7 +134,7 @@ public sealed partial class RecordService
             // 국적 구분은 기본적으로 선수 개인페이지의 "지명순위"(DraftText) 문구를 보고
             // 자동 판별합니다(아시아쿼터/자유선발 포함 여부). PlayerNationalityRegistry의
             // 수동 명단은 그 자동 판별을 예외적으로 덮어쓰는 용도입니다.
-            var draftTexts = await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            draftTexts = await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
             filtered = filtered.Where(r =>
             {
                 var pcode = pc is null ? null : Convert.ToString(pc.GetValue(r));
@@ -155,12 +156,28 @@ public sealed partial class RecordService
             var pc = definition.RowType.GetProperty("Pcode");
             if (pc is null) throw new RequestError("이 탭은 신인왕 조건을 지원하지 않습니다.");
             // 신인왕 요건: 해당 시즌 개막 전까지의 1군(퓨처스리그 제외) 통산 누적 기록이
-            // 투수는 30이닝, 타자는 60타석 이하인 선수만 남깁니다.
+            // 투수는 30이닝, 타자는 60타석 이하인 선수만 남깁니다. KBO 규정상 외국인·
+            // 아시아쿼터 선수는 신인왕 후보 자격이 없으므로 함께 제외합니다.
             var limit = request.Role == "batter"
                 ? await _db.GetCareerPlateAppearancesBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false)
                 : await _db.GetCareerPitchingOutsBeforeSeasonAsync(request.Year!.Value, token).ConfigureAwait(false);
             var threshold = request.Role == "batter" ? 60 : 90; // 30이닝 = 90아웃
-            filtered = filtered.Where(r => limit.GetValueOrDefault(Convert.ToString(pc.GetValue(r)) ?? "", 0) <= threshold);
+            var name = definition.RowType.GetProperty("Name");
+            var team = definition.RowType.GetProperty("TeamCode");
+            if (name is not null) draftTexts ??= await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            filtered = filtered.Where(r =>
+            {
+                var pcode = Convert.ToString(pc.GetValue(r)) ?? "";
+                if (limit.GetValueOrDefault(pcode, 0) > threshold) return false;
+                if (name is not null && draftTexts is not null)
+                {
+                    var draftText = draftTexts.GetValueOrDefault(pcode);
+                    var category = PlayerNationalityRegistry.Resolve(
+                        Convert.ToString(name.GetValue(r)), team is null ? null : Convert.ToString(team.GetValue(r)), draftText);
+                    if (category is not null) return false;
+                }
+                return true;
+            });
         }
         foreach (var condition in request.Conditions)
         {
