@@ -121,6 +121,26 @@ else
 }
 _ = app.Services.GetRequiredService<QuotaStore>();
 if(isRender || settings.TrustedProxies.Length>0)app.UseForwardedHeaders();
+// 아웃바운드 트래픽 원인 파악용 임시 진단 로깅: 요청 경로별 실제 응답 바이트 수를 로그에 남깁니다.
+// 정적 파일(app.UseStaticFiles)은 커널 SendFile 최적화로 Response.Body를 거치지 않고 나갈 수 있어
+// 그런 경우엔 Content-Length 헤더 값을 쓰고, 그게 비어 있는 동적 API 응답은 Response.Body에 씌운
+// CountingStream이 직접 센 바이트 수를 씁니다. 로그만 남기고 응답 내용 자체는 건드리지 않습니다.
+app.Use(async(c,next)=>
+{
+    var original=c.Response.Body;
+    var counting=new CountingStream(original);
+    c.Response.Body=counting;
+    var sw=System.Diagnostics.Stopwatch.StartNew();
+    try { await next(c); }
+    finally
+    {
+        sw.Stop();
+        c.Response.Body=original;
+        var bytes=c.Response.ContentLength ?? counting.BytesWritten;
+        app.Logger.LogInformation("EGRESS ip={Ip} {Method} {Path} status={Status} bytes={Bytes} elapsedMs={Ms}",
+            Ip(c),c.Request.Method,c.Request.Path+c.Request.QueryString,c.Response.StatusCode,bytes,sw.ElapsedMilliseconds);
+    }
+});
 app.Use(async(c,next)=>
 {
     c.Response.Headers["X-Content-Type-Options"]="nosniff";
@@ -321,4 +341,30 @@ app.Run();
 
 static string Ip(HttpContext c)=>c.Connection.RemoteIpAddress?.ToString()??"unknown";
 public sealed record PlayerSearchRequest(string Query);
+// Response.Body에 얼마나 썼는지만 세는 얇은 래퍼. 내용에는 전혀 관여하지 않고 그대로 통과시킵니다.
+sealed class CountingStream(Stream inner) : Stream
+{
+    public long BytesWritten { get; private set; }
+    public override bool CanRead => inner.CanRead;
+    public override bool CanSeek => inner.CanSeek;
+    public override bool CanWrite => inner.CanWrite;
+    public override long Length => inner.Length;
+    public override long Position { get => inner.Position; set => inner.Position = value; }
+    public override void Flush() => inner.Flush();
+    public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+    public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+    public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+    public override void SetLength(long value) => inner.SetLength(value);
+    public override void Write(byte[] buffer, int offset, int count) { inner.Write(buffer, offset, count); BytesWritten += count; }
+    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        BytesWritten += count;
+        return inner.WriteAsync(buffer, offset, count, cancellationToken);
+    }
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        BytesWritten += buffer.Length;
+        return inner.WriteAsync(buffer, cancellationToken);
+    }
+}
 public partial class Program { }
