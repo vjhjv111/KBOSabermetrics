@@ -386,6 +386,15 @@ public sealed partial class DatabaseCacheService
                 string.Empty,
                 "p.Pcode, p.TeamCode"),
         };
+        // 완봉(SHO)의 정의는 그룹 단위에 따라 다릅니다. 개인 기준으로는 "그 투수가 혼자
+        // 9이닝을 던져 무실점으로 막은 경기"만 인정합니다(선발+전체 이닝 소화+실점 0).
+        // 하지만 "팀별" 그룹핑에서는 여러 투수가 이어 던져 막은 합작 완봉도 팀 완봉으로
+        // 인정해야 하므로, 그 경기에서 상대 팀 최종 점수가 0인지(등판 투수 수와 무관하게)
+        // 로 따로 계산합니다 — 개인 완투 기준(SUM)으로 그대로 합산하면 합작 완봉이
+        // 누락됩니다.
+        var shutoutExpression = grouping == AnalyticsGrouping.Team
+            ? "COUNT(DISTINCT CASE WHEN g.HomeScore IS NOT NULL AND g.AwayScore IS NOT NULL AND ((g.HomeTeamCode=p.TeamCode AND g.AwayScore=0) OR (g.AwayTeamCode=p.TeamCode AND g.HomeScore=0)) THEN g.GameId END)"
+            : "SUM(CASE WHEN p.IsStarter=1 AND tgo.TeamOuts>0 AND p.InningsOuts=tgo.TeamOuts AND p.RunsAllowed=0 THEN 1 ELSE 0 END)";
 
         command.CommandText = $"""
             {filter.Cte},
@@ -423,7 +432,7 @@ public sealed partial class DatabaseCacheService
                    SUM(p.SpeedSum), SUM(p.SpeedCount), SUM(CASE WHEN p.HasFinalLine=1 THEN 1 ELSE 0 END),
                    SUM(p.IsStarter), SUM(p.IsReliever),
                    SUM(CASE WHEN p.IsStarter=1 AND tgo.TeamOuts>0 AND p.InningsOuts=tgo.TeamOuts THEN 1 ELSE 0 END),
-                   SUM(CASE WHEN p.IsStarter=1 AND tgo.TeamOuts>0 AND p.InningsOuts=tgo.TeamOuts AND p.RunsAllowed=0 THEN 1 ELSE 0 END),
+                   {shutoutExpression},
                    SUM(p.InningsOuts),
                    SUM(CASE WHEN p.IsStarter=1 THEN p.InningsOuts ELSE 0 END),
                    SUM(CASE WHEN p.IsReliever=1 THEN p.InningsOuts ELSE 0 END),
