@@ -89,16 +89,16 @@ public sealed class TeamWebService(DatabaseCacheService db,SiteOptions options)
         var positionColumns=new[]{("C","CatcherInnings"),("1B","FirstBaseInnings"),("2B","SecondBaseInnings"),("3B","ThirdBaseInnings"),("SS","ShortstopInnings"),("LF","LeftFieldInnings"),("CF","CenterFieldInnings"),("RF","RightFieldInnings"),("DH","DhPa")};
         var volumeSelect=string.Join(",",positionColumns.Select(x=>$"SUM(s.{x.Item2}) \"{x.Item1}\""));
         var fieldRows=await Sql($"SELECT s.Pcode Code,MAX(s.Name) Name,{volumeSelect} FROM BatterGameStats s JOIN Games g ON g.GameId=s.GameId WHERE s.TeamCode=$team AND g.SeasonYear=$year AND {Round(r.Competition)} AND UPPER(g.StatusCode)='RESULT' GROUP BY s.Pcode",r,ct);
-        var candidates=new List<(string Pos,string Code,string Name,double Volume)>();
+        var fieldCandidates=new List<(string Pos,string Code,string Name,double Volume)>();
         foreach(var row in fieldRows)
             foreach(var (pos,_) in positionColumns)
             {
                 var volume=N(row,pos);
-                if(volume>0)candidates.Add((pos,S(row,"Code"),S(row,"Name"),volume));
+                if(volume>0)fieldCandidates.Add((pos,S(row,"Code"),S(row,"Name"),volume));
             }
         var filled=new Dictionary<string,(string Code,string Name,double Volume)>();
         var usedPlayers=new HashSet<string>(StringComparer.Ordinal);
-        foreach(var c in candidates.OrderByDescending(x=>x.Volume).ThenBy(x=>x.Pos,StringComparer.Ordinal).ThenBy(x=>x.Code,StringComparer.Ordinal))
+        foreach(var c in fieldCandidates.OrderByDescending(x=>x.Volume).ThenBy(x=>x.Pos,StringComparer.Ordinal).ThenBy(x=>x.Code,StringComparer.Ordinal))
         {
             if(filled.ContainsKey(c.Pos)||usedPlayers.Contains(c.Code))continue;
             filled[c.Pos]=(c.Code,c.Name,c.Volume);usedPlayers.Add(c.Code);
