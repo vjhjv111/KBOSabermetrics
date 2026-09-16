@@ -12,9 +12,10 @@
     <!-- Explicit physical items prevent an absent project wwwroot in the SDK manifest.
          Only these public files are packaged. frontend/ remains the editable source. -->
     <Content Remove="wwwroot/**" />
-    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/home.css;wwwroot/forecast-method.css;wwwroot/forecast-method.js;wwwroot/player-profile.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css;wwwroot/comparison.js;wwwroot/comparison.css"
+    <Content Include="wwwroot/index.html;wwwroot/app.css;wwwroot/home.css;wwwroot/forecast-method.css;wwwroot/forecast-method.js;wwwroot/player-profile.css;wwwroot/app.js;wwwroot/games.js;wwwroot/diamond.js;wwwroot/analysis.js;wwwroot/analysis.css;wwwroot/comparison.js;wwwroot/comparison.css;wwwroot/robots.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/index.html" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/robots.txt" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/home.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/forecast-method.css" />
