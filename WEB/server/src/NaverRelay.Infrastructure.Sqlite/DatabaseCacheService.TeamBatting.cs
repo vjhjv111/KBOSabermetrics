@@ -72,7 +72,8 @@ public sealed partial class DatabaseCacheService
                         AND ((pa.BattedBallType=$bunt
                               AND pa.IsSacrifice=0
                               AND pa.IsHit=0)
-                          OR (pa.ResultType=$strikeout
+                          OR (pa.IsOut=1
+                              AND pa.IsSacrifice=0
                               AND EXISTS (
                                   SELECT 1
                                   FROM Pitches bunt_pitch
@@ -124,7 +125,6 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
         command.Parameters.AddWithValue("$buntWhiff", (int)PitchResultType.BuntSwingingStrike);
         command.Parameters.AddWithValue("$buntWhiffRaw", "V");
-        command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
         command.Parameters.AddWithValue("$walk", (int)BattingResultType.Walk);
         command.Parameters.AddWithValue("$intentionalWalk", (int)BattingResultType.IntentionalWalk);
         command.Parameters.AddWithValue("$hitByPitch", (int)BattingResultType.HitByPitch);
