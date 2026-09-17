@@ -20,6 +20,68 @@ public sealed class RenderCollectorOptions
     public string HeartbeatPath { get; set; } = "/var/data/kbo-render-collector.heartbeat";
 }
 
+public sealed record RenderCollectorTriggerSnapshot(
+    bool IsRunning, bool IsQueued, DateTimeOffset? LastRequestedUtc,
+    DateTimeOffset? LastStartedUtc, DateTimeOffset? LastFinishedUtc, string? LastError);
+
+public sealed class RenderCollectorTrigger : IDisposable
+{
+    private readonly object gate = new();
+    private readonly SemaphoreSlim signal = new(0, 1);
+    private bool queued;
+    private bool running;
+    private DateTimeOffset? lastRequestedUtc;
+    private DateTimeOffset? lastStartedUtc;
+    private DateTimeOffset? lastFinishedUtc;
+    private string? lastError;
+
+    public bool Request()
+    {
+        lock (gate)
+        {
+            lastRequestedUtc = DateTimeOffset.UtcNow;
+            if (queued) return false;
+            queued = true;
+            signal.Release();
+            return true;
+        }
+    }
+
+    public async Task<bool> WaitForNextAsync(TimeSpan timeout, CancellationToken token)
+    {
+        var requested = await signal.WaitAsync(timeout, token);
+        if (requested) lock (gate) queued = false;
+        return requested;
+    }
+
+    public void MarkStarted()
+    {
+        lock (gate)
+        {
+            running = true;
+            lastStartedUtc = DateTimeOffset.UtcNow;
+            lastError = null;
+        }
+    }
+
+    public void MarkFinished(Exception? error)
+    {
+        lock (gate)
+        {
+            running = false;
+            lastFinishedUtc = DateTimeOffset.UtcNow;
+            lastError = error?.Message;
+        }
+    }
+
+    public RenderCollectorTriggerSnapshot Snapshot()
+    {
+        lock (gate) return new(running, queued, lastRequestedUtc, lastStartedUtc, lastFinishedUtc, lastError);
+    }
+
+    public void Dispose() => signal.Dispose();
+}
+
 public static class RenderCollectionPolicy
 {
     public static bool IsFinalStatus(string? status) =>
@@ -52,15 +114,18 @@ public sealed class RenderCollectorWorker : BackgroundService
     private readonly ILogger<RenderCollectorWorker> logger;
     private readonly SiteOptions site;
     private readonly RenderCollectorOptions options;
+    private readonly RenderCollectorTrigger trigger;
     private readonly TimeZoneInfo korea;
     private readonly HttpClient http;
     private DatabaseCacheService? writer;
 
-    public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options)
+    public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options,
+        RenderCollectorTrigger trigger)
     {
         this.logger = logger;
         this.site = site;
         this.options = options;
+        this.trigger = trigger;
         korea = FindKoreaTimeZone();
         http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; KBOSabermetrics-RenderCollector/1.0)");
@@ -83,15 +148,22 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            Exception? failure = null;
+            trigger.MarkStarted();
             try
             {
                 await RunCycleAsync(stoppingToken);
                 await TouchHeartbeatAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception ex) { logger.LogError(ex, "Render 수집 주기 실패; 다음 주기에 다시 시도합니다."); }
+            catch (Exception ex)
+            {
+                failure = ex;
+                logger.LogError(ex, "Render 수집 주기 실패; 다음 주기에 다시 시도합니다.");
+            }
+            finally { trigger.MarkFinished(failure); }
 
-            try { await Task.Delay(TimeSpan.FromMinutes(options.IntervalMinutes), stoppingToken); }
+            try { await trigger.WaitForNextAsync(TimeSpan.FromMinutes(options.IntervalMinutes), stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }

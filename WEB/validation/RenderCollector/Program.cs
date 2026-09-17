@@ -30,6 +30,14 @@ Check(RenderCollectionPolicy.DatabaseGameId(GameRequest.Parse(eligible[0].GameId
 eligible[0].StatusCode = "PLAY";
 Check(!RenderCollectionPolicy.AllGamesFinal(eligible),"진행 중 경기가 하나라도 있으면 날짜 반영 보류");
 
+using (var trigger = new RenderCollectorTrigger())
+{
+    Check(trigger.Request(),"수동 실행 요청을 대기열에 추가");
+    Check(!trigger.Request(),"연속 수동 요청은 하나로 합침");
+    Check((await trigger.WaitForNextAsync(TimeSpan.Zero,CancellationToken.None)),"수동 요청이 정기 대기를 즉시 깨움");
+    Check(!trigger.Snapshot().IsQueued,"처리 시작한 수동 요청은 대기열에서 제거");
+}
+
 var scratch = Path.Combine(Path.GetTempPath(),"render-collector-validation-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(scratch);
 try
