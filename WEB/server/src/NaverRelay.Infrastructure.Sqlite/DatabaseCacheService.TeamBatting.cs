@@ -50,6 +50,16 @@ public sealed partial class DatabaseCacheService
                        WHEN pa.BeforeOuts BETWEEN 0 AND 1
                         AND (NULLIF(TRIM(COALESCE(pa.BeforeFirstRunnerPcode,'')),'') IS NOT NULL
                           OR NULLIF(TRIM(COALESCE(pa.BeforeFirstRunnerName,'')),'') IS NOT NULL)
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM RunnerEvents early_runner
+                            INNER JOIN NormalizedEvents early_event
+                                ON early_event.EventId=early_runner.SourceEventId
+                            INNER JOIN NormalizedEvents result_event
+                                ON result_event.EventId=pa.ResultEventId
+                            WHERE early_runner.PlateAppearanceId=pa.PlateAppearanceId
+                              AND early_runner.FromBase=1
+                              AND early_event.ChronologicalIndex<result_event.ChronologicalIndex)
                        THEN 1 ELSE 0 END) AS DoublePlayOpportunities,
                    SUM(CASE
                        WHEN pa.BeforeOuts BETWEEN 0 AND 1
@@ -59,10 +69,15 @@ public sealed partial class DatabaseCacheService
                           OR NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerName,'')),'') IS NOT NULL
                           OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerPcode,'')),'') IS NOT NULL
                           OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerName,'')),'') IS NOT NULL)
-                        AND (pa.ResultType=$buntOut
+                        AND ((pa.BattedBallType=$bunt
+                              AND pa.IsSacrifice=0
+                              AND pa.IsHit=0)
                           OR (pa.ResultType=$strikeout
-                           AND (COALESCE(pa.NormalizedResultText,'') LIKE '%쓰리%번트%'
-                             OR COALESCE(pa.ResultText,'') LIKE '%쓰리%번트%')))
+                              AND EXISTS (
+                                  SELECT 1
+                                  FROM Pitches bunt_pitch
+                                  WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
+                                    AND bunt_pitch.PitchResult=$buntFoul)))
                        THEN 1 ELSE 0 END) AS SacrificeBuntFailures,
                    CASE WHEN $hasSituation=0 THEN {leftOnBase} ELSE NULL END AS LeftOnBase
             FROM PlateAppearances pa
@@ -78,7 +93,8 @@ public sealed partial class DatabaseCacheService
         AddParameters(command, filter.Parameters);
         AddSituationParameters(command, situation);
         command.Parameters.AddWithValue("$resultTeam", query.TeamCode ?? string.Empty);
-        command.Parameters.AddWithValue("$buntOut", (int)BattingResultType.BuntOut);
+        command.Parameters.AddWithValue("$bunt", (int)BattedBallType.Bunt);
+        command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
         command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
         command.Parameters.AddWithValue("$hasSituation", query.HasSituationFilters ? 1 : 0);
 
