@@ -398,5 +398,5 @@ public sealed partial class AnalysisWebService
     private static double? ContextNumber(Dictionary<string,object?> row,string key)=>row.GetValueOrDefault(key) is {} value
         && double.TryParse(Convert.ToString(value,CultureInfo.InvariantCulture),NumberStyles.Float,CultureInfo.InvariantCulture,out var n)?n:null;
     private static string ContextBases(int mask)=>mask==0?"주자 없음":string.Join("·",Enumerable.Range(1,3).Where(b=>(mask&(1<<(b-1)))!=0).Select(b=>$"{b}루"));
-    private static string ContextPitchResult(int result)=>result switch {1=>"볼",2=>"파울",3=>"인플레이",4=>"헛스윙",5=>"루킹 스트라이크",6=>"번트 파울",_=>"미분류"};
+    private static string ContextPitchResult(int result)=>result switch {1=>"볼",2=>"파울",3=>"인플레이",4=>"헛스윙",5=>"루킹 스트라이크",6=>"번트 파울",7=>"번트 헛스윙",_=>"미분류"};
 }

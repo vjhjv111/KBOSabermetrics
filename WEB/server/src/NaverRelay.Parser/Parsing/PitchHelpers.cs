@@ -15,6 +15,7 @@ namespace NaverRelay.Parsing
                 "S" => PitchResultType.SwingingStrike,
                 "T" => PitchResultType.CalledStrike,
                 "W" => PitchResultType.BuntFoul,
+                "V" => PitchResultType.BuntSwingingStrike,
                 _ => PitchResultType.Unknown,
             };
         }
@@ -22,11 +23,13 @@ namespace NaverRelay.Parsing
         public static void SetDerivedFlags(PitchEvent pitch)
         {
             pitch.IsCalledStrike = pitch.PitchResult == PitchResultType.CalledStrike;
-            pitch.IsWhiff = pitch.PitchResult == PitchResultType.SwingingStrike;
+            pitch.IsWhiff = pitch.PitchResult is PitchResultType.SwingingStrike
+                or PitchResultType.BuntSwingingStrike;
             pitch.IsInPlay = pitch.PitchResult == PitchResultType.InPlay;
             pitch.IsSwing = pitch.PitchResult is PitchResultType.SwingingStrike
                 or PitchResultType.Foul
                 or PitchResultType.BuntFoul
+                or PitchResultType.BuntSwingingStrike
                 or PitchResultType.InPlay;
             pitch.IsContact = pitch.PitchResult is PitchResultType.Foul
                 or PitchResultType.BuntFoul

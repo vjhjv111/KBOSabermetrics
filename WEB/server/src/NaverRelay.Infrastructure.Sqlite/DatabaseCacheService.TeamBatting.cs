@@ -77,7 +77,16 @@ public sealed partial class DatabaseCacheService
                                   SELECT 1
                                   FROM Pitches bunt_pitch
                                   WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
-                                    AND bunt_pitch.PitchResult=$buntFoul)))
+                                    AND bunt_pitch.PitchResult=$buntFoul))
+                          OR (pa.IsSacrifice=0
+                              AND pa.IsHit=0
+                              AND pa.ResultType NOT IN ($walk,$intentionalWalk,$hitByPitch)
+                              AND EXISTS (
+                                  SELECT 1
+                                  FROM Pitches bunt_whiff
+                                  WHERE bunt_whiff.PlateAppearanceId=pa.PlateAppearanceId
+                                    AND (bunt_whiff.PitchResult=$buntWhiff
+                                      OR UPPER(TRIM(COALESCE(bunt_whiff.RawPitchResult,'')))=$buntWhiffRaw))))
                         AND NOT EXISTS (
                             SELECT 1
                             FROM RunnerEvents lead_advance
@@ -113,7 +122,12 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$resultTeam", query.TeamCode ?? string.Empty);
         command.Parameters.AddWithValue("$bunt", (int)BattedBallType.Bunt);
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
+        command.Parameters.AddWithValue("$buntWhiff", (int)PitchResultType.BuntSwingingStrike);
+        command.Parameters.AddWithValue("$buntWhiffRaw", "V");
         command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
+        command.Parameters.AddWithValue("$walk", (int)BattingResultType.Walk);
+        command.Parameters.AddWithValue("$intentionalWalk", (int)BattingResultType.IntentionalWalk);
+        command.Parameters.AddWithValue("$hitByPitch", (int)BattingResultType.HitByPitch);
         command.Parameters.AddWithValue("$runnerError", (int)RunnerAdvanceReason.Error);
         command.Parameters.AddWithValue("$runnerBatterPlay", (int)RunnerAdvanceReason.BatterPlay);
         command.Parameters.AddWithValue("$reachedOnError", (int)BattingResultType.ReachedOnError);

@@ -75,6 +75,39 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await SetMetadataIfMissingAsync(connection, "SchemaVersion", WarehouseSchemaVersion, cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "DataVersion", "0", cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "StorageMode", "RelationalWarehouse", cancellationToken).ConfigureAwait(false);
+        await BackfillBuntSwingingStrikesAsync(connection, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task BackfillBuntSwingingStrikesAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE Pitches
+            SET PitchResult=$result,
+                IsSwing=1,
+                IsWhiff=1,
+                IsContact=0,
+                IsInPlay=0,
+                IsCalledStrike=0
+            WHERE UPPER(TRIM(COALESCE(RawPitchResult,'')))='V'
+              AND (PitchResult<>$result OR IsSwing<>1 OR IsWhiff<>1 OR IsContact<>0
+                OR IsInPlay<>0 OR IsCalledStrike<>0);
+            """;
+        command.Parameters.AddWithValue("$result", (int)PitchResultType.BuntSwingingStrike);
+        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 0) return;
+
+        command.Parameters.Clear();
+        command.CommandText = """
+            UPDATE Metadata
+            SET MetaValue=CAST(CAST(MetaValue AS INTEGER)+1 AS TEXT)
+            WHERE MetaKey='DataVersion';
+            DELETE FROM ComputedCache;
+            DELETE FROM LeagueConstants;
+            DELETE FROM ParkFactors;
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task EnsureColumnAsync(

@@ -62,6 +62,7 @@ public static class DisplayText
         PitchResultType.SwingingStrike => "헛스윙",
         PitchResultType.CalledStrike => "루킹 스트라이크",
         PitchResultType.BuntFoul => "번트 파울",
+        PitchResultType.BuntSwingingStrike => "번트 헛스윙",
         _ => "미분류",
     };
 

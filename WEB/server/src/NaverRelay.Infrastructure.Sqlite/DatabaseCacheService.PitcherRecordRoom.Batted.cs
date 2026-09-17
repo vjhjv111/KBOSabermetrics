@@ -284,14 +284,14 @@ public sealed partial class DatabaseCacheService
             SELECT {identity.SelectColumns},
                    COUNT(DISTINCT p.GameId),
                    COUNT(*),
-                   SUM(CASE WHEN p.PitchResult IN ($foul,$inPlay,$whiff,$called,$buntFoul) THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN p.PitchResult IN ($foul,$inPlay,$whiff,$called,$buntFoul,$buntWhiff) THEN 1 ELSE 0 END),
                    SUM(p.IsCalledStrike),
                    SUM(p.IsWhiff),
                    SUM(CASE WHEN p.IsWhiff=1 OR p.IsCalledStrike=1 THEN 1 ELSE 0 END),
                    SUM(p.IsSwing),
                    SUM(p.IsContact),
                    SUM(CASE WHEN p.ActualPitchIndex=1 THEN 1 ELSE 0 END),
-                   SUM(CASE WHEN p.ActualPitchIndex=1 AND p.PitchResult IN ($foul,$inPlay,$whiff,$called,$buntFoul) THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN p.ActualPitchIndex=1 AND p.PitchResult IN ($foul,$inPlay,$whiff,$called,$buntFoul,$buntWhiff) THEN 1 ELSE 0 END),
                    SUM(CASE WHEN p.ActualPitchIndex=1 AND p.IsWhiff=1 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN p.StrikesBefore=2 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN p.reverse_rank=1 AND pa.ResultType=$strikeout AND (p.IsWhiff=1 OR p.IsCalledStrike=1) THEN 1 ELSE 0 END),
@@ -338,6 +338,7 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$whiff", (int)PitchResultType.SwingingStrike);
         command.Parameters.AddWithValue("$called", (int)PitchResultType.CalledStrike);
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
+        command.Parameters.AddWithValue("$buntWhiff", (int)PitchResultType.BuntSwingingStrike);
         command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

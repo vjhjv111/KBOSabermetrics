@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.7";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.8";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -101,7 +101,7 @@ public sealed partial class RecordService
             if (sort is null || PublicHidden(sort, request.Role) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
-        var key = $"web-v3-result-v6|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
+        var key = $"web-v3-result-v7|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
         var cached = TryRead(key, definition.RowType);
         var hit = cached is not null;
         var rows = cached ?? await ComputeAsync(request, query, definition, token).ConfigureAwait(false);
@@ -224,8 +224,8 @@ public sealed partial class RecordService
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
         if (request.Role == "batter" && request.View == "team-batting")
             warnings.Add(request.Room == "team"
-                ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃, 희생번트 실패는 번트 타구 또는 번트 파울 후 삼진 중 타석 시작 시 가장 앞선 주자가 다음 베이스나 홈까지 진루하지 못한 경우입니다. 실책에 의한 진루는 실패로 계산합니다."
-                : "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 선수 잔루는 타자가 아웃된 플레이 후 남은 주자 수, 희생번트 실패는 번트 타구 또는 번트 파울 후 삼진 중 타석 시작 시 가장 앞선 주자가 다음 베이스나 홈까지 진루하지 못한 경우입니다. 실책에 의한 진루는 실패로 계산합니다.");
+                ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃, 희생번트 실패는 번트 타구·번트 파울 후 삼진·번트 헛스윙이 확인된 타석 중 타석 시작 시 가장 앞선 주자가 다음 베이스나 홈까지 진루하지 못한 경우입니다. 안타·볼넷·몸에 맞는 볼 출루는 제외하고 실책에 의한 진루는 실패로 계산합니다."
+                : "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 선수 잔루는 타자가 아웃된 플레이 후 남은 주자 수, 희생번트 실패는 번트 타구·번트 파울 후 삼진·번트 헛스윙이 확인된 타석 중 타석 시작 시 가장 앞선 주자가 다음 베이스나 홈까지 진루하지 못한 경우입니다. 안타·볼넷·몸에 맞는 볼 출루는 제외하고 실책에 의한 진루는 실패로 계산합니다.");
         if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점이며 ER·공식 IP·WAR·득점/주루 일부는 표시하지 않습니다.");
         if (total > accessible) warnings.Add($"대량 수집 제한으로 정렬 결과 상위 {accessible}행까지만 열람할 수 있습니다.");
         if (_options.Demo) warnings.Insert(0,"샘플 DB입니다. 전체 시즌 기록이 아닙니다.");

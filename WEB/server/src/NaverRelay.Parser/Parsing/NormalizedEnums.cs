@@ -102,6 +102,7 @@ namespace NaverRelay.Parsing
         SwingingStrike,
         CalledStrike,
         BuntFoul,
+        BuntSwingingStrike,
     }
 
     public enum RunnerEventType

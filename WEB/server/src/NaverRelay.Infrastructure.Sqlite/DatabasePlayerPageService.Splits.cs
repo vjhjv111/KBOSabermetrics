@@ -131,7 +131,7 @@ public sealed partial class DatabasePlayerPageService
         await using var cmd=c.CreateCommand();
         cmd.CommandText="""
         SELECT g.SeasonYear, COALESCE(NULLIF(TRIM(p.PitchType),''),'미상'), COUNT(*), COUNT(p.SpeedKmh), SUM(COALESCE(p.SpeedKmh,0)),
-               SUM(CASE WHEN p.PitchResult IN (2,3,4,5,6) THEN 1 ELSE 0 END), SUM(p.IsSwing), SUM(p.IsWhiff), SUM(p.IsContact), SUM(CASE WHEN p.IsCalledStrike=1 OR p.IsWhiff=1 THEN 1 ELSE 0 END)
+               SUM(CASE WHEN p.PitchResult IN (2,3,4,5,6,7) THEN 1 ELSE 0 END), SUM(p.IsSwing), SUM(p.IsWhiff), SUM(p.IsContact), SUM(CASE WHEN p.IsCalledStrike=1 OR p.IsWhiff=1 THEN 1 ELSE 0 END)
         FROM Pitches p JOIN Games g ON g.GameId=p.GameId
         WHERE p.PitcherPcode=$pcode AND g.SeasonYear IS NOT NULL AND LOWER(TRIM(COALESCE(g.RoundCode,'')))='kbo_r'
         GROUP BY g.SeasonYear, COALESCE(NULLIF(TRIM(p.PitchType),''),'미상');
