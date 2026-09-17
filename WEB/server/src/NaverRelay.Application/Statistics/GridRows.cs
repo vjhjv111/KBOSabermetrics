@@ -153,6 +153,9 @@ public sealed class BatterSummaryGridRow
     [DisplayName("SF")] public int SacrificeFlies { get; init; }
     [DisplayName("SH")] public int SacrificeBunts { get; init; }
     [DisplayName("GDP")] public int DoublePlays { get; init; }
+    [DisplayName("병살 상황")] public int DoublePlayOpportunities { get; set; }
+    [DisplayName("희생번트 실패")] public int SacrificeBuntFailures { get; set; }
+    [Browsable(false)] public int? LeftOnBase { get; set; }
     [DisplayName("TB")] public int TotalBases { get; init; }
     [DisplayName("AVG")] public double? AVG { get; init; }
     [DisplayName("OBP")] public double? OBP { get; init; }

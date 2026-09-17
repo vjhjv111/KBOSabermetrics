@@ -31,13 +31,50 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         var cacheKey = $"{AnalyticsCacheVersion}:{query.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<AnalyticsSnapshot>(cacheKey, cancellationToken)
             .ConfigureAwait(false);
-        if (cached is not null) return cached;
+        if (cached is not null)
+        {
+            await AttachTeamBattingContextAsync(query, cached, cancellationToken).ConfigureAwait(false);
+            return cached;
+        }
 
         var data = await _database.GetAggregateDataAsync(query, progress, cancellationToken).ConfigureAwait(false);
+        await AttachTeamBattingContextAsync(query, data, cancellationToken).ConfigureAwait(false);
         var allocation = await GetWarAllocationCalibrationAsync(query, league, cancellationToken).ConfigureAwait(false);
         var result = Build(data, league, query.SeasonYear, allocation);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
+    }
+
+    private async Task AttachTeamBattingContextAsync(
+        GameQuery query,
+        WarehouseAnalyticsData data,
+        CancellationToken cancellationToken)
+    {
+        if (query.Grouping != AnalyticsGrouping.Team) return;
+        var context = await _database.GetTeamBattingContextAsync(query, cancellationToken).ConfigureAwait(false);
+        foreach (var batter in data.Batters)
+        {
+            if (!context.TryGetValue(batter.TeamCode, out var teamContext)) continue;
+            batter.DoublePlayOpportunities = teamContext.DoublePlayOpportunities;
+            batter.SacrificeBuntFailures = teamContext.SacrificeBuntFailures;
+            batter.LeftOnBase = teamContext.LeftOnBase;
+        }
+    }
+
+    private async Task AttachTeamBattingContextAsync(
+        GameQuery query,
+        AnalyticsSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        if (query.Grouping != AnalyticsGrouping.Team) return;
+        var context = await _database.GetTeamBattingContextAsync(query, cancellationToken).ConfigureAwait(false);
+        foreach (var batter in snapshot.BatterClassic)
+        {
+            if (!context.TryGetValue(batter.TeamCode ?? string.Empty, out var teamContext)) continue;
+            batter.DoublePlayOpportunities = teamContext.DoublePlayOpportunities;
+            batter.SacrificeBuntFailures = teamContext.SacrificeBuntFailures;
+            batter.LeftOnBase = teamContext.LeftOnBase;
+        }
     }
 
     private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear, WarAllocationCalibration allocation)
@@ -123,7 +160,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             Walks = row.Walks,
             IntentionalWalks = row.IntentionalWalks, HitByPitch = row.HitByPitch, Strikeouts = row.Strikeouts,
             SacrificeFlies = row.SacrificeFlies, SacrificeBunts = row.SacrificeBunts,
-            DoublePlays = row.DoublePlays, TotalBases = row.TotalBases,
+            DoublePlays = row.DoublePlays, DoublePlayOpportunities = row.DoublePlayOpportunities,
+            SacrificeBuntFailures = row.SacrificeBuntFailures, LeftOnBase = row.LeftOnBase,
+            TotalBases = row.TotalBases,
             AVG = avg, OBP = obp, SLG = slg, OPS = obp.HasValue && slg.HasValue ? obp.Value + slg.Value : null,
             BABIP = Divide(row.Hits - row.HomeRuns,
                 row.AtBats - row.Strikeouts - row.HomeRuns + row.SacrificeFlies),

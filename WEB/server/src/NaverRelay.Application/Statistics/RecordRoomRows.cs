@@ -125,19 +125,15 @@ public sealed class BatterTeamBattingRecordRow
     [DisplayName("Team")] public string? TeamCode { get; init; }
     [DisplayName("G")] public int Games { get; init; }
     [DisplayName("PA")] public int PA { get; init; }
-    [DisplayName("R")] public int Runs { get; init; }
-    [DisplayName("H")] public int Hits { get; init; }
-    [DisplayName("HR")] public int HomeRuns { get; init; }
-    [DisplayName("TB")] public int TotalBases { get; init; }
-    [DisplayName("RBI")] public int RunsBattedIn { get; init; }
-    [DisplayName("BB")] public int Walks { get; init; }
-    [DisplayName("HBP")] public int HitByPitch { get; init; }
-    [DisplayName("SO")] public int Strikeouts { get; init; }
-    [DisplayName("GDP")] public int DoublePlays { get; init; }
-    [DisplayName("SH")] public int SacrificeBunts { get; init; }
-    [DisplayName("SF")] public int SacrificeFlies { get; init; }
-    [DisplayName("RBI/PA")] public double? RbiPerPa { get; init; }
-    [DisplayName("R/PA")] public double? RunsPerPa { get; init; }
+    [DisplayName("병살타")] public int DoublePlays { get; init; }
+    [DisplayName("병살 상황")] public int DoublePlayOpportunities { get; init; }
+    [DisplayName("병살타%")] public double? DoublePlayRate { get; init; }
+    [DisplayName("잔루")] public int? LeftOnBase { get; init; }
+    [DisplayName("잔루/PA")] public double? LeftOnBasePerPa { get; init; }
+    [DisplayName("희생번트 성공")] public int SacrificeBuntSuccesses { get; init; }
+    [DisplayName("희생번트 실패")] public int SacrificeBuntFailures { get; init; }
+    [DisplayName("희생번트 시도")] public int SacrificeBuntAttempts { get; init; }
+    [DisplayName("희생번트 성공률")] public double? SacrificeBuntSuccessRate { get; init; }
 }
 
 public sealed class BatterStealRecordRow
@@ -618,6 +614,8 @@ public static class RecordRoomRowFactory
     {
         var rows = snapshot.BatterClassic
             .Where(row => IsEligible(row.Pcode, row.TeamCode, eligibleKeys))
+            .OrderByDescending(row => row.RBI)
+            .ThenByDescending(row => row.Runs)
             .Select(row => new BatterTeamBattingRecordRow
             {
                 Pcode = row.Pcode,
@@ -625,22 +623,16 @@ public static class RecordRoomRowFactory
                 TeamCode = row.TeamCode,
                 Games = row.Games,
                 PA = row.PA,
-                Runs = row.Runs,
-                Hits = row.H,
-                HomeRuns = row.HomeRuns,
-                TotalBases = row.TotalBases,
-                RunsBattedIn = row.RBI,
-                Walks = row.Walks,
-                HitByPitch = row.HitByPitch,
-                Strikeouts = row.Strikeouts,
                 DoublePlays = row.DoublePlays,
-                SacrificeBunts = row.SacrificeBunts,
-                SacrificeFlies = row.SacrificeFlies,
-                RbiPerPa = Divide(row.RBI, row.PA),
-                RunsPerPa = Divide(row.Runs, row.PA),
+                DoublePlayOpportunities = row.DoublePlayOpportunities,
+                DoublePlayRate = Divide(row.DoublePlays, row.DoublePlayOpportunities),
+                LeftOnBase = row.LeftOnBase,
+                LeftOnBasePerPa = row.LeftOnBase.HasValue ? Divide(row.LeftOnBase.Value, row.PA) : null,
+                SacrificeBuntSuccesses = row.SacrificeBunts,
+                SacrificeBuntFailures = row.SacrificeBuntFailures,
+                SacrificeBuntAttempts = row.SacrificeBunts + row.SacrificeBuntFailures,
+                SacrificeBuntSuccessRate = Divide(row.SacrificeBunts, row.SacrificeBunts + row.SacrificeBuntFailures),
             })
-            .OrderByDescending(row => row.RunsBattedIn)
-            .ThenByDescending(row => row.Runs)
             .ToList();
         ApplyRanks(rows);
         return rows;

@@ -67,7 +67,7 @@ public static class ViewRegistry
         if (!IsNumber(p)) return "text";
         var label = Label(p).Replace("*", "");
         if (p.Name.Contains("WarPerInning", StringComparison.OrdinalIgnoreCase)) return "decimal6";
-        if (label.Contains('%') || p.Name.EndsWith("Usage", StringComparison.Ordinal) || label.Contains("사용률") || label.Contains("구사율")) return "percent";
+        if (label.Contains('%') || p.Name.EndsWith("Usage", StringComparison.Ordinal) || label.Contains("사용률") || label.Contains("구사율") || label.Contains("성공률")) return "percent";
         if (p.Name is "InningsPitched" or "StarterInnings" or "ReliefInnings") return "innings";
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
         if (t == typeof(int) || t == typeof(long)) return "integer";
@@ -75,7 +75,7 @@ public static class ViewRegistry
         if (IsWarMetric(p)) return "decimal2";
         if (label.EndsWith("/9", StringComparison.Ordinal)) return "decimal2";
         if (label.Contains("AVG") || label.Contains("OBP") || label.Contains("SLG") || label.Contains("OPS") && !label.Contains('+')
-            || label.Contains("BABIP") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA") return "decimal3";
+            || label.Contains("BABIP") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA" or "잔루/PA") return "decimal3";
         if (label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
         if (p.Name.Contains("War", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Runs") || p.Name.Contains("Speed") || label.Contains("PF")) return "decimal1";
         return "decimal2";
