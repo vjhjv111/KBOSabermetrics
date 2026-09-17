@@ -2,6 +2,12 @@ using System.Reflection;
 using NaverRelay.Parsing;
 using NaverRelay.Infrastructure.Sqlite;
 
+if (args.Length == 4 && args[0] == "--automation")
+{
+    await AutomationTests.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 3 && args[0] == "--cache-preflight")
 {
     await CachePreflightTests.Run(args[1], args[2]);

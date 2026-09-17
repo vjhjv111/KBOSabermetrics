@@ -2,11 +2,8 @@
   "version": 3,
   "targets": {
     "net8.0-windows7.0": {
-      "AngleSharp/1.1.2": {
+      "AngleSharp/1.7.2": {
         "type": "package",
-        "dependencies": {
-          "System.Text.Encoding.CodePages": "8.0.0"
-        },
         "compile": {
           "lib/net8.0/AngleSharp.dll": {
             "related": ".xml"
@@ -187,49 +184,38 @@
           "lib/netcoreapp2.1/_._": {}
         }
       },
-      "System.Text.Encoding.CodePages/8.0.0": {
-        "type": "package",
+      "NaverKboCollector.Core/2.6.0-preview": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "AngleSharp": "1.7.2"
+        },
         "compile": {
-          "lib/net8.0/System.Text.Encoding.CodePages.dll": {
-            "related": ".xml"
-          }
+          "bin/placeholder/NaverKboCollector.Core.dll": {}
         },
         "runtime": {
-          "lib/net8.0/System.Text.Encoding.CodePages.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/net6.0/_._": {}
-        },
-        "runtimeTargets": {
-          "runtimes/win/lib/net8.0/System.Text.Encoding.CodePages.dll": {
-            "assetType": "runtime",
-            "rid": "win"
-          }
+          "bin/placeholder/NaverKboCollector.Core.dll": {}
         }
       }
     }
   },
   "libraries": {
-    "AngleSharp/1.1.2": {
-      "sha512": "aRFpAqixbuj1Vmqy2hsWPF0PJygo1SfjvmpBvVWZv6i+/u+C/L4wDdwFIzyCGUbjqr61NsZdPNPqDE8wlmG2qA==",
+    "AngleSharp/1.7.2": {
+      "sha512": "r1rb5Qo/0KPzmP0nbSiXPDVfh4Ctu0B+y1RyyUq73g4sgAmEW7q10RDyTq2ZsILwtO9O2LAvMrUles7eD4zz1g==",
       "type": "package",
-      "path": "anglesharp/1.1.2",
+      "path": "anglesharp/1.7.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "README.md",
-        "anglesharp.1.1.2.nupkg.sha512",
+        "anglesharp.1.7.2.nupkg.sha512",
         "anglesharp.nuspec",
-        "lib/net461/AngleSharp.dll",
-        "lib/net461/AngleSharp.xml",
+        "lib/net10.0/AngleSharp.dll",
+        "lib/net10.0/AngleSharp.xml",
+        "lib/net462/AngleSharp.dll",
+        "lib/net462/AngleSharp.xml",
         "lib/net472/AngleSharp.dll",
         "lib/net472/AngleSharp.xml",
-        "lib/net6.0/AngleSharp.dll",
-        "lib/net6.0/AngleSharp.xml",
-        "lib/net7.0/AngleSharp.dll",
-        "lib/net7.0/AngleSharp.xml",
         "lib/net8.0/AngleSharp.dll",
         "lib/net8.0/AngleSharp.xml",
         "lib/netstandard2.0/AngleSharp.dll",
@@ -380,53 +366,16 @@
         "version.txt"
       ]
     },
-    "System.Text.Encoding.CodePages/8.0.0": {
-      "sha512": "OZIsVplFGaVY90G2SbpgU7EnCoOO5pw1t4ic21dBF3/1omrJFpAGoNAVpPyMVOC90/hvgkGG3VFqR13YgZMQfg==",
-      "type": "package",
-      "path": "system.text.encoding.codepages/8.0.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "Icon.png",
-        "LICENSE.TXT",
-        "PACKAGE.md",
-        "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/net461/System.Text.Encoding.CodePages.targets",
-        "buildTransitive/net462/_._",
-        "buildTransitive/net6.0/_._",
-        "buildTransitive/netcoreapp2.0/System.Text.Encoding.CodePages.targets",
-        "lib/MonoAndroid10/_._",
-        "lib/MonoTouch10/_._",
-        "lib/net462/System.Text.Encoding.CodePages.dll",
-        "lib/net462/System.Text.Encoding.CodePages.xml",
-        "lib/net6.0/System.Text.Encoding.CodePages.dll",
-        "lib/net6.0/System.Text.Encoding.CodePages.xml",
-        "lib/net7.0/System.Text.Encoding.CodePages.dll",
-        "lib/net7.0/System.Text.Encoding.CodePages.xml",
-        "lib/net8.0/System.Text.Encoding.CodePages.dll",
-        "lib/net8.0/System.Text.Encoding.CodePages.xml",
-        "lib/netstandard2.0/System.Text.Encoding.CodePages.dll",
-        "lib/netstandard2.0/System.Text.Encoding.CodePages.xml",
-        "lib/xamarinios10/_._",
-        "lib/xamarinmac20/_._",
-        "lib/xamarintvos10/_._",
-        "lib/xamarinwatchos10/_._",
-        "runtimes/win/lib/net6.0/System.Text.Encoding.CodePages.dll",
-        "runtimes/win/lib/net6.0/System.Text.Encoding.CodePages.xml",
-        "runtimes/win/lib/net7.0/System.Text.Encoding.CodePages.dll",
-        "runtimes/win/lib/net7.0/System.Text.Encoding.CodePages.xml",
-        "runtimes/win/lib/net8.0/System.Text.Encoding.CodePages.dll",
-        "runtimes/win/lib/net8.0/System.Text.Encoding.CodePages.xml",
-        "system.text.encoding.codepages.8.0.0.nupkg.sha512",
-        "system.text.encoding.codepages.nuspec",
-        "useSharedDesignerContext.txt"
-      ]
+    "NaverKboCollector.Core/2.6.0-preview": {
+      "type": "project",
+      "path": "../WEB/server/src/NaverKboCollector.Core/NaverKboCollector.Core.csproj",
+      "msbuildProject": "../WEB/server/src/NaverKboCollector.Core/NaverKboCollector.Core.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0-windows7.0": [
-      "AngleSharp >= 1.1.2",
-      "Microsoft.Data.Sqlite >= 8.0.8"
+      "Microsoft.Data.Sqlite >= 8.0.8",
+      "NaverKboCollector.Core >= 2.6.0-preview"
     ]
   },
   "packageFolders": {
@@ -436,11 +385,11 @@
   "project": {
     "version": "4.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\NaverKboRelayUI.csproj",
+      "projectUniqueName": "C:\\repository\\KBO_sabermetrics\\KBOSabermetrics\\KBOSabermetrics\\DATA_SCRAPPER\\NaverKboRelayUI.csproj",
       "projectName": "NaverKboRelayUI",
-      "projectPath": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\NaverKboRelayUI.csproj",
+      "projectPath": "C:\\repository\\KBO_sabermetrics\\KBOSabermetrics\\KBOSabermetrics\\DATA_SCRAPPER\\NaverKboRelayUI.csproj",
       "packagesPath": "C:\\Users\\vjhjv\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\obj\\",
+      "outputPath": "C:\\repository\\KBO_sabermetrics\\KBOSabermetrics\\KBOSabermetrics\\DATA_SCRAPPER\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -460,7 +409,11 @@
       "frameworks": {
         "net8.0-windows7.0": {
           "targetAlias": "net8.0-windows",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\repository\\KBO_sabermetrics\\KBOSabermetrics\\KBOSabermetrics\\WEB\\server\\src\\NaverKboCollector.Core\\NaverKboCollector.Core.csproj": {
+              "projectPath": "C:\\repository\\KBO_sabermetrics\\KBOSabermetrics\\KBOSabermetrics\\WEB\\server\\src\\NaverKboCollector.Core\\NaverKboCollector.Core.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -479,10 +432,6 @@
       "net8.0-windows7.0": {
         "targetAlias": "net8.0-windows",
         "dependencies": {
-          "AngleSharp": {
-            "target": "Package",
-            "version": "[1.1.2, )"
-          },
           "Microsoft.Data.Sqlite": {
             "target": "Package",
             "version": "[8.0.8, )"
@@ -510,17 +459,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.316/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1902",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "'AngleSharp' 1.1.2 패키지에 알려진 보통 심각도 취약성인 https://github.com/advisories/GHSA-pgww-w46g-26qg이(가) 있습니다.",
-      "libraryId": "AngleSharp",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    }
-  ]
+  }
 }

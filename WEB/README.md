@@ -35,6 +35,14 @@
 
 `verify-web.bat`은 사용자의 PC에서 실제 복원·빌드·샘플 DB 적재·서버 HTTP 검사를 수행하도록 작성한 스크립트입니다. 파일이 들어 있다는 것만으로 해당 검사가 이미 통과한 것은 아닙니다.
 
+## Render 내부 수집·무중단 DB 반영 (2026-09-17)
+
+Render에서는 웹 서비스 프로세스의 `RenderCollectorWorker`가 10분마다 오늘과 전날 일정을 확인하고 통합 JSON을 `/var/data/kbo-json`에 저장합니다. 네이버 일정에서 취소 경기를 제외한 그날의 정규시즌 경기가 전부 `RESULT` 또는 `ENDED`가 되고, 각 경기의 네이버 전체 중계와 KBO 공식 종료 문자중계·박스스코어가 모두 완성된 경우에만 DB 반영을 시작합니다.
+
+하루치 변경 경기는 `/var/data/sabermetrics_v2.db`의 한 SQLite 트랜잭션으로 직접 반영합니다. 한 경기라도 파싱·검증·쓰기에서 실패하면 그날 변경분 전체를 롤백합니다. 성공 시 `DataVersion`을 한 번 올리며 웹의 읽기 전용 조회 캐시는 새 버전을 감지합니다. DB 파일 교체와 서비스 재시작은 하지 않습니다. `-wal` 파일은 같은 DB에 쓰기를 안전하게 이어 가기 위한 SQLite WAL이며 정상 동작입니다.
+
+설정은 `appsettings.json`의 `RenderCollector` 절에서 관리합니다. `RENDER=true`인 경우에만 백그라운드 수집기가 등록되므로 로컬 웹 실행에서는 자동 수집하지 않습니다. 마지막 성공 시각은 `/var/data/kbo-render-collector.heartbeat`와 `/api/health`의 `collector.lastSuccessfulCycleUtc`에 기록됩니다. Windows 예약 파이프라인은 수집기가 정상이면 로컬 수집·업로드·Render 재시작을 건너뜁니다. 수집기가 등록된 뒤 health 확인이 실패하거나 비정상이면 두 writer의 동시 실행을 막기 위해 그 주기를 중단하고 10분 뒤 다시 확인합니다. 전체 DB 복구가 필요할 때만 관리자가 `-FullDatabaseUpload`를 명시합니다.
+
 ## 가장 먼저 할 일
 
 .NET 8 **SDK**가 있는 Windows PC에서 새 폴더에 압축을 풀고 다음 파일을 실행합니다.
@@ -124,7 +132,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 `
   -DatabasePath 'C:\Users\사용자명\AppData\Local\NaverSabermetrics\Data\sabermetrics_v2.db'
 ```
 
-실행 중인 웹 복사본 파일을 교체하지 마세요. 새 경기를 반영할 때는 새 복사본을 준비한 다음 서버를 중지하고 설정 경로를 바꿔 재시작합니다. 이 패키지는 실시간 쓰기 DB를 여러 프로세스에 공유하는 배포 구성이 아닙니다.
+로컬 `start-local` 구성에서는 실행 중인 웹 복사본 파일을 교체하지 마세요. 위 Render 구성은 같은 웹 서비스 프로세스 안의 전용 writer가 WAL 트랜잭션으로 직접 반영하는 별도 운영 방식입니다.
 
 ## 실제 DB 결과 대조
 
@@ -155,6 +163,7 @@ verify-real-db.bat
 ```text
 frontend/                             HTML/CSS/JS (통계 수학 없음)
 server/src/NaverSabermetrics.Web/      인증, 쿼리, 정렬, 포맷, 페이지, 검증 CLI
+server/src/NaverKboCollector.Core/     Render/Windows 공용 네이버·KBO 수집기
 server/src/NaverRelay.Application/     업로드 V3의 DTO/계약/공식 팩토리
 server/src/NaverRelay.Infrastructure.Sqlite/  업로드 V3 + 웹 읽기 전용 어댑터
 server/src/NaverRelay.Parser/          CLI 샘플 적재/기존 모델, HTTP import 없음
@@ -181,7 +190,7 @@ server/src/NaverRelay.Parser/          CLI 샘플 적재/기존 모델, HTTP imp
 
 일일 한도는 계정과 IP에 동시에 적용하며 UTC 날짜 기준입니다. 동일 공유 IP의 사용자가 한도를 공유할 수 있습니다. 요청 속도 제한은 현재 서버 프로세스 단위이므로 다중 인스턴스 배포 시 분산 제한 설계가 추가로 필요합니다. 설정/DB 경로/로그/키를 `wwwroot` 안에 넣지 마세요.
 
-Dockerfile은 실행 구성 예시이며 이 환경에서 이미지 빌드/운영 배포를 검증하지 않았습니다.
+Dockerfile과 같은 `WEB` 빌드 컨텍스트에서 .NET publish 및 수집기 DLL 포함을 검증했습니다. 실제 Render 외부 통신과 영구 디스크 쓰기는 배포 로그에서 별도로 확인해야 합니다.
 
 ## 참고한 공식 문서
 

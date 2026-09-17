@@ -11,6 +11,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
-    <PackageReference Include="AngleSharp" Version="1.1.2" />
+    <ProjectReference Include="..\WEB\server\src\NaverKboCollector.Core\NaverKboCollector.Core.csproj" />
   </ItemGroup>
 </Project>

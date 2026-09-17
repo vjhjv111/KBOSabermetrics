@@ -42,6 +42,10 @@ public static class RelayInput
             if (root.GetProperty("gameId").GetString() != official.GameId || root.GetProperty("naverGameId").GetString() != id ||
                 !naver.TryGetProperty("result", out var result) || !result.TryGetProperty("game", out var game) || game.GetProperty("gameId").GetString() != id)
                 throw new InvalidDataException("통합 JSON의 경기 ID가 일치하지 않습니다.");
+            var finalStatus = game.TryGetProperty("statusCode", out var statusCode) ? statusCode.GetString() : null;
+            if (!string.Equals(finalStatus, "RESULT", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(finalStatus, "ENDED", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"RESULT/ENDED 종료 경기만 DB에 수집할 수 있습니다. (statusCode={finalStatus ?? "없음"})");
             if (result.TryGetProperty("textRelayData", out var relay) && relay.TryGetProperty("gameId", out var relayId) && relayId.GetString() != id)
                 throw new InvalidDataException("통합 JSON의 문자중계 경기 ID가 다릅니다.");
             return new(naver.GetRawText(), official, true);

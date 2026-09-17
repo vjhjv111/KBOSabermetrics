@@ -38,7 +38,7 @@ public sealed class ComparisonWebService(DatabaseCacheService db, SiteOptions op
         new("KPct", "삼진%", "percent", false), new("SB", "도루", "integer")
     ];
     private const string GamesFilter = """
-        g.SeasonYear=$year AND LOWER(TRIM(g.RoundCode))='kbo_r' AND UPPER(g.StatusCode)='RESULT'
+        g.SeasonYear=$year AND LOWER(TRIM(g.RoundCode))='kbo_r' AND UPPER(g.StatusCode) IN ('RESULT','ENDED')
         AND UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE')
         """;
 

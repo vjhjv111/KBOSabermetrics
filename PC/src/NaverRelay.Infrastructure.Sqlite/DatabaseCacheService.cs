@@ -159,7 +159,48 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         CancellationToken cancellationToken = default)
         => await SaveGameWithPlayLogAsync(game, document, cancellationToken, null);
 
+    /// <summary>
+    /// 여러 종료 경기를 하나의 SQLite 트랜잭션으로 반영합니다. 준비/파싱 중 하나라도
+    /// 실패하거나 쓰기 중 오류가 나면 그 날짜의 경기들은 하나도 공개되지 않습니다.
+    /// </summary>
+    public async Task SaveGamesAndSourcesAtomicallyAsync(
+        IReadOnlyList<(NormalizedGame Game, InputDocument Document)> inputs,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(inputs);
+        if (inputs.Count == 0) return;
+        if (inputs.Select(x => x.Game.GameId).Distinct(StringComparer.Ordinal).Count() != inputs.Count)
+            throw new InvalidDataException("한 번의 DB 반영 목록에 같은 경기 ID가 중복됐습니다.");
+
+        var prepared = new List<PreparedGameWrite>(inputs.Count);
+        foreach (var (game, document) in inputs)
+            prepared.Add(await PrepareGameWriteAsync(game, document, cancellationToken, null).ConfigureAwait(false));
+
+        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var item in prepared)
+            await WritePreparedGameAsync(connection, transaction, item, cancellationToken).ConfigureAwait(false);
+        await BumpDataVersionAndInvalidateCachesAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var item in prepared) item.Game.ImportedSourceJson = null;
+    }
+
     private async Task SaveGameWithPlayLogAsync(NormalizedGame game, InputDocument document,
+        CancellationToken cancellationToken, KboPlayLog.Document? official)
+    {
+        var prepared = await PrepareGameWriteAsync(game, document, cancellationToken, official).ConfigureAwait(false);
+        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await WritePreparedGameAsync(connection, transaction, prepared, cancellationToken).ConfigureAwait(false);
+        await BumpDataVersionAndInvalidateCachesAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        game.ImportedSourceJson = null;
+    }
+
+    private sealed record PreparedGameWrite(NormalizedGame Game, InputDocument Document, string SourceJson,
+        string SourceFingerprint, KboPlayLog.Document? Official, WarehouseGameProjection Projection);
+
+    private async Task<PreparedGameWrite> PrepareGameWriteAsync(NormalizedGame game, InputDocument document,
         CancellationToken cancellationToken, KboPlayLog.Document? official)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -188,9 +229,13 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         var projection = WarehouseProjectionBuilder.Build(game);
         game.Summary.WarningCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
         game.Summary.ErrorCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
+        return new(game, document, sourceJson, sourceFingerprint, official, projection);
+    }
 
-        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+    private async Task WritePreparedGameAsync(SqliteConnection connection, SqliteTransaction transaction,
+        PreparedGameWrite item, CancellationToken cancellationToken)
+    {
+        var (game, document, sourceJson, sourceFingerprint, official, projection) = item;
         if (official != null)
         {
             await using var cmd = connection.CreateCommand(); cmd.Transaction = transaction;
@@ -219,9 +264,6 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await InsertPitcherGameStatsAsync(connection, transaction, projection.PitcherGames, cancellationToken).ConfigureAwait(false);
         await UpsertPlayerProfilesAsync(connection, transaction, game, projection.Players, cancellationToken).ConfigureAwait(false);
         await UpsertParsedSourceAsync(connection, transaction, game.GameId, document, sourceFingerprint, cancellationToken).ConfigureAwait(false);
-        await BumpDataVersionAndInvalidateCachesAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        game.ImportedSourceJson = null;
     }
 
     public async Task<T?> TryLoadComputedAsync<T>(string cacheKey, CancellationToken cancellationToken = default)

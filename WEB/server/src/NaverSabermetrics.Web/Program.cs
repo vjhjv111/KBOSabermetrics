@@ -36,6 +36,7 @@ else builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,re
 builder.Configuration.AddEnvironmentVariables(); // Deployment secrets override local examples.
 builder.Configuration.AddCommandLine(args);
 var settings=builder.Configuration.GetSection("Site").Get<SiteOptions>()??new SiteOptions();
+var renderCollector=builder.Configuration.GetSection("RenderCollector").Get<RenderCollectorOptions>()??new RenderCollectorOptions();
 settings.DatabasePath=Environment.GetEnvironmentVariable("NAVER_SABERMETRICS_DB")??settings.DatabasePath;
 if(isRender)
 {
@@ -60,6 +61,8 @@ Directory.CreateDirectory(settings.StateDirectory);
 builder.WebHost.ConfigureKestrel(o=>{o.Limits.MaxRequestBodySize=16*1024;o.AddServerHeader=false;});
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
+builder.Services.AddSingleton(renderCollector);
+if(isRender && renderCollector.Enabled)builder.Services.AddHostedService<RenderCollectorWorker>();
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<OfficialPlayerProfileService>();
@@ -214,7 +217,23 @@ app.MapDiamondSeason();
 app.MapDiamondCareer();
 app.MapDiamondMatch();
 app.MapDiamondSaveCode();
-app.MapGet("/api/health",()=>Results.Ok(new{status=databaseReady?"ok":"waiting_for_database",databaseReady,databasePath=settings.DatabasePath}));
+app.MapGet("/api/health",()=>
+{
+    DateTimeOffset? collectorHeartbeatUtc=null;
+    if(isRender && renderCollector.Enabled && File.Exists(renderCollector.HeartbeatPath))
+        collectorHeartbeatUtc=File.GetLastWriteTimeUtc(renderCollector.HeartbeatPath);
+    return Results.Ok(new
+    {
+        status=databaseReady?"ok":"waiting_for_database", databaseReady, databasePath=settings.DatabasePath,
+        collector=new
+        {
+            enabled=isRender&&renderCollector.Enabled,
+            intervalMinutes=renderCollector.IntervalMinutes,
+            lastSuccessfulCycleUtc=collectorHeartbeatUtc,
+            healthy=collectorHeartbeatUtc.HasValue&&DateTimeOffset.UtcNow-collectorHeartbeatUtc.Value<TimeSpan.FromMinutes(30),
+        },
+    });
+});
 app.MapGet("/api/ready",()=>databaseReady
     ? Results.Ok(new{status="ready"})
     : Results.Json(new{status="waiting_for_database",message="Upload sabermetrics_v2.db to the persistent disk, then restart the service."},statusCode:503));

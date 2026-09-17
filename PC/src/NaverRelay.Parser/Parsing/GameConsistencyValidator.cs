@@ -187,7 +187,8 @@ namespace NaverRelay.Parsing
 
         private static void CheckFinalLineBattingTotals(NormalizedGame normalized)
         {
-            if (!string.Equals(normalized.StatusCode, "RESULT", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(normalized.StatusCode, "RESULT", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(normalized.StatusCode, "ENDED", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }

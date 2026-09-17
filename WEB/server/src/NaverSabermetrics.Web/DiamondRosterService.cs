@@ -14,7 +14,7 @@ public sealed partial class DiamondRosterService
     private readonly Dictionary<int, CacheEntry> _cache = [];
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(15);
     private sealed record CacheEntry(string Stamp, DateTime At, DiamondRoster Roster);
-    private const string RegularGames = "g.SeasonYear=$year AND g.RoundCode='kbo_r' AND g.StatusCode='RESULT' AND g.AwayTeamCode NOT IN ('EA','WE') AND g.HomeTeamCode NOT IN ('EA','WE')";
+    private const string RegularGames = "g.SeasonYear=$year AND g.RoundCode='kbo_r' AND UPPER(g.StatusCode) IN ('RESULT','ENDED') AND g.AwayTeamCode NOT IN ('EA','WE') AND g.HomeTeamCode NOT IN ('EA','WE')";
     private static readonly Dictionary<string, string> TeamNames = new(StringComparer.Ordinal)
     { ["HH"]="한화",["HT"]="KIA",["KT"]="KT",["LG"]="LG",["LT"]="롯데",["NC"]="NC",["OB"]="두산",["SK"]="SSG",["SS"]="삼성",["WO"]="키움" };
     private static readonly Dictionary<string, string> PitchNames = new(StringComparer.OrdinalIgnoreCase)
@@ -82,7 +82,7 @@ public sealed partial class DiamondRosterService
         connection.Open();
         using var transaction = connection.BeginTransaction(deferred: true);
         var seasons = new List<int>(); var dates = new Dictionary<int, string>();
-        Read(connection, transaction, "SELECT SeasonYear,MAX(GameDate) FROM Games WHERE RoundCode='kbo_r' AND StatusCode='RESULT' AND AwayTeamCode NOT IN ('EA','WE') AND HomeTeamCode NOT IN ('EA','WE') GROUP BY SeasonYear ORDER BY SeasonYear DESC", 0, token, r =>
+        Read(connection, transaction, "SELECT SeasonYear,MAX(GameDate) FROM Games WHERE RoundCode='kbo_r' AND UPPER(StatusCode) IN ('RESULT','ENDED') AND AwayTeamCode NOT IN ('EA','WE') AND HomeTeamCode NOT IN ('EA','WE') GROUP BY SeasonYear ORDER BY SeasonYear DESC", 0, token, r =>
         { var y = r.GetInt32(0); if (y is >= 1900 and <= 2200) { seasons.Add(y); dates[y] = r.GetString(1); } });
         if (seasons.Count == 0) throw new DiamondInputError("기록실 DB에 완료된 정규시즌 경기가 없습니다.", 503);
         var year = requested ?? seasons[0];

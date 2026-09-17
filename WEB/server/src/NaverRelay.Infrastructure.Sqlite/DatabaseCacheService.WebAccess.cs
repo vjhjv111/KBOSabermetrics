@@ -7,25 +7,32 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseCacheService
 {
     // Only small calculated results, never NormalizedGame or source documents.
-    // The readonly snapshot must not be replaced while the web process is running.
+    // The collector changes DataVersion after a committed daily import. Web readers
+    // drop the previous version's calculated results without restarting the process.
     private readonly object _webCacheLock = new();
     private readonly Dictionary<string, (byte[] Data, DateTime At)> _webComputed = new(StringComparer.Ordinal);
+    private readonly AsyncLocal<string?> _webComputationSourceVersion = new();
+    private string? _webComputedVersion;
     private long _webComputedBytes;
 
-    private bool TryReadWebComputed<T>(string key, out T? value)
+    private bool TryReadWebComputed<T>(string sourceVersion, string key, out T? value)
     {
         byte[]? bytes = null;
         lock (_webCacheLock)
+        {
+            EnsureWebComputedVersionLocked(sourceVersion);
             if (_webComputed.TryGetValue(key, out var item)) bytes = item.Data;
+        }
         value = bytes is null ? default : JsonSerializer.Deserialize<T>(bytes, JsonOptions);
         return bytes is not null;
     }
-    private void SaveWebComputed<T>(string key, T value)
+    private void SaveWebComputed<T>(string sourceVersion, string key, T value)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
         if (bytes.Length > 16 * 1024 * 1024) return;
         lock (_webCacheLock)
         {
+            EnsureWebComputedVersionLocked(sourceVersion);
             if (_webComputed.Remove(key, out var old)) _webComputedBytes -= old.Data.Length;
             while (_webComputed.Count > 0 && (_webComputed.Count >= 64 || _webComputedBytes + bytes.Length > 64 * 1024 * 1024))
             {
@@ -36,6 +43,14 @@ public sealed partial class DatabaseCacheService
             _webComputed[key] = (bytes, DateTime.UtcNow);
             _webComputedBytes += bytes.Length;
         }
+    }
+
+    private void EnsureWebComputedVersionLocked(string sourceVersion)
+    {
+        if (string.Equals(_webComputedVersion, sourceVersion, StringComparison.Ordinal)) return;
+        _webComputed.Clear();
+        _webComputedBytes = 0;
+        _webComputedVersion = sourceVersion;
     }
 
     public Task<string> GetWebSourceVersionAsync(CancellationToken token = default) => GetSourceVersionAsync(token);

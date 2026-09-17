@@ -1,210 +1,233 @@
 ﻿<#
 .SYNOPSIS
-  KBO 경기 자동 수집 -> 데스크톱 DB 반영 -> 웹용 DB 봉인 -> Render 안전 업로드
-  -> Render 웹 서비스 재시작, 다섯 단계를 한 번에 실행합니다. Windows 작업
-  스케줄러(Task Scheduler)에서 저녁 시간대에 주기적으로 실행하도록 등록해서 씁니다.
-
-.NOTES
-  - 각 단계는 재실행에 안전합니다(이미 완료된 경기/변경 없는 파일/이미 있는
-    출력 파일은 각 도구가 알아서 건너뜁니다). 도중에 실패해도 다음 실행에서
-    이어서 처리됩니다.
-  - 아직 진행 중인 경기(완료 안 됨)가 있는 건 정상 상태입니다. 이번 주기에
-    새로 완료된 경기가 하나도 없으면 3/5~5/5단계(봉인/업로드/재시작)는
-    건너뛰고 조용히 끝냅니다 - Render로 불필요한 업로드/재시작을 반복하지
-    않기 위해서입니다.
-  - Render의 서비스 중인 DB 파일을 직접 덮어쓰지 않습니다. 임시 파일명으로
-    올린 뒤, 서버에서 원자적 rename으로 교체합니다(전송 중 잘린 파일을
-    서비스가 읽는 상황을 방지).
-  - 5/5 단계(재시작)가 필요한 이유: 웹 서버가 SQLite 연결 풀링(Pooling=true)을
-    쓰고 있어서, rename으로 파일을 교체해도 이미 그 파일을 열어놓은 채
-    떠 있는 프로세스는 계속 예전 내용을 붙잡고 읽습니다. Render 서비스를
-    재시작해야 새 DB 파일을 다시 열어서 최신 데이터를 반영합니다.
-  - 5/5 단계를 쓰려면 Render API 키가 필요합니다(최초 1회):
-      1) https://dashboard.render.com -> 우측 상단 계정 아이콘 -> Account
-         Settings -> API Keys -> Create API Key
-      2) 만든 키를 PowerShell에서 한 번만 등록:
-           setx RENDER_API_KEY "여기에_발급받은_키_붙여넣기"
-         등록 후 PowerShell 창을 껐다 켜야 반영됩니다(작업 스케줄러로 실행되는
-         것도 다음 로그온/새 프로세스부터 자동으로 이 값을 읽습니다).
-      RENDER_API_KEY가 설정되어 있지 않으면 5/5 단계는 경고만 남기고
-      건너뜁니다 - 이 경우 DB 파일 자체는 이미 정상 교체되어 있으니, Render
-      대시보드에서 수동으로 한 번 Restart 눌러주면 됩니다.
-  - 사전 준비(최초 1회):
-      dotnet build "<NaverKboRelayUI 경로>\NaverKboRelayUI.csproj" -c Release
-      dotnet build "<KBOSabermetrics 경로>\PC\src\NaverRelay.Cli\NaverRelay.Cli.csproj" -c Release
-      dotnet build "<KBOSabermetrics 경로>\WEB\server\src\NaverSabermetrics.Web\NaverSabermetrics.Web.csproj" -c Release
-    위 세 개를 먼저 한 번 빌드해서 bin\Release 폴더가 만들어져 있어야 합니다.
+  진행 중 JSON 갱신 -> 종료 경기 DB 반영 -> DB 구조 검증 -> Render 내부 증분 반영/배포.
+  기본 스케줄은 Register-Task.ps1의 18:00~00:30, 10분 간격입니다.
+  공식 시즌 대조는 기본적으로 건너뛰며 -RunSeasonReconcile로 명시한 경우에만 실행합니다.
+  -LocalOnly는 웹 봉인까지 실행하며 업로드/서비스 재시작은 생략합니다.
+  -FullDatabaseUpload는 원격 증분 대신 전체 웹 DB를 다시 전송하는 복구용 옵션입니다.
+  Render 내부 수집기의 최근 성공 heartbeat가 있으면 예약 실행은 전체 로컬 파이프라인을 건너뜁니다.
+  -FullDatabaseUpload를 명시하면 heartbeat와 관계없이 복구용 전체 배포를 실행합니다.
+  SQLite 무결성·외래키·원격 반영 검증 실패 시 배포하지 않고 다음 주기에 재시도합니다.
 #>
-
 param(
     [string]$CollectOutputDir = "$env:USERPROFILE\Documents\NaverKboCombined",
-    [string]$DesktopDb        = "$env:LOCALAPPDATA\NaverSabermetrics\Data\sabermetrics_v2.db",
-    [string]$WebDbDir         = "$env:USERPROFILE\Documents\NaverKboCombined\web-db",
-    [string]$LogDir           = "$env:USERPROFILE\Documents\NaverKboCombined\logs",
-
-    [string]$RelayUIExe   = "C:\Users\vjhjv\Documents\Codex\2026-09-12\https-www-koreabaseball-com-game-livetext\outputs\NaverKboRelayUI-Source\NaverKboRelayUI\bin\Release\net8.0-windows\NaverKboRelayUI.exe",
-    [string]$ImportCliExe = "C:\repository\KBO_sabermetrics\KBOSabermetrics\KBOSabermetrics\PC\src\NaverRelay.Cli\bin\Release\net8.0\NaverRelay.Cli.exe",
-    [string]$WebAppExe    = "C:\repository\KBO_sabermetrics\KBOSabermetrics\KBOSabermetrics\WEB\server\src\NaverSabermetrics.Web\bin\Release\net8.0\NaverSabermetrics.Web.exe",
-
-    # scp/ssh에 -i 키 옵션이 필요하면 예: "-i C:\Users\vjhjv\.ssh\id_ed25519"
-    [string]$SshExtraArgs = "",
-    [string]$SshHost      = "srv-dah4arpt0dsc73egvl3g@ssh.singapore.render.com",
-    [string]$RemoteDbPath = "/var/data/sabermetrics_v2.db",
-
-    # Render REST API로 웹 서비스를 재시작하기 위한 정보.
-    # RenderServiceId 기본값은 위 SshHost의 "srv-..." 부분과 동일합니다.
-    # RenderApiKey는 기본적으로 환경변수 RENDER_API_KEY에서 읽습니다
-    # (설정 방법은 위 .NOTES 참고). 비어 있으면 5/5 단계는 건너뜁니다.
-    [string]$RenderServiceId = "srv-dah4arpt0dsc73egvl3g",
-    [string]$RenderApiKey    = $env:RENDER_API_KEY,
-
-    # 로컬 web-db 폴더에 남겨둘 최근 봉인 파일 개수
-    [int]$KeepLocalWebDbCount = 3
+    [string]$DesktopDb = "$env:LOCALAPPDATA\NaverSabermetrics\Data\sabermetrics_v2.db",
+    [string]$WebDbDir = "$env:USERPROFILE\Documents\NaverKboCombined\web-db",
+    [string]$LogDir = "$env:USERPROFILE\Documents\NaverKboCombined\logs",
+    [string]$RepoRoot = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
+    [string]$RelayUIExe,
+    [string]$ImportCliExe,
+    [string]$WebAppExe,
+    [ValidateRange(1,30)][int]$LookbackDays = 1,
+    [string]$SshHost = 'srv-dah4arpt0dsc73egvl3g@ssh.singapore.render.com',
+    [string]$RemoteDbPath = '/var/data/sabermetrics_v2.db',
+    [string]$RemoteToolRoot = '/var/data/kbo-tools',
+    [string]$RemoteInboxRoot = '/var/data/kbo-inbox',
+    [string]$RenderHealthUrl = 'https://kbosabermetrics.onrender.com/api/health',
+    [string]$RemoteToolLocalPath = "$PSScriptRoot\remote-tools\linux-x64\NaverRelay.Cli",
+    [string]$RemoteScriptLocalPath = "$PSScriptRoot\Remote-Incremental.sh",
+    [string[]]$SshArgs = @('-o','BatchMode=yes','-o','ConnectTimeout=30','-o','ServerAliveInterval=30','-o','ServerAliveCountMax=20'),
+    [string]$SshExtraArgs = '',
+    [ValidateRange(1,1000)][int]$KeepLocalWebDbCount = 3,
+    [string]$RenderServiceId = 'srv-dah4arpt0dsc73egvl3g',
+    [string]$RenderApiKey = $env:RENDER_API_KEY,
+    [switch]$RunSeasonReconcile,
+    [switch]$FullDatabaseUpload,
+    [switch]$LocalOnly
 )
-
-$ErrorActionPreference = "Stop"
-
-# 콘솔/자식 프로세스 출력이 한글 깨짐 없이 보이도록 UTF-8로 고정.
-try {
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    $OutputEncoding = [System.Text.Encoding]::UTF8
-} catch {}
-
-New-Item -ItemType Directory -Force -Path $CollectOutputDir, $WebDbDir, $LogDir | Out-Null
-
-$stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$ErrorActionPreference = 'Stop'
+if (!$RelayUIExe) { $RelayUIExe = Join-Path $RepoRoot 'DATA_SCRAPPER\bin\Release\net8.0-windows\NaverKboRelayUI.exe' }
+if (!$ImportCliExe) { $ImportCliExe = Join-Path $RepoRoot 'PC\src\NaverRelay.Cli\bin\Release\net8.0\NaverRelay.Cli.exe' }
+if (!$WebAppExe) { $WebAppExe = Join-Path $RepoRoot 'WEB\server\src\NaverSabermetrics.Web\bin\Release\net8.0\NaverSabermetrics.Web.exe' }
+New-Item -ItemType Directory -Force -Path $CollectOutputDir,$WebDbDir,$LogDir | Out-Null
+$stamp = Get-Date -Format 'yyyyMMdd_HHmmss_fff'
 $logFile = Join-Path $LogDir "pipeline_$stamp.log"
-$lockFile = Join-Path $LogDir "pipeline.lock"
-
-function Log([string]$msg) {
-    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg"
+$lockFile = Join-Path $LogDir 'pipeline.lock'
+# OS-held lock; released after a crash. Keep the file to avoid a delete/open race.
+try { $lock = [IO.File]::Open($lockFile, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
+catch [IO.IOException] { Write-Host '다른 파이프라인이 실행 중입니다. 이번 주기는 건너뜁니다.'; exit 0 }
+function Log([string]$message) {
+    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $message"
     Write-Host $line
-    Add-Content -Path $logFile -Value $line -Encoding UTF8
+    Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
 }
-
-function Invoke-GuiExe([string]$exe, [string[]]$exeArgs, [string]$stepName) {
-    # WinExe(창 서브시스템) 프로그램 실행용 - 콘솔에 직접 출력하지 않으므로
-    # --log 파일로 로그를 받습니다.
-    Log "  실행: `"$exe`" $($exeArgs -join ' ')"
-    $proc = Start-Process -FilePath $exe -ArgumentList $exeArgs -Wait -NoNewWindow -PassThru
-    if ($proc.ExitCode -ne 0) {
-        throw "$stepName 실패 (종료 코드 $($proc.ExitCode))"
-    }
-}
-
-function Invoke-ConsoleExe([string]$exe, [string[]]$exeArgs, [string]$stepName) {
-    # 콘솔 프로그램 실행용 - stdout/stderr를 그대로 받아서 로그에 남기고 반환합니다.
-    #
-    # 주의: 네이티브 프로그램의 stderr 한 줄이라도 나오면(scp/ssh는 진행 상황을
-    # stderr로 출력하는 게 정상입니다), 2>&1로 합칠 때 Windows PowerShell은 그
-    # 줄을 ErrorRecord로 만듭니다. 전역 $ErrorActionPreference="Stop"이 걸린
-    # 상태에서 이걸 만나면 실제 실패가 아닌데도 스크립트가 그 줄에서 바로
-    # 중단돼 버리므로, 이 함수 안에서는 일시적으로 Continue로 풀어주고
-    # 종료 코드($LASTEXITCODE)만으로 성공/실패를 판단합니다.
-    Log "  실행: `"$exe`" $($exeArgs -join ' ')"
-    $previousPref = $ErrorActionPreference
+function Run([string]$exe, [string[]]$arguments, [string]$step) {
+    Log $step
+    $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try {
-        $output = & $exe @exeArgs 2>&1 | ForEach-Object { "$_" }
-    } finally {
-        $ErrorActionPreference = $previousPref
-    }
-    $output | ForEach-Object { Log "    $_" }
-    if ($LASTEXITCODE -ne 0) {
-        throw "$stepName 실패 (종료 코드 $LASTEXITCODE)"
-    }
+    try { & $exe @arguments 2>&1 | ForEach-Object { Log "  $_" }; $code = $LASTEXITCODE }
+    finally { $ErrorActionPreference = $previous }
+    if ($code -ne 0) { throw "$step 실패 (exit=$code)" }
+}
+function Run-Capture([string]$exe, [string[]]$arguments, [string]$step) {
+    Log $step
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $output = @(& $exe @arguments 2>&1); $code = $LASTEXITCODE }
+    finally { $ErrorActionPreference = $previous }
+    $output | ForEach-Object { Log "  $_" }
+    if ($code -ne 0) { throw "$step 실패 (exit=$code)" }
     return $output
 }
-
-# 같은 파이프라인이 겹쳐 실행되는 것 방지 (이전 실행이 아직 진행 중이면 이번 트리거는 건너뜀).
-# 90분 넘게 남아있는 lock은 비정상 종료로 보고 무시합니다.
-if (Test-Path $lockFile) {
-    $age = (Get-Date) - (Get-Item $lockFile).LastWriteTime
-    if ($age.TotalMinutes -lt 90) {
-        Write-Host "이전 실행이 아직 진행 중인 것으로 보여 이번 실행은 건너뜁니다. ($lockFile)"
-        exit 0
-    }
-    Log "오래된 lock 파일을 무시하고 진행합니다 (age=$($age.TotalMinutes)분)."
+function Read-RemoteSize([string]$path, [string]$step) {
+    $output = Run-Capture 'ssh' ($SshArgs + @($SshHost,"stat -c %s '$path'")) $step
+    $text = [string]($output | Select-Object -Last 1)
+    [long]$size = 0
+    if (![long]::TryParse($text.Trim(), [ref]$size)) { throw "$step 실패: 원격 크기를 숫자로 읽지 못했습니다: $text" }
+    return $size
 }
-New-Item -ItemType File -Force -Path $lockFile | Out-Null
-
+function Prune-WebDb {
+    $root = [IO.Path]::GetFullPath($WebDbDir).TrimEnd('\') + '\'
+    Get-ChildItem -LiteralPath $WebDbDir -File -Filter 'sabermetrics_v2_*.db' |
+        Where-Object { $_.Name -match '^sabermetrics_v2_\d{8}_\d{6}(?:_\d{3})?\.db$' } |
+        Sort-Object LastWriteTime -Descending | Select-Object -Skip $KeepLocalWebDbCount |
+        ForEach-Object {
+            $target = [IO.Path]::GetFullPath($_.FullName)
+            if (!$target.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { throw 'DB 정리 경로 오류' }
+            Remove-Item -LiteralPath $target -Force
+        }
+}
 try {
-    Log "===== 파이프라인 시작 ====="
-
-    # 1) 오늘 경기 수집 (완료된 경기만 저장됨; 이미 완료 저장된 파일은 자동으로 건너뜀)
-    Log "1/5 경기 수집"
-    $collectLog = Join-Path $LogDir "collect_$stamp.log"
-    Invoke-GuiExe $RelayUIExe @("--collect", "--output", $CollectOutputDir, "--log", $collectLog) "경기 수집"
-
-    # 2) 새로 완료된 JSON을 데스크톱 DB에 반영 (변경 없는 파일/아직 진행 중인 경기는 자동으로 건너뜀)
-    Log "2/5 데스크톱 DB 반영"
-    $importOutput = Invoke-ConsoleExe $ImportCliExe @("--import", $CollectOutputDir, $DesktopDb) "DB 반영"
-
-    $importedCount = 0
-    foreach ($line in $importOutput) {
-        if ($line -match 'imported=(\d+)') { $importedCount = [int]$Matches[1] }
-    }
-
-    if ($importedCount -eq 0) {
-        Log "새로 완료되어 반영된 경기가 없어 3/5~5/5(봉인/업로드/재시작)는 건너뜁니다. 정상 상태입니다."
-        Log "===== 파이프라인 종료 (변경 없음) ====="
-        exit 0
-    }
-    Log "새로 반영된 경기 $importedCount 건. 봉인/업로드를 진행합니다."
-
-    # 3) 데스크톱 DB -> 새 웹용 DB 봉인 (매번 새 파일이어야 함 - 기존 파일 덮어쓰기 불가)
-    Log "3/5 웹 DB 봉인"
-    $webDb = Join-Path $WebDbDir "sabermetrics_v2_$stamp.db"
-    Invoke-ConsoleExe $WebAppExe @("--prepare", $DesktopDb, $webDb) "웹 DB 봉인" | Out-Null
-
-    # 4) Render에 임시 파일명으로 업로드 후, 서버에서 원자적으로 교체
-    #    (서비스 중인 파일에 바로 덮어쓰면 전송 도중 반쯤 써진 파일을 읽을 위험이 있어
-    #     반드시 임시 경로에 올린 뒤 rename으로 바꿔치기합니다)
-    Log "4/5 Render 업로드"
-    $remoteTemp = "$RemoteDbPath.new"
-    $sshArgList = @()
-    if ($SshExtraArgs) { $sshArgList += $SshExtraArgs -split '\s+' }
-
-    Invoke-ConsoleExe "scp" ($sshArgList + @("-s", $webDb, "${SshHost}:${remoteTemp}")) "scp 업로드" | Out-Null
-    Invoke-ConsoleExe "ssh" ($sshArgList + @($SshHost, "mv -f `"$remoteTemp`" `"$RemoteDbPath`"")) "원격 rename" | Out-Null
-
-    Log "===== 파일 교체 성공 ($webDb) ====="
-
-    # 5) Render 웹 서비스 재시작
-    #    파일을 rename으로 바꿔치기해도, 이미 그 DB 파일을 열어놓고 떠 있는 웹
-    #    서비스 프로세스는 SQLite 연결 풀링 때문에 계속 예전 내용을 붙잡고
-    #    읽습니다. 재시작해야 새 파일을 다시 열어서 최신 데이터가 반영됩니다.
-    Log "5/5 Render 서비스 재시작"
-    if ([string]::IsNullOrWhiteSpace($RenderApiKey)) {
-        Log "  RENDER_API_KEY가 설정되어 있지 않아 재시작을 건너뜁니다."
-        Log "  DB 파일 자체는 이미 정상 교체됐으니, Render 대시보드에서 해당 서비스를 수동으로 한 번 Restart 해주세요."
-        Log "  다음부터 자동으로 재시작하려면 PowerShell에서: setx RENDER_API_KEY `"발급받은_키`"  (자세한 방법은 스크립트 상단 .NOTES 참고)"
-    } else {
+    if ($SshExtraArgs) { $SshArgs += $SshExtraArgs -split '\s+' }
+    if (!$LocalOnly -and !$FullDatabaseUpload) {
+        $healthUri = $null
+        if (![Uri]::TryCreate($RenderHealthUrl,[UriKind]::Absolute,[ref]$healthUri) -or $healthUri.Scheme -ne 'https') {
+            throw 'Render health URL은 유효한 HTTPS 주소여야 합니다.'
+        }
+        Log "Render 내부 수집기 상태 확인: $RenderHealthUrl"
         try {
-            $headers = @{ Authorization = "Bearer $RenderApiKey" }
-            $restartUrl = "https://api.render.com/v1/services/$RenderServiceId/restart"
-            Invoke-RestMethod -Method Post -Uri $restartUrl -Headers $headers -TimeoutSec 30 | Out-Null
-            Log "  재시작 요청 완료. Render에서 새 서비스가 다시 뜨는 데 1~2분 정도 걸릴 수 있습니다."
-        } catch {
-            Log "  재시작 요청 실패 (DB 파일 자체는 이미 정상적으로 교체되어 있습니다): $($_.Exception.Message)"
-            Log "  Render 대시보드에서 해당 서비스를 수동으로 한 번 Restart 해주세요."
+            $health = Invoke-RestMethod -Method Get -Uri $RenderHealthUrl -TimeoutSec 20
+            if ($health.collector.enabled) {
+                if ($health.collector.healthy) {
+                    Log "Render 내부 수집기가 정상입니다. 마지막 성공=$($health.collector.lastSuccessfulCycleUtc); Windows 수집·DB 업로드·재시작을 건너뜁니다."
+                    exit 0
+                }
+                throw "Render 내부 수집기가 등록됐지만 최근 성공 기록이 없습니다. 두 writer의 동시 실행을 막기 위해 이번 Windows 작업을 중단합니다. 수동 전체 복구만 -FullDatabaseUpload를 사용하세요."
+            }
+            Log '배포된 웹에 Render 내부 수집기가 없습니다. 기존 Windows 파이프라인을 복구 경로로 실행합니다.'
+        }
+        catch {
+            Log "Render health 확인 실패 또는 내부 수집기 비정상: $($_.Exception.Message)"
+            Log '두 writer의 동시 실행을 막기 위해 이번 작업을 중단합니다. 10분 뒤 다시 확인합니다.'
+            exit 1
         }
     }
+    foreach ($exe in @($RelayUIExe,$ImportCliExe,$WebAppExe)) {
+        if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "실행 파일 없음. 먼저 Build-Automation.ps1 실행: $exe" }
+    }
+    $now = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTimeOffset]::UtcNow, 'Korea Standard Time')
+    $from = $now.AddDays(-$LookbackDays).ToString('yyyy-MM-dd')
+    $to = $now.ToString('yyyy-MM-dd')
+    $collectLog = Join-Path $LogDir "collect_$stamp.log"
+    Run $RelayUIExe @('--collect','--from',$from,'--to',$to,'--output',$CollectOutputDir,'--log',$collectLog) '1/7 진행 중 포함 JSON 수집'
+    Run $ImportCliExe @('--import',$CollectOutputDir,$DesktopDb) '2/7 RESULT/ENDED 종료 경기 DB 반영'
+    if (!(Test-Path -LiteralPath $DesktopDb)) { Log 'DB로 반영할 경기가 없습니다.'; exit 0 }
+    if ($RunSeasonReconcile) {
+        $reconcile = Join-Path $LogDir "reconcile_$stamp.json"
+        Run $ImportCliExe @('--reconcile',$DesktopDb,$reconcile) '3/7 PC 공식 정정·타점·팀 자책점 대조'
+    } else {
+        Log '3/7 PC 공식 정정·타점·팀 자책점 대조 임시 건너뜀'
+    }
+    $verify = Join-Path $LogDir "verify_$stamp.json"
+    $verifyArgs = @('--verify',$DesktopDb,$verify)
+    if (!$RunSeasonReconcile) { $verifyArgs += '--structural-only' }
+    Run $ImportCliExe $verifyArgs '4/7 DB 무결성·외래키·기록 오류 검증'
+    $verified = Get-Content -LiteralPath $verify -Raw | ConvertFrom-Json
+    if (!$verified.passed -or $null -eq $verified.dataVersion) { throw '검증 결과/DB 버전 누락' }
+    $statePath = Join-Path $LogDir 'published-state.json'
+    $identity = "$([IO.Path]::GetFullPath($DesktopDb))|$($verified.dataVersion)|$SshHost|$RemoteDbPath|$RenderServiceId"
+    if (!$LocalOnly -and (Test-Path -LiteralPath $statePath)) {
+        $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+        if ($state.identity -eq $identity) { Log '현재 DB 버전은 이미 배포·재시작 요청 완료됐습니다.'; exit 0 }
+    }
+    if (!$LocalOnly -and !$FullDatabaseUpload) {
+        if ([string]::IsNullOrWhiteSpace($RenderApiKey)) { $RenderApiKey = [Environment]::GetEnvironmentVariable('RENDER_API_KEY','User') }
+        if ([string]::IsNullOrWhiteSpace($RenderApiKey)) { throw 'RENDER_API_KEY 없음. 원격 증분 반영 전에 중단합니다.' }
+        foreach ($remotePath in @($RemoteDbPath,$RemoteToolRoot,$RemoteInboxRoot)) {
+            if ($remotePath -notmatch '^/[A-Za-z0-9_./-]+$' -or $remotePath.Contains('..')) { throw "원격 경로 형식 오류: $remotePath" }
+        }
+        foreach ($localPath in @($RemoteToolLocalPath,$RemoteScriptLocalPath)) {
+            if (!(Test-Path -LiteralPath $localPath -PathType Leaf)) { throw "원격 증분 도구 없음. Build-Automation.ps1 실행 필요: $localPath" }
+        }
 
-    Log "===== 파이프라인 성공 ====="
+        $fromKey = $now.AddDays(-$LookbackDays).ToString('yyyyMMdd')
+        $toKey = $now.ToString('yyyyMMdd')
+        $candidateFiles = Get-ChildItem -LiteralPath $CollectOutputDir -File -Filter '*.json' | Where-Object {
+            $_.BaseName -match '^(\d{8})' -and $Matches[1] -ge $fromKey -and $Matches[1] -le $toKey
+        }
+        $completeFiles = @($candidateFiles | Where-Object {
+            try {
+                $document = Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
+                $statusCode = [string]$document.naver.result.game.statusCode
+                $document.collectionStatus -eq 'complete' -and $statusCode.ToUpperInvariant() -in @('RESULT','ENDED')
+            } catch { throw "수집 JSON 확인 실패: $($_.FullName): $($_.Exception.Message)" }
+        })
+        if ($completeFiles.Count -eq 0) { Log '5/7 원격에 반영할 RESULT/ENDED 완료 경기 JSON이 없습니다.'; exit 0 }
 
-    # 로컬 web-db 폴더 정리 - 최근 N개만 보관
-    Get-ChildItem $WebDbDir -Filter "sabermetrics_v2_*.db" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -Skip $KeepLocalWebDbCount |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+        $toolHash = (Get-FileHash -LiteralPath $RemoteToolLocalPath -Algorithm SHA256).Hash.ToLowerInvariant().Substring(0,16)
+        $scriptHash = (Get-FileHash -LiteralPath $RemoteScriptLocalPath -Algorithm SHA256).Hash.ToLowerInvariant().Substring(0,16)
+        $remoteTool = "$RemoteToolRoot/NaverRelay.Cli-$toolHash"
+        $remoteScript = "$RemoteToolRoot/Remote-Incremental-$scriptHash.sh"
+        $remoteInbox = "$RemoteInboxRoot/$stamp"
+        Run 'ssh' ($SshArgs + @($SshHost,"mkdir -p '$RemoteToolRoot' '$remoteInbox'")) '5/7 원격 증분 작업 디렉터리 준비'
+        $toolState = Run-Capture 'ssh' ($SshArgs + @($SshHost,"if [ -x '$remoteTool' ] && [ -x '$remoteScript' ]; then echo READY; else echo MISSING; fi")) '5/7 원격 증분 도구 확인'
+        if ([string]($toolState | Select-Object -Last 1) -ne 'READY') {
+            $remoteToolTemp = "$remoteTool.uploading-$stamp"
+            $remoteScriptTemp = "$remoteScript.uploading-$stamp"
+            Run 'scp' ($SshArgs + @('-s',$RemoteToolLocalPath,"${SshHost}:$remoteToolTemp")) '5/7 Linux 임포터 최초 업로드'
+            if ((Read-RemoteSize $remoteToolTemp '5/7 Linux 임포터 크기 확인') -ne (Get-Item -LiteralPath $RemoteToolLocalPath).Length) {
+                throw '원격 Linux 임포터 크기가 로컬과 다릅니다.'
+            }
+            Run 'scp' ($SshArgs + @('-s',$RemoteScriptLocalPath,"${SshHost}:$remoteScriptTemp")) '5/7 원격 증분 스크립트 업로드'
+            if ((Read-RemoteSize $remoteScriptTemp '5/7 원격 스크립트 크기 확인') -ne (Get-Item -LiteralPath $RemoteScriptLocalPath).Length) {
+                throw '원격 증분 스크립트 크기가 로컬과 다릅니다.'
+            }
+            Run 'ssh' ($SshArgs + @($SshHost,"chmod 755 '$remoteToolTemp' '$remoteScriptTemp' && mv -f '$remoteToolTemp' '$remoteTool' && mv -f '$remoteScriptTemp' '$remoteScript'")) '5/7 원격 증분 도구 설치'
+        }
 
+        $jsonArguments = $SshArgs + @('-s') + @($completeFiles.FullName) + @("${SshHost}:$remoteInbox/")
+        Run 'scp' $jsonArguments "6/7 RESULT/ENDED 완료 경기 JSON $($completeFiles.Count)개 업로드"
+        $remoteOutput = Run-Capture 'ssh' ($SshArgs + @($SshHost,"'$remoteScript' '$remoteTool' '$RemoteDbPath' '$remoteInbox' '$stamp'")) '6/7 Render 내부 임시 DB 증분 반영·검증·교체'
+        $result = [string]($remoteOutput | Where-Object { "$_" -like 'REMOTE_RESULT=*' } | Select-Object -Last 1)
+        if ($result -notmatch '^REMOTE_RESULT=(UPDATED|NO_CHANGE)\b') { throw "원격 증분 결과 누락: $result" }
+
+        Log "7/7 Render 재시작 요청 ($result)"
+        Invoke-RestMethod -Method Post -Uri "https://api.render.com/v1/services/$RenderServiceId/restart" -Headers @{ Authorization="Bearer $RenderApiKey" } -TimeoutSec 30 | Out-Null
+        $stateTemp = "$statePath.$stamp.tmp"
+        @{identity=$identity; mode='remote-incremental'; remoteResult=$result; requestedRestartAt=[DateTimeOffset]::UtcNow.ToString('O')} | ConvertTo-Json | Set-Content -LiteralPath $stateTemp -Encoding UTF8
+        Move-Item -LiteralPath $stateTemp -Destination $statePath -Force
+        Log '원격 증분 배포 및 재시작 요청 완료'
+        exit 0
+    }
+    $webDb = Join-Path $WebDbDir "sabermetrics_v2_$stamp.db"
+    Run $WebAppExe @('--prepare',$DesktopDb,$webDb) '5/7 검증된 웹 DB 봉인'
+    if ($LocalOnly) { Prune-WebDb; Log "로컬 처리 완료: $webDb"; exit 0 }
+    if ([string]::IsNullOrWhiteSpace($RenderApiKey)) { $RenderApiKey = [Environment]::GetEnvironmentVariable('RENDER_API_KEY','User') }
+    if ([string]::IsNullOrWhiteSpace($RenderApiKey)) { throw 'RENDER_API_KEY 없음. 업로드 전에 중단합니다. 로컬 검증은 -LocalOnly 사용.' }
+    if ($RemoteDbPath -notmatch '^/[A-Za-z0-9_./-]+$' -or $RemoteDbPath.Contains('..')) { throw '원격 DB 경로 형식 오류' }
+    $remoteTemp = "$RemoteDbPath.$stamp.new"
+    $localSize = (Get-Item -LiteralPath $webDb).Length
+    Log "6/7 임시 DB 업로드 시작: $localSize bytes -> $remoteTemp"
+    # Render 권장 방식대로 -s를 명시해 SFTP 프로토콜로 전송한다.
+    Run 'scp' ($SshArgs + @('-s',$webDb,"${SshHost}:$remoteTemp")) '6/7 임시 DB 전송'
+    $uploadedSize = Read-RemoteSize $remoteTemp '6/7 원격 임시 DB 크기 확인'
+    if ($uploadedSize -ne $localSize) { throw "원격 임시 DB 크기 불일치: local=$localSize, remote=$uploadedSize. 원격 DB를 교체하지 않습니다." }
+    Log "6/7 업로드 검증 완료: $uploadedSize bytes"
+    $movedOutput = Run-Capture 'ssh' ($SshArgs + @($SshHost,"mv -f '$remoteTemp' '$RemoteDbPath' && sync && stat -c %s '$RemoteDbPath'")) '6/7 원격 DB 교체 및 크기 확인'
+    $movedText = [string]($movedOutput | Select-Object -Last 1)
+    [long]$movedSize = 0
+    if (![long]::TryParse($movedText.Trim(), [ref]$movedSize) -or $movedSize -ne $localSize) {
+        throw "교체된 원격 DB 크기 불일치: local=$localSize, remote=$movedText. Render를 재시작하지 않습니다."
+    }
+    Log '7/7 Render 재시작 요청'
+    Invoke-RestMethod -Method Post -Uri "https://api.render.com/v1/services/$RenderServiceId/restart" -Headers @{ Authorization="Bearer $RenderApiKey" } -TimeoutSec 30 | Out-Null
+    # Do not mark a failed deployment as done, even if the next import finds no changes.
+    $stateTemp = "$statePath.$stamp.tmp"
+    @{identity=$identity; requestedRestartAt=[DateTimeOffset]::UtcNow.ToString('O')} | ConvertTo-Json | Set-Content -LiteralPath $stateTemp -Encoding UTF8
+    Move-Item -LiteralPath $stateTemp -Destination $statePath -Force
+    Prune-WebDb
+    Log '배포 및 재시작 요청 완료'
     exit 0
 }
-catch {
-    Log "!!! 파이프라인 실패: $($_.Exception.Message)"
-    exit 1
-}
-finally {
-    Remove-Item -Path $lockFile -Force -ErrorAction SilentlyContinue
-}
+catch { Log "실패: $($_.Exception.Message)"; exit 1 }
+finally { $lock.Dispose() }

@@ -112,7 +112,33 @@ internal static class CombinedImportTests
         await SourceSnapshotTests(store,c,first!,runFolder);
         await MissingColumnsFixture(store,c,runFolder);
         await CorrectionTimestampFixture(store,c,runFolder);
+        await AtomicDayImportFixture(fixtureFolder,runFolder);
         Console.WriteLine("통합 JSON 검증 DB: " + Path.Combine(runFolder, "combined.db"));
+    }
+
+    static async Task AtomicDayImportFixture(string fixtureFolder, string runFolder)
+    {
+        var dbPath = Path.Combine(runFolder, "atomic-day.db");
+        var store = new DatabaseCacheService(dbPath);
+        await store.InitializeAsync();
+        var files = new[] { "20260911NCHH02026.json", "20260911SKHT02026.json" };
+        var inputs = files.Select(file =>
+        {
+            var path = Path.Combine(fixtureFolder,file);
+            return (Game: RelayParser.ParseJson(File.ReadAllText(path)), Document: Input(path,Path.GetFileNameWithoutExtension(path)));
+        }).ToArray();
+        await using var setup = new SqliteConnection("Data Source=" + dbPath);
+        await setup.OpenAsync();
+        await Execute(setup,$"CREATE TRIGGER RejectSecondGame BEFORE INSERT ON Games WHEN NEW.GameId='{inputs[1].Game.GameId.Replace("'","''")}' BEGIN SELECT RAISE(ABORT,'forced atomic rollback'); END;");
+        try
+        {
+            await store.SaveGamesAndSourcesAtomicallyAsync(inputs);
+            throw new InvalidDataException("날짜 단위 원자 반영이 강제 DB 오류를 반환하지 않았습니다.");
+        }
+        catch (SqliteException ex) when (ex.Message.Contains("forced atomic rollback",StringComparison.Ordinal)) { }
+        Check(await Scalar(setup,"SELECT COUNT(*) FROM Games") == 0,"날짜 단위 경기 반영 전체 롤백");
+        Check(await Scalar(setup,"SELECT COUNT(*) FROM OfficialPlayLogs") == 0,"날짜 단위 공식 기록 전체 롤백");
+        Check(await Scalar(setup,"SELECT CAST(MetaValue AS INTEGER) FROM Metadata WHERE MetaKey='DataVersion'") == 0,"실패한 날짜 반영은 DB 버전을 올리지 않음");
     }
 
     static async Task InvalidInputTests(DatabaseCacheService store, SqliteConnection c, JsonNode sample, string path)
@@ -121,6 +147,7 @@ internal static class CombinedImportTests
         {
             ("다른 경기 ID", x => x["naverGameId"] = "20260910NCHH02026"),
             ("불완전 통합 수집", x => x["collectionStatus"] = "partial"),
+            ("진행 중 상태를 완료로 위조", x => x["naver"]!["result"]!["game"]!["statusCode"] = "PLAY"),
             ("불완전 네이버 이닝", x => x["naverCollection"]!["isComplete"] = false),
             ("누락 공식 중계", x => x["kboOfficial"]!["isComplete"] = false),
             ("미해결 선수 매핑", x => x["kboOfficial"]!["boxScore"]!["away"]!["pitching"]!["rowIdentities"]![0]!["matchStatus"] = "unresolved"),

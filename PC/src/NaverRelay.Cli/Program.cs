@@ -14,6 +14,12 @@ if (args.Length == 0 || args.Contains("--help", StringComparer.OrdinalIgnoreCase
 if (string.Equals(args[0], "--import", StringComparison.OrdinalIgnoreCase))
     return await RunImportAsync(args);
 
+if (args[0] is "--reconcile" or "--verify")
+    return await AutomationCommands.RunAsync(args);
+
+if (string.Equals(args[0], "--seal-web", StringComparison.OrdinalIgnoreCase))
+    return await WebSealCommand.RunAsync(args);
+
 var inputPath = args[0];
 var outputPath = args.Length >= 2 && !args[1].StartsWith("--", StringComparison.Ordinal)
     ? args[1]
@@ -211,6 +217,16 @@ static async Task<int> RunImportAsync(string[] args)
         try
         {
             var json = await document.ReadJsonAsync(CancellationToken.None);
+            using (var snapshot = JsonDocument.Parse(json))
+            {
+                var root = snapshot.RootElement;
+                if (root.TryGetProperty("collectionStatus", out var state) && state.GetString() == "partial")
+                {
+                    deferred++;
+                    Console.WriteLine($"DEFERRED {document.DisplayName}: 진행 중/미완료 스냅샷. 다음 주기에 다시 확인합니다.");
+                    continue;
+                }
+            }
             var game = RelayParser.ParseJson(json);
             await db.SaveGameAndSourceAsync(game, document);
             imported++;
@@ -234,11 +250,8 @@ static async Task<int> RunImportAsync(string[] args)
     }
 
     Console.WriteLine($"imported={imported} deferred={deferred} failed={failed}");
-    // A file whose game isn't finished/complete yet is the normal case for most
-    // of the day (see RelayInput.Read) and is already visible per-line above as
-    // DEFERRED/FAILED - it must not abort the scheduled pipeline. Only a broken
-    // input directory (checked above) is treated as a hard failure here.
-    return 0;
+    // Deferred snapshots are expected. Real parsing/storage failures block publication.
+    return failed == 0 ? 0 : 1;
 }
 
 static List<InputDocument> DiscoverJsonDocuments(string inputDir)
@@ -268,6 +281,9 @@ static List<InputDocument> DiscoverJsonDocuments(string inputDir)
 
 static void PrintUsage()
 {
+    Console.WriteLine("  --reconcile <desktop-db-path> <report.json> : 공식 정정 / 타점 / 팀 자책점 대조");
+    Console.WriteLine("  --verify <desktop-db-path> <report.json> [--allow-reconciliation-pending|--structural-only] : SQLite 무결성 / 외래키 / 기록 오류 검증");
+    Console.WriteLine("  --seal-web <existing-db> : 웹 DB 캐시 준비 / 최적화 / WAL 봉인");
     Console.WriteLine("NaverRelay phase-1 normalized parser");
     Console.WriteLine();
     Console.WriteLine("Usage:");

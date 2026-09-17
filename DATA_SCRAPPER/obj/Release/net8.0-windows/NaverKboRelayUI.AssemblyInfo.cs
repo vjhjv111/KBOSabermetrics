@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NaverKboRelayUI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("4.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("4.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("4.0.0+c121067e52577de7548f5f78e3fd0512e88e0237")]
 [assembly: System.Reflection.AssemblyProductAttribute("NaverKboRelayUI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NaverKboRelayUI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("4.0.0.0")]

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Run-Pipeline.ps1을 저녁 시간대(기본 18:00~00:30)에 20분 간격으로 반복 실행하는
+  Run-Scheduled.ps1을 저녁 시간대(기본 18:00~00:30)에 10분 간격으로 반복 실행하는
   Windows 작업 스케줄러 작업을 등록합니다. 한 번만 실행하면 됩니다.
 
 .NOTES
@@ -17,23 +17,32 @@
 
 param(
     [string]$TaskName = "KBO_Sabermetrics_AutoSync",
-    [string]$ScriptPath = "$PSScriptRoot\Run-Pipeline.ps1",
+    [string]$ScriptPath = "$PSScriptRoot\Run-Scheduled.ps1",
     [string]$StartTime = "18:00",
-    [int]$IntervalMinutes = 20,
+    # 비우면 오늘부터, 지정하면 이 시스템의 schtasks 형식(yyyy/MM/dd) 시작일
+    [string]$StartDate = "",
+    [ValidateRange(1,1439)][int]$IntervalMinutes = 10,
     # HH:MM 형식
     [string]$Duration = "06:30"
 )
 
 $exec = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+if (!(Test-Path -LiteralPath $ScriptPath -PathType Leaf)) { throw "스크립트가 없습니다: $ScriptPath" }
 
 # /f: 이미 같은 이름의 작업이 있으면 확인 없이 덮어씀
-& schtasks /create /tn $TaskName /tr $exec /sc daily /st $StartTime /ri $IntervalMinutes /du $Duration /f
+$createArgs = @('/create','/tn',$TaskName,'/tr',$exec,'/sc','daily','/st',$StartTime,'/ri',$IntervalMinutes,'/du',$Duration,'/f')
+if ($StartDate) { $createArgs += @('/sd',$StartDate) }
+& schtasks @createArgs
 
 if ($LASTEXITCODE -eq 0) {
+    $taskXml = & schtasks /query /tn $TaskName /xml
+    if ($LASTEXITCODE -ne 0 -or ($taskXml -join "`n") -notmatch "<Interval>PT${IntervalMinutes}M</Interval>") {
+        throw "등록 후 반복 간격 검증 실패: ${IntervalMinutes}분 설정이 작업 XML에 없습니다."
+    }
     Write-Host ""
     Write-Host "등록 완료: '$TaskName' ($StartTime 부터 ${IntervalMinutes}분 간격으로 $Duration 동안 반복)"
     Write-Host "지금 바로 한 번 테스트하려면: schtasks /run /tn `"$TaskName`""
     Write-Host "등록 내용 확인하려면: schtasks /query /tn `"$TaskName`" /v /fo list"
 } else {
-    Write-Host "등록 실패 (종료 코드 $LASTEXITCODE) - 위 schtasks 출력의 에러 메시지를 확인해주세요."
+    throw "등록 실패 (종료 코드 $LASTEXITCODE) - 위 schtasks 출력의 에러 메시지를 확인해주세요."
 }

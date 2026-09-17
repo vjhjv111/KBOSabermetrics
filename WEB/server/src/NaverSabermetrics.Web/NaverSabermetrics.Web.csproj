@@ -9,6 +9,7 @@
     <ProjectReference Include="../NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="../NaverRelay.Application/NaverRelay.Application.csproj" />
     <ProjectReference Include="../NaverRelay.Parser/NaverRelay.Parser.csproj" />
+    <ProjectReference Include="../NaverKboCollector.Core/NaverKboCollector.Core.csproj" />
     <!-- Explicit physical items prevent an absent project wwwroot in the SDK manifest.
          Only these public files are packaged. frontend/ remains the editable source. -->
     <Content Remove="wwwroot/**" />
