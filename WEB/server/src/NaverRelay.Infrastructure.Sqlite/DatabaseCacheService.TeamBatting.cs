@@ -77,7 +77,15 @@ public sealed partial class DatabaseCacheService
                                   SELECT 1
                                   FROM Pitches bunt_pitch
                                   WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
-                                    AND bunt_pitch.PitchResult=$buntFoul)))
+                                    AND bunt_pitch.PitchResult=$buntFoul))
+                          OR ((pa.IsHit=1 OR pa.IsWalk=1 OR pa.IsIntentionalWalk=1)
+                              AND pa.ResultType<>$buntSingle
+                              AND EXISTS (
+                                  SELECT 1
+                                  FROM Pitches two_strike_bunt
+                                  WHERE two_strike_bunt.PlateAppearanceId=pa.PlateAppearanceId
+                                    AND two_strike_bunt.PitchResult=$buntFoul
+                                    AND two_strike_bunt.StrikesAfter>=2)))
                        THEN 1 ELSE 0 END) AS SacrificeBuntFailures,
                    CASE WHEN $hasSituation=0 THEN {leftOnBase} ELSE NULL END AS LeftOnBase
             FROM PlateAppearances pa
@@ -95,6 +103,7 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$resultTeam", query.TeamCode ?? string.Empty);
         command.Parameters.AddWithValue("$bunt", (int)BattedBallType.Bunt);
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
+        command.Parameters.AddWithValue("$buntSingle", (int)BattingResultType.BuntSingle);
         command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
         command.Parameters.AddWithValue("$hasSituation", query.HasSituationFilters ? 1 : 0);
 
