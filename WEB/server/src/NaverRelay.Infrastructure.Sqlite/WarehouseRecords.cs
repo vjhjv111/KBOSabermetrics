@@ -159,7 +159,7 @@ internal sealed class WarehouseGameProjection
 
 internal sealed class BatterAggregateRecord
 {
-    // Team execution context, derived from plate appearances for the team-batting view.
+    // Player/team execution context, derived from plate appearances for the team-batting view.
     public int DoublePlayOpportunities { get; set; }
     public int SacrificeBuntFailures { get; set; }
     public int? LeftOnBase { get; set; }

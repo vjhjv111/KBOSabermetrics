@@ -50,14 +50,13 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         WarehouseAnalyticsData data,
         CancellationToken cancellationToken)
     {
-        if (query.Grouping != AnalyticsGrouping.Team) return;
         var context = await _database.GetTeamBattingContextAsync(query, cancellationToken).ConfigureAwait(false);
         foreach (var batter in data.Batters)
         {
-            if (!context.TryGetValue(batter.TeamCode, out var teamContext)) continue;
-            batter.DoublePlayOpportunities = teamContext.DoublePlayOpportunities;
-            batter.SacrificeBuntFailures = teamContext.SacrificeBuntFailures;
-            batter.LeftOnBase = teamContext.LeftOnBase;
+            if (!context.TryGetValue(TeamBattingContextKey(query.Grouping, batter.Pcode, batter.TeamCode), out var battingContext)) continue;
+            batter.DoublePlayOpportunities = battingContext.DoublePlayOpportunities;
+            batter.SacrificeBuntFailures = battingContext.SacrificeBuntFailures;
+            batter.LeftOnBase = battingContext.LeftOnBase;
         }
     }
 
@@ -66,16 +65,22 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         AnalyticsSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        if (query.Grouping != AnalyticsGrouping.Team) return;
         var context = await _database.GetTeamBattingContextAsync(query, cancellationToken).ConfigureAwait(false);
         foreach (var batter in snapshot.BatterClassic)
         {
-            if (!context.TryGetValue(batter.TeamCode ?? string.Empty, out var teamContext)) continue;
-            batter.DoublePlayOpportunities = teamContext.DoublePlayOpportunities;
-            batter.SacrificeBuntFailures = teamContext.SacrificeBuntFailures;
-            batter.LeftOnBase = teamContext.LeftOnBase;
+            if (!context.TryGetValue(TeamBattingContextKey(query.Grouping, batter.Pcode ?? string.Empty, batter.TeamCode ?? string.Empty), out var battingContext)) continue;
+            batter.DoublePlayOpportunities = battingContext.DoublePlayOpportunities;
+            batter.SacrificeBuntFailures = battingContext.SacrificeBuntFailures;
+            batter.LeftOnBase = battingContext.LeftOnBase;
         }
     }
+
+    private static string TeamBattingContextKey(AnalyticsGrouping grouping, string pcode, string teamCode) => grouping switch
+    {
+        AnalyticsGrouping.PlayerCareer => pcode,
+        AnalyticsGrouping.Team => teamCode,
+        _ => $"{pcode}\u001f{teamCode}",
+    };
 
     private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear, WarAllocationCalibration allocation)
     {

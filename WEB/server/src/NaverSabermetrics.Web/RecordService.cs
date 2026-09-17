@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.2";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.3";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -101,7 +101,7 @@ public sealed partial class RecordService
             if (sort is null || PublicHidden(sort, request.Role) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
-        var key = $"web-v3-result-v1|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
+        var key = $"web-v3-result-v2|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
         var cached = TryRead(key, definition.RowType);
         var hit = cached is not null;
         var rows = cached ?? await ComputeAsync(request, query, definition, token).ConfigureAwait(false);
@@ -222,8 +222,10 @@ public sealed partial class RecordService
             ? "웹 공개 지표는 KBO fWAR만 제공합니다. 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
-        if (request.Room == "team" && request.Role == "batter" && request.View == "team-batting")
-            warnings.Add("병살 상황은 2아웃 미만·1루 주자 존재 타석, 잔루는 PA-득점-아웃, 희생번트 실패는 2아웃 미만·주자 존재 때의 번트 아웃·쓰리번트 삼진으로 계산합니다.");
+        if (request.Role == "batter" && request.View == "team-batting")
+            warnings.Add(request.Room == "team"
+                ? "병살 상황은 2아웃 미만·1루 주자 존재 타석, 팀 잔루는 PA-득점-아웃, 희생번트 실패는 2아웃 미만·주자 존재 때의 번트 아웃·쓰리번트 삼진으로 계산합니다."
+                : "병살 상황은 2아웃 미만·1루 주자 존재 타석, 선수 잔루는 타자가 아웃된 플레이 후 남은 주자 수, 희생번트 실패는 2아웃 미만·주자 존재 때의 번트 아웃·쓰리번트 삼진으로 계산합니다.");
         if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점이며 ER·공식 IP·WAR·득점/주루 일부는 표시하지 않습니다.");
         if (total > accessible) warnings.Add($"대량 수집 제한으로 정렬 결과 상위 {accessible}행까지만 열람할 수 있습니다.");
         if (_options.Demo) warnings.Insert(0,"샘플 DB입니다. 전체 시즌 기록이 아닙니다.");
