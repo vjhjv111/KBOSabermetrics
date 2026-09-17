@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NaverRelay.Application.Importing;
+using NaverRelay.Infrastructure.Sqlite;
 using NaverRelay.Parsing;
 
 if (args.Length == 0 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
@@ -8,6 +10,9 @@ if (args.Length == 0 || args.Contains("--help", StringComparer.OrdinalIgnoreCase
     PrintUsage();
     return 0;
 }
+
+if (string.Equals(args[0], "--import", StringComparison.OrdinalIgnoreCase))
+    return await RunImportAsync(args);
 
 var inputPath = args[0];
 var outputPath = args.Length >= 2 && !args[1].StartsWith("--", StringComparison.Ordinal)
@@ -164,14 +169,113 @@ static IEnumerable<(string Name, string Json)> LoadSources(string inputPath)
     yield return (inputPath, File.ReadAllText(inputPath));
 }
 
+// Writes straight into the desktop SQLite DB (the same call the GUI's
+// "SQLite DB 수집" mode makes via ParsingWorkflowService), instead of just
+// writing normalized JSON to disk. Safe to rerun on a timer: files whose
+// content hasn't changed since the last successful import are skipped via
+// DatabaseCacheService's own fingerprint cache (ParsedSources table).
+static async Task<int> RunImportAsync(string[] args)
+{
+    if (args.Length < 3)
+    {
+        Console.Error.WriteLine("Usage: --import <input-dir> <desktop-db-path>");
+        return 2;
+    }
+
+    var inputDir = args[1];
+    var dbPath = args[2];
+    if (!Directory.Exists(inputDir))
+    {
+        Console.Error.WriteLine($"Input directory does not exist: {inputDir}");
+        return 2;
+    }
+
+    var documents = DiscoverJsonDocuments(inputDir);
+    if (documents.Count == 0)
+    {
+        Console.WriteLine("No JSON files found.");
+        return 0;
+    }
+
+    var db = new DatabaseCacheService(dbPath);
+    await db.InitializeAsync();
+
+    var unchanged = await db.GetUnchangedSourceKeysAsync(documents);
+    var toProcess = documents.Where(d => !unchanged.Contains(d.Id)).ToList();
+    Console.WriteLine($"{documents.Count} file(s) found, {toProcess.Count} to import " +
+        $"({unchanged.Count} unchanged, skipped).");
+
+    int imported = 0, deferred = 0, failed = 0;
+    foreach (var document in toProcess)
+    {
+        try
+        {
+            var json = await document.ReadJsonAsync(CancellationToken.None);
+            var game = RelayParser.ParseJson(json);
+            await db.SaveGameAndSourceAsync(game, document);
+            imported++;
+            var s = game.Summary;
+            Console.WriteLine($"OK {document.DisplayName}: PA {s.CompletedPlateAppearanceCount}, " +
+                $"pitches {s.PitchEventCount}, warnings {s.WarningCount}");
+        }
+        catch (GameNotStartedException ex)
+        {
+            deferred++;
+            Console.WriteLine($"DEFERRED {document.DisplayName}: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            failed++;
+            // Deliberately stdout, not stderr: this loop already reports the
+            // outcome per file and keeps going - it is not a fatal process
+            // error, and a scheduled caller must not treat it as one.
+            Console.WriteLine($"FAILED {document.DisplayName}: {ex.Message}");
+        }
+    }
+
+    Console.WriteLine($"imported={imported} deferred={deferred} failed={failed}");
+    // A file whose game isn't finished/complete yet is the normal case for most
+    // of the day (see RelayInput.Read) and is already visible per-line above as
+    // DEFERRED/FAILED - it must not abort the scheduled pipeline. Only a broken
+    // input directory (checked above) is treated as a hard failure here.
+    return 0;
+}
+
+static List<InputDocument> DiscoverJsonDocuments(string inputDir)
+{
+    var documents = new List<InputDocument>();
+    foreach (var file in Directory.EnumerateFiles(inputDir, "*.json", SearchOption.TopDirectoryOnly)
+                 .Where(path =>
+                 {
+                     var name = Path.GetFileName(path);
+                     return !name.EndsWith(".normalized.json", StringComparison.OrdinalIgnoreCase)
+                         && !name.Equals("aggregate-summary.json", StringComparison.OrdinalIgnoreCase);
+                 })
+                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+    {
+        var info = new FileInfo(file);
+        documents.Add(new InputDocument
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Kind = InputDocumentKind.JsonFile,
+            ContainerPath = info.FullName,
+            Length = info.Exists ? info.Length : 0,
+        });
+    }
+
+    return documents;
+}
+
 static void PrintUsage()
 {
     Console.WriteLine("NaverRelay phase-1 normalized parser");
     Console.WriteLine();
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project src/NaverRelay.Cli -- <json-file|directory|zip> [output-dir] [--compact] [--validate-known-sample]");
+    Console.WriteLine("  dotnet run --project src/NaverRelay.Cli -- --import <input-dir> <desktop-db-path>");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  dotnet run --project src/NaverRelay.Cli -- SampleData/2026.zip normalized_output --validate-known-sample");
     Console.WriteLine("  dotnet run --project src/NaverRelay.Cli -- raw_games normalized_output");
+    Console.WriteLine("  dotnet run --project src/NaverRelay.Cli -- --import C:\\...\\NaverKboCombined C:\\...\\sabermetrics_v2.db");
 }

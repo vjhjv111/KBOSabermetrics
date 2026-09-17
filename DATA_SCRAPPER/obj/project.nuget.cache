@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "dgSpecHash": "R1sHQ7rDBTw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\NaverKboRelayUI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\vjhjv\\.nuget\\packages\\anglesharp\\1.1.2\\anglesharp.1.1.2.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\microsoft.data.sqlite\\8.0.8\\microsoft.data.sqlite.8.0.8.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\microsoft.data.sqlite.core\\8.0.8\\microsoft.data.sqlite.core.8.0.8.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.6\\sqlitepclraw.bundle_e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\sqlitepclraw.core\\2.1.6\\sqlitepclraw.core.2.1.6.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.6\\sqlitepclraw.lib.e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.6\\sqlitepclraw.provider.e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\system.memory\\4.5.3\\system.memory.4.5.3.nupkg.sha512",
+    "C:\\Users\\vjhjv\\.nuget\\packages\\system.text.encoding.codepages\\8.0.0\\system.text.encoding.codepages.8.0.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "'AngleSharp' 1.1.2 패키지에 알려진 보통 심각도 취약성인 https://github.com/advisories/GHSA-pgww-w46g-26qg이(가) 있습니다.",
+      "projectPath": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\NaverKboRelayUI.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\vjhjv\\Documents\\Codex\\2026-09-12\\https-www-koreabaseball-com-game-livetext\\outputs\\NaverKboRelayUI-Source\\NaverKboRelayUI\\NaverKboRelayUI.csproj",
+      "libraryId": "AngleSharp",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    }
+  ]
+}
