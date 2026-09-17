@@ -18,68 +18,7 @@ public sealed class RenderCollectorOptions
     public int LookbackDays { get; set; } = 1;
     public string JsonDirectory { get; set; } = "/var/data/kbo-json";
     public string HeartbeatPath { get; set; } = "/var/data/kbo-render-collector.heartbeat";
-}
-
-public sealed record RenderCollectorTriggerSnapshot(
-    bool IsRunning, bool IsQueued, DateTimeOffset? LastRequestedUtc,
-    DateTimeOffset? LastStartedUtc, DateTimeOffset? LastFinishedUtc, string? LastError);
-
-public sealed class RenderCollectorTrigger : IDisposable
-{
-    private readonly object gate = new();
-    private readonly SemaphoreSlim signal = new(0, 1);
-    private bool queued;
-    private bool running;
-    private DateTimeOffset? lastRequestedUtc;
-    private DateTimeOffset? lastStartedUtc;
-    private DateTimeOffset? lastFinishedUtc;
-    private string? lastError;
-
-    public bool Request()
-    {
-        lock (gate)
-        {
-            lastRequestedUtc = DateTimeOffset.UtcNow;
-            if (queued) return false;
-            queued = true;
-            signal.Release();
-            return true;
-        }
-    }
-
-    public async Task<bool> WaitForNextAsync(TimeSpan timeout, CancellationToken token)
-    {
-        var requested = await signal.WaitAsync(timeout, token);
-        if (requested) lock (gate) queued = false;
-        return requested;
-    }
-
-    public void MarkStarted()
-    {
-        lock (gate)
-        {
-            running = true;
-            lastStartedUtc = DateTimeOffset.UtcNow;
-            lastError = null;
-        }
-    }
-
-    public void MarkFinished(Exception? error)
-    {
-        lock (gate)
-        {
-            running = false;
-            lastFinishedUtc = DateTimeOffset.UtcNow;
-            lastError = error?.Message;
-        }
-    }
-
-    public RenderCollectorTriggerSnapshot Snapshot()
-    {
-        lock (gate) return new(running, queued, lastRequestedUtc, lastStartedUtc, lastFinishedUtc, lastError);
-    }
-
-    public void Dispose() => signal.Dispose();
+    public string ManualTriggerPath { get; set; } = "/var/data/kbo-render-collector.trigger";
 }
 
 public static class RenderCollectionPolicy
@@ -96,6 +35,17 @@ public static class RenderCollectionPolicy
         games.Any() && games.All(game => IsFinalStatus(game.StatusCode));
 
     public static string DatabaseGameId(GameRequest game) => game.GameId + game.Year;
+
+    public static bool TryConsumeManualTrigger(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            File.Delete(path);
+            return true;
+        }
+        catch (FileNotFoundException) { return false; }
+    }
 
     public static string? GameDateKey(ScheduleGame game)
     {
@@ -114,18 +64,15 @@ public sealed class RenderCollectorWorker : BackgroundService
     private readonly ILogger<RenderCollectorWorker> logger;
     private readonly SiteOptions site;
     private readonly RenderCollectorOptions options;
-    private readonly RenderCollectorTrigger trigger;
     private readonly TimeZoneInfo korea;
     private readonly HttpClient http;
     private DatabaseCacheService? writer;
 
-    public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options,
-        RenderCollectorTrigger trigger)
+    public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options)
     {
         this.logger = logger;
         this.site = site;
         this.options = options;
-        this.trigger = trigger;
         korea = FindKoreaTimeZone();
         http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; KBOSabermetrics-RenderCollector/1.0)");
@@ -141,30 +88,41 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         options.JsonDirectory = Path.GetFullPath(options.JsonDirectory);
         options.HeartbeatPath = Path.GetFullPath(options.HeartbeatPath);
+        options.ManualTriggerPath = Path.GetFullPath(options.ManualTriggerPath);
         Directory.CreateDirectory(options.JsonDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(options.HeartbeatPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(options.ManualTriggerPath)!);
         logger.LogInformation("Render 수집기 시작: interval={Interval}m json={Json} db={Database}",
             options.IntervalMinutes, options.JsonDirectory, site.DatabasePath);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            Exception? failure = null;
-            trigger.MarkStarted();
             try
             {
                 await RunCycleAsync(stoppingToken);
                 await TouchHeartbeatAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception ex)
-            {
-                failure = ex;
-                logger.LogError(ex, "Render 수집 주기 실패; 다음 주기에 다시 시도합니다.");
-            }
-            finally { trigger.MarkFinished(failure); }
+            catch (Exception ex) { logger.LogError(ex, "Render 수집 주기 실패; 다음 주기에 다시 시도합니다."); }
 
-            try { await trigger.WaitForNextAsync(TimeSpan.FromMinutes(options.IntervalMinutes), stoppingToken); }
+            try { await WaitForNextCycleAsync(stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+        }
+    }
+
+    private async Task WaitForNextCycleAsync(CancellationToken token)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddMinutes(options.IntervalMinutes);
+        while (true)
+        {
+            if (RenderCollectionPolicy.TryConsumeManualTrigger(options.ManualTriggerPath))
+            {
+                logger.LogInformation("Render 수집기 SSH 수동 실행 요청을 감지했습니다.");
+                return;
+            }
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero) return;
+            await Task.Delay(remaining < TimeSpan.FromSeconds(2) ? remaining : TimeSpan.FromSeconds(2), token);
         }
     }
 

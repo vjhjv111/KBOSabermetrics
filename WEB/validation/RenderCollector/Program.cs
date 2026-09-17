@@ -30,18 +30,16 @@ Check(RenderCollectionPolicy.DatabaseGameId(GameRequest.Parse(eligible[0].GameId
 eligible[0].StatusCode = "PLAY";
 Check(!RenderCollectionPolicy.AllGamesFinal(eligible),"진행 중 경기가 하나라도 있으면 날짜 반영 보류");
 
-using (var trigger = new RenderCollectorTrigger())
-{
-    Check(trigger.Request(),"수동 실행 요청을 대기열에 추가");
-    Check(!trigger.Request(),"연속 수동 요청은 하나로 합침");
-    Check((await trigger.WaitForNextAsync(TimeSpan.Zero,CancellationToken.None)),"수동 요청이 정기 대기를 즉시 깨움");
-    Check(!trigger.Snapshot().IsQueued,"처리 시작한 수동 요청은 대기열에서 제거");
-}
-
 var scratch = Path.Combine(Path.GetTempPath(),"render-collector-validation-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(scratch);
 try
 {
+    var triggerPath=Path.Combine(scratch,"collector.trigger");
+    await File.WriteAllTextAsync(triggerPath,string.Empty);
+    Check(RenderCollectionPolicy.TryConsumeManualTrigger(triggerPath),"SSH 수동 실행 트리거 감지");
+    Check(!File.Exists(triggerPath),"감지한 SSH 트리거 파일 제거");
+    Check(!RenderCollectionPolicy.TryConsumeManualTrigger(triggerPath),"처리한 트리거는 중복 실행하지 않음");
+
     var path = Path.Combine(scratch,"cache.db");
     var writer = new DatabaseCacheService(path);
     await writer.InitializeAsync();

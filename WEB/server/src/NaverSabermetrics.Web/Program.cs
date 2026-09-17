@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
@@ -38,7 +37,6 @@ builder.Configuration.AddEnvironmentVariables(); // Deployment secrets override 
 builder.Configuration.AddCommandLine(args);
 var settings=builder.Configuration.GetSection("Site").Get<SiteOptions>()??new SiteOptions();
 var renderCollector=builder.Configuration.GetSection("RenderCollector").Get<RenderCollectorOptions>()??new RenderCollectorOptions();
-var renderCollectorTriggerKey=Environment.GetEnvironmentVariable("RENDER_COLLECTOR_TRIGGER_KEY")??"";
 settings.DatabasePath=Environment.GetEnvironmentVariable("NAVER_SABERMETRICS_DB")??settings.DatabasePath;
 if(isRender)
 {
@@ -64,7 +62,6 @@ builder.WebHost.ConfigureKestrel(o=>{o.Limits.MaxRequestBodySize=16*1024;o.AddSe
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton(renderCollector);
-builder.Services.AddSingleton<RenderCollectorTrigger>();
 if(isRender && renderCollector.Enabled)builder.Services.AddHostedService<RenderCollectorWorker>();
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
@@ -206,8 +203,7 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRouting();app.UseRateLimiter();
 app.Use(async(c,next)=>
 {
-    var collectorTrigger=c.Request.Method=="POST"&&c.Request.Path=="/api/admin/collector/run";
-    if(c.Request.Method=="POST" && c.Request.Path.StartsWithSegments("/api") && !collectorTrigger)
+    if(c.Request.Method=="POST" && c.Request.Path.StartsWithSegments("/api"))
         await c.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(c);
     await next(c);
 });
@@ -223,7 +219,6 @@ app.MapDiamondMatch();
 app.MapDiamondSaveCode();
 app.MapGet("/api/health",()=>
 {
-    var collectorState=app.Services.GetRequiredService<RenderCollectorTrigger>().Snapshot();
     DateTimeOffset? collectorHeartbeatUtc=null;
     if(isRender && renderCollector.Enabled && File.Exists(renderCollector.HeartbeatPath))
         collectorHeartbeatUtc=File.GetLastWriteTimeUtc(renderCollector.HeartbeatPath);
@@ -236,27 +231,8 @@ app.MapGet("/api/health",()=>
             intervalMinutes=renderCollector.IntervalMinutes,
             lastSuccessfulCycleUtc=collectorHeartbeatUtc,
             healthy=collectorHeartbeatUtc.HasValue&&DateTimeOffset.UtcNow-collectorHeartbeatUtc.Value<TimeSpan.FromMinutes(30),
-            running=collectorState.IsRunning,
-            manualRunQueued=collectorState.IsQueued,
-            lastManualRunRequestedUtc=collectorState.LastRequestedUtc,
-            lastCycleStartedUtc=collectorState.LastStartedUtc,
-            lastCycleFinishedUtc=collectorState.LastFinishedUtc,
-            lastCycleError=collectorState.LastError,
         },
     });
-});
-app.MapPost("/api/admin/collector/run",(HttpContext c,RenderCollectorTrigger trigger)=>
-{
-    if(!isRender||!renderCollector.Enabled)
-        return Results.Json(new{code="COLLECTOR_DISABLED",message="Render 수집기가 활성화되어 있지 않습니다."},statusCode:503);
-    var authorization=c.Request.Headers.Authorization.ToString();
-    const string prefix="Bearer ";
-    if(string.IsNullOrWhiteSpace(renderCollectorTriggerKey)||!authorization.StartsWith(prefix,StringComparison.Ordinal)
-        ||!SecretEquals(authorization[prefix.Length..],renderCollectorTriggerKey))
-        return Results.Json(new{code="UNAUTHORIZED",message="수동 실행 키가 올바르지 않습니다."},statusCode:401);
-    var queued=trigger.Request();
-    app.Logger.LogInformation("Render 수집기 수동 실행 요청: queued={Queued} ip={Ip}",queued,Ip(c));
-    return Results.Accepted(value:new{status=queued?"queued":"already_queued",collector=trigger.Snapshot()});
 });
 app.MapGet("/api/ready",()=>databaseReady
     ? Results.Ok(new{status="ready"})
@@ -441,12 +417,6 @@ app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.Wr
 app.Run();
 
 static string Ip(HttpContext c)=>c.Connection.RemoteIpAddress?.ToString()??"unknown";
-static bool SecretEquals(string supplied,string expected)
-{
-    var suppliedHash=SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
-    var expectedHash=SHA256.HashData(Encoding.UTF8.GetBytes(expected));
-    return CryptographicOperations.FixedTimeEquals(suppliedHash,expectedHash);
-}
 public sealed record PlayerSearchRequest(string Query);
 // Response.Body에 얼마나 썼는지만 세는 얇은 래퍼. 내용에는 전혀 관여하지 않고 그대로 통과시킵니다.
 sealed class CountingStream(Stream inner) : Stream
