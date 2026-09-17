@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using KboRelayDownloader;
 using NaverRelay.Application.Importing;
 using NaverRelay.Infrastructure.Sqlite;
 using NaverRelay.Parsing;
@@ -24,6 +25,8 @@ var schedule = new[]
 var eligible = RenderCollectionPolicy.EligibleGames(schedule,date);
 Check(eligible.Count == 2,"취소·다른 날짜 제외");
 Check(RenderCollectionPolicy.AllGamesFinal(eligible),"RESULT와 ENDED를 모두 종료로 인정");
+Check(RenderCollectionPolicy.DatabaseGameId(GameRequest.Parse(eligible[0].GameId!)) == "20260917HHKT02026",
+    "DB 검증은 네이버 저장 경기 ID(연도 접미사 포함) 사용");
 eligible[0].StatusCode = "PLAY";
 Check(!RenderCollectionPolicy.AllGamesFinal(eligible),"진행 중 경기가 하나라도 있으면 날짜 반영 보류");
 

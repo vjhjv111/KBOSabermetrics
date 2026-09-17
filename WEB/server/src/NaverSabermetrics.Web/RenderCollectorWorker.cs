@@ -33,6 +33,8 @@ public static class RenderCollectionPolicy
     public static bool AllGamesFinal(IEnumerable<ScheduleGame> games) =>
         games.Any() && games.All(game => IsFinalStatus(game.StatusCode));
 
+    public static string DatabaseGameId(GameRequest game) => game.GameId + game.Year;
+
     public static string? GameDateKey(ScheduleGame game)
     {
         if (game.GameId is { Length: >= 8 } id && id.Take(8).All(char.IsDigit)) return id[..8];
@@ -134,7 +136,7 @@ public sealed class RenderCollectorWorker : BackgroundService
             }
 
             var expected = dayGames.Select(game => GameRequest.Parse(game.GameId!))
-                .Select(game => (Game: game, NaverId: game.GameId + game.Year))
+                .Select(game => (Game: game, NaverId: RenderCollectionPolicy.DatabaseGameId(game)))
                 .Where(x => !excluded.Contains(x.NaverId)).ToArray();
             if (expected.Length == 0) continue;
 
@@ -162,7 +164,7 @@ public sealed class RenderCollectorWorker : BackgroundService
                 continue;
             }
 
-            await PublishDayAsync(dateKey!, documents, expected.Select(x => x.Game.GameId).ToArray(), token);
+            await PublishDayAsync(dateKey!, documents, expected.Select(x => x.NaverId).ToArray(), token);
         }
     }
 
