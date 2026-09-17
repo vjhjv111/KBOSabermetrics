@@ -84,6 +84,11 @@ public sealed partial class DatabaseCacheService
                             WHERE lead_advance.PlateAppearanceId=pa.PlateAppearanceId
                               AND lead_advance.IsOut=0
                               AND lead_advance.ToBase>lead_advance.FromBase
+                              AND lead_advance.Reason<>$runnerError
+                              AND NOT (
+                                  lead_advance.Reason=$runnerBatterPlay
+                                  AND (pa.ResultType=$reachedOnError
+                                    OR COALESCE(pa.ResultText,'') LIKE '%실책%'))
                               AND lead_advance.FromBase=CASE
                                   WHEN NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerPcode,'')),'') IS NOT NULL
                                     OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerName,'')),'') IS NOT NULL THEN 3
@@ -109,6 +114,9 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$bunt", (int)BattedBallType.Bunt);
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
         command.Parameters.AddWithValue("$strikeout", (int)BattingResultType.Strikeout);
+        command.Parameters.AddWithValue("$runnerError", (int)RunnerAdvanceReason.Error);
+        command.Parameters.AddWithValue("$runnerBatterPlay", (int)RunnerAdvanceReason.BatterPlay);
+        command.Parameters.AddWithValue("$reachedOnError", (int)BattingResultType.ReachedOnError);
         command.Parameters.AddWithValue("$hasSituation", query.HasSituationFilters ? 1 : 0);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
