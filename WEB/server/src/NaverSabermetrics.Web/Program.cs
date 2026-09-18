@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
@@ -237,8 +238,12 @@ app.MapDiamondSaveCode();
 app.MapGet("/api/health",()=>
 {
     DateTimeOffset? collectorHeartbeatUtc=null;
+    RenderReconciliationState? reconciliation=null;
     if(isRender && renderCollector.Enabled && File.Exists(renderCollector.HeartbeatPath))
         collectorHeartbeatUtc=File.GetLastWriteTimeUtc(renderCollector.HeartbeatPath);
+    if(isRender && renderCollector.Enabled && File.Exists(renderCollector.ReconciliationStatePath))
+        try { reconciliation=JsonSerializer.Deserialize<RenderReconciliationState>(File.ReadAllText(renderCollector.ReconciliationStatePath)); }
+        catch(Exception ex) when(ex is IOException or JsonException) { }
     return Results.Ok(new
     {
         status=databaseReady?"ok":"waiting_for_database", databaseReady, databasePath=settings.DatabasePath,
@@ -248,6 +253,7 @@ app.MapGet("/api/health",()=>
             intervalMinutes=renderCollector.IntervalMinutes,
             lastSuccessfulCycleUtc=collectorHeartbeatUtc,
             healthy=collectorHeartbeatUtc.HasValue&&DateTimeOffset.UtcNow-collectorHeartbeatUtc.Value<TimeSpan.FromMinutes(30),
+            officialReconciliation=renderCollector.ReconcileOfficialRecords?reconciliation:null,
         },
     });
 });

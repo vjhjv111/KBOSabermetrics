@@ -44,6 +44,7 @@ internal static class OfficialBattingTests
         using var failureHttp = new HttpClient(new ErrorHandler());
         var failed = await store.SyncOfficialRbiAsync(2026,transport: failureHttp,playerCodes: cases.Select(x=>x.Item2).ToArray());
         Check(failed.Players == 0 && failed.Pending == 2,"공식 조회 실패 시 성공으로 표시하지 않음");
+        Check(failed.PendingPlayerCodes.SequenceEqual(cases.Select(x=>x.Item2).OrderBy(x=>x,StringComparer.Ordinal)),"공식 조회 실패 선수 재시도 목록 보존");
     }
     sealed class FixtureHandler(string folder) : HttpMessageHandler
     {

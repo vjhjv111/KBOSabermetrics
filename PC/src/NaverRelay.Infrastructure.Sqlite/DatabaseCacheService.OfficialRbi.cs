@@ -7,7 +7,10 @@ using NaverRelay.Parsing;
 namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed record OfficialDailyBatting(string Date, string Opponent, int PA, int AB, int H, int HR, int BB, int HBP, int SO, int RBI);
-public sealed record OfficialRbiSyncResult(int Players, int Updated, int Pending, string Message);
+public sealed record OfficialRbiSyncResult(int Players, int Updated, int Pending, string Message)
+{
+    public IReadOnlyList<string> PendingPlayerCodes { get; init; } = Array.Empty<string>();
+}
 
 public sealed partial class DatabaseCacheService
 {
@@ -105,6 +108,7 @@ public sealed partial class DatabaseCacheService
         var http = transport ?? ownedHttp!;
         if (!http.DefaultRequestHeaders.UserAgent.Any()) http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
         int updated = 0, pending = 0, completed = 0, consecutiveErrors = 0, attempted = 0;
+        var pendingPlayerCodes = new HashSet<string>(StringComparer.Ordinal);
         foreach (var pcode in players)
         {
             ct.ThrowIfCancellationRequested();
@@ -118,6 +122,7 @@ public sealed partial class DatabaseCacheService
                 updated += changes.Updated; pending += changes.Pending; completed++; consecutiveErrors = 0;
                 if (changes.Pending > 0)
                 {
+                    pendingPlayerCodes.Add(pcode);
                     await using var connection = await OpenAsync(ct);
                     await using var command = connection.CreateCommand();
                     command.CommandText = "SELECT d.GameId,d.Message FROM Diagnostics d JOIN Games g USING(GameId) WHERE g.SeasonYear=$year AND d.Code='KBO_RBI_PENDING' AND d.Message LIKE $prefix ORDER BY d.GameId";
@@ -130,12 +135,18 @@ public sealed partial class DatabaseCacheService
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                pending++; consecutiveErrors++;
+                pending++; consecutiveErrors++; pendingPlayerCodes.Add(pcode);
                 progress?.Report($"KBO 타점 대조 보류 ({pcode}): {ex.Message}. 기존 기록 유지.");
-                if (consecutiveErrors >= 3) { pending += players.Count - attempted; break; }
+                if (consecutiveErrors >= 3)
+                {
+                    foreach (var remaining in players.Skip(attempted)) pendingPlayerCodes.Add(remaining);
+                    pending += players.Count - attempted;
+                    break;
+                }
             }
         }
-        return new(completed, updated, pending, $"KBO 타점 {completed}/{players.Count}선수 대조 · {updated}경기 선수 기록 보정 · {pending}건 확인 필요");
+        return new(completed, updated, pending, $"KBO 타점 {completed}/{players.Count}선수 대조 · {updated}경기 선수 기록 보정 · {pending}건 확인 필요")
+        { PendingPlayerCodes = pendingPlayerCodes.OrderBy(x => x, StringComparer.Ordinal).ToArray() };
     }
 
     public async Task<(int Updated, int Pending)> StoreAndReconcileOfficialRbiAsync(int year, string pcode,

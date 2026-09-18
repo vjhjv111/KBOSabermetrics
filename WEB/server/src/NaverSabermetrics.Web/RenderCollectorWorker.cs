@@ -19,7 +19,14 @@ public sealed class RenderCollectorOptions
     public string JsonDirectory { get; set; } = "/var/data/kbo-json";
     public string HeartbeatPath { get; set; } = "/var/data/kbo-render-collector.heartbeat";
     public string ManualTriggerPath { get; set; } = "/var/data/kbo-render-collector.trigger";
+    public bool ReconcileOfficialRecords { get; set; } = true;
+    public int ReconciliationRetryMinutes { get; set; } = 10;
+    public string ReconciliationStatePath { get; set; } = "/var/data/kbo-render-reconciliation.json";
 }
+
+public sealed record RenderReconciliationState(int Year, string DateKey, DateTimeOffset LastAttemptUtc,
+    bool FullRbiAttempted, bool Completed, int CorrectionsPending, int RbiPending,
+    int TeamPitchingPending, string[] PendingRbiPlayerCodes, string[] Messages, string DatabaseVersion);
 
 public static class RenderCollectionPolicy
 {
@@ -53,6 +60,18 @@ public static class RenderCollectionPolicy
         return DateTime.TryParse(game.GameDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) : null;
     }
+
+    public static bool ReconciliationDue(RenderReconciliationState? state, int year, string dateKey,
+        string databaseVersion, DateTimeOffset now, TimeSpan retry)
+    {
+        if (state is null || state.Year != year) return true;
+        var order = string.CompareOrdinal(state.DateKey, dateKey);
+        if (order > 0) return false;
+        if (order < 0) return true;
+        if (!string.Equals(state.DatabaseVersion, databaseVersion, StringComparison.Ordinal)) return true;
+        if (state.Completed) return false;
+        return now - state.LastAttemptUtc >= retry;
+    }
 }
 
 /// <summary>
@@ -81,7 +100,8 @@ public sealed class RenderCollectorWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Enabled) return;
-        if (options.IntervalMinutes is < 1 or > 60 || options.LookbackDays is < 0 or > 7)
+        if (options.IntervalMinutes is < 1 or > 60 || options.LookbackDays is < 0 or > 7 ||
+            options.ReconciliationRetryMinutes is < 1 or > 1440)
             throw new InvalidOperationException("RenderCollector 주기 또는 조회 일수 설정이 올바르지 않습니다.");
         if (string.IsNullOrWhiteSpace(site.DatabasePath) || !Path.IsPathFullyQualified(site.DatabasePath))
             throw new InvalidOperationException("RenderCollector에는 절대 DB 경로가 필요합니다.");
@@ -89,9 +109,11 @@ public sealed class RenderCollectorWorker : BackgroundService
         options.JsonDirectory = Path.GetFullPath(options.JsonDirectory);
         options.HeartbeatPath = Path.GetFullPath(options.HeartbeatPath);
         options.ManualTriggerPath = Path.GetFullPath(options.ManualTriggerPath);
+        options.ReconciliationStatePath = Path.GetFullPath(options.ReconciliationStatePath);
         Directory.CreateDirectory(options.JsonDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(options.HeartbeatPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(options.ManualTriggerPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(options.ReconciliationStatePath)!);
         logger.LogInformation("Render 수집기 시작: interval={Interval}m json={Json} db={Database}",
             options.IntervalMinutes, options.JsonDirectory, site.DatabasePath);
 
@@ -152,6 +174,7 @@ public sealed class RenderCollectorWorker : BackgroundService
             summary.Complete, summary.Partial, summary.Skipped, summary.Excluded, summary.Failed);
 
         var excluded = summary.ExcludedGameIds.ToHashSet(StringComparer.Ordinal);
+        (int Year, string DateKey)? readyForReconciliation = null;
         foreach (var dateKey in games.Select(RenderCollectionPolicy.GameDateKey).Where(x => x is not null)
                      .Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
         {
@@ -195,7 +218,13 @@ public sealed class RenderCollectorWorker : BackgroundService
             }
 
             await PublishDayAsync(dateKey!, documents, expected.Select(x => x.NaverId).ToArray(), token);
+            var year = int.Parse(dateKey![..4], CultureInfo.InvariantCulture);
+            if (readyForReconciliation is null || string.CompareOrdinal(dateKey, readyForReconciliation.Value.DateKey) > 0)
+                readyForReconciliation = (year, dateKey);
         }
+
+        if (options.ReconcileOfficialRecords && readyForReconciliation is { } target)
+            await ReconcileOfficialRecordsAsync(target.Year, target.DateKey, token);
     }
 
     private async Task PublishDayAsync(string dateKey, IReadOnlyList<InputDocument> documents,
@@ -242,6 +271,133 @@ public sealed class RenderCollectorWorker : BackgroundService
         command.CommandText = $"SELECT COUNT(*) FROM Games WHERE GameId IN ({string.Join(',', parameters)}) AND UPPER(StatusCode) IN ('RESULT','ENDED')";
         var found = Convert.ToInt32(await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
         if (found != gameIds.Count) throw new InvalidDataException($"DB 반영 확인 실패: expected={gameIds.Count}, found={found}");
+    }
+
+    private async Task ReconcileOfficialRecordsAsync(int year, string dateKey, CancellationToken token)
+    {
+        var prior = await LoadReconciliationStateAsync(token);
+        var databaseVersion = await writer!.GetWebSourceVersionAsync(token);
+        var now = DateTimeOffset.UtcNow;
+        if (!RenderCollectionPolicy.ReconciliationDue(prior, year, dateKey, databaseVersion, now,
+                TimeSpan.FromMinutes(options.ReconciliationRetryMinutes))) return;
+
+        var sameTarget = prior is not null && prior.Year == year && prior.DateKey == dateKey &&
+            string.Equals(prior.DatabaseVersion, databaseVersion, StringComparison.Ordinal);
+        var messages = new List<string>();
+        var correctionsPending = 1;
+        var rbiPending = 1;
+        var teamPitchingPending = 1;
+        var fullRbiAttempted = sameTarget && prior!.FullRbiAttempted;
+        string[] pendingPlayerCodes = sameTarget ? prior!.PendingRbiPlayerCodes ?? [] : [];
+        var progress = new InlineProgress(message => logger.LogInformation("[reconcile] {Message}", message));
+
+        logger.LogInformation("{Date} KBO 공식 시즌 기록 대조 시작: fullRbi={FullRbi}", dateKey, !fullRbiAttempted);
+
+        if (sameTarget && prior!.CorrectionsPending == 0)
+        {
+            correctionsPending = 0;
+            messages.Add("KBO 정정 대조 완료 상태 유지");
+        }
+        else try
+        {
+            var result = await writer!.SyncKboCorrectionsAsync(year, token);
+            correctionsPending = result.Pending;
+            messages.Add(result.Message);
+            logger.LogInformation("[reconcile] {Message}", result.Message);
+            foreach (var detail in result.Details) logger.LogWarning("[reconcile] {Detail}", detail);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            messages.Add("KBO 정정 대조 보류: " + ex.Message);
+            logger.LogWarning(ex, "{Date} KBO 정정 대조 보류; 다음 주기에 재시도합니다.", dateKey);
+        }
+
+        if (sameTarget && prior!.FullRbiAttempted && prior.RbiPending == 0)
+        {
+            rbiPending = 0;
+            pendingPlayerCodes = [];
+            messages.Add("KBO 일자별 타점 대조 완료 상태 유지");
+        }
+        else try
+        {
+            IReadOnlyCollection<string>? retryPlayers = fullRbiAttempted ? pendingPlayerCodes : null;
+            var result = await writer!.SyncOfficialRbiAsync(year, progress, token, playerCodes: retryPlayers);
+            if (!fullRbiAttempted) fullRbiAttempted = true;
+            rbiPending = result.Pending;
+            pendingPlayerCodes = result.PendingPlayerCodes.ToArray();
+            messages.Add(result.Message);
+            logger.LogInformation("[reconcile] {Message}", result.Message);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            messages.Add("KBO 일자별 타점 대조 보류: " + ex.Message);
+            logger.LogWarning(ex, "{Date} KBO 일자별 타점 대조 보류; 다음 주기에 재시도합니다.", dateKey);
+        }
+
+        if (sameTarget && prior!.TeamPitchingPending == 0)
+        {
+            teamPitchingPending = 0;
+            messages.Add("KBO 팀 자책점 대조 완료 상태 유지");
+        }
+        else try
+        {
+            var result = await writer!.SyncOfficialTeamPitchingAsync(year, progress, token);
+            teamPitchingPending = result.Pending;
+            messages.Add(result.Message);
+            logger.LogInformation("[reconcile] {Message}", result.Message);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            messages.Add("KBO 팀 자책점 대조 보류: " + ex.Message);
+            logger.LogWarning(ex, "{Date} KBO 팀 자책점 대조 보류; 다음 주기에 재시도합니다.", dateKey);
+        }
+
+        var completed = correctionsPending == 0 && rbiPending == 0 && teamPitchingPending == 0;
+        var finalDatabaseVersion = await writer.GetWebSourceVersionAsync(token);
+        var state = new RenderReconciliationState(year, dateKey, DateTimeOffset.UtcNow, fullRbiAttempted,
+            completed, correctionsPending, rbiPending, teamPitchingPending, pendingPlayerCodes, messages.ToArray(),
+            finalDatabaseVersion);
+        await SaveReconciliationStateAsync(state, token);
+        if (completed)
+            logger.LogInformation("{Date} KBO 공식 정정·일자별 타점·팀 자책점 대조 완료", dateKey);
+        else
+            logger.LogWarning("{Date} KBO 공식 기록 대조 보류: corrections={Corrections}, rbi={Rbi}, teamPitching={TeamPitching}; 다음 주기에 재시도합니다.",
+                dateKey, correctionsPending, rbiPending, teamPitchingPending);
+    }
+
+    private async Task<RenderReconciliationState?> LoadReconciliationStateAsync(CancellationToken token)
+    {
+        if (!File.Exists(options.ReconciliationStatePath)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<RenderReconciliationState>(
+                await File.ReadAllTextAsync(options.ReconciliationStatePath, token));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            logger.LogWarning(ex, "Render 공식 기록 대조 상태 파일을 읽지 못했습니다. 전체 대조를 다시 실행합니다.");
+            return null;
+        }
+    }
+
+    private async Task SaveReconciliationStateAsync(RenderReconciliationState state, CancellationToken token)
+    {
+        var temp = options.ReconciliationStatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(temp, json, new UTF8Encoding(false), token);
+            File.Move(temp, options.ReconciliationStatePath, true);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
+    }
+
+    private sealed class InlineProgress(Action<string> report) : IProgress<string>
+    {
+        public void Report(string value) => report(value);
     }
 
     private async Task TouchHeartbeatAsync(CancellationToken token)
