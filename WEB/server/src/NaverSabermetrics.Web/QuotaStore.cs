@@ -9,6 +9,8 @@ public sealed class QuotaStore
 {
     private readonly string _path;
     private readonly string _analyticsPath;
+    private readonly string _adAnalyticsPath;
+    private readonly string _adDeviceAnalyticsPath;
     private readonly SiteOptions _options;
     private readonly byte[] _key;
     private readonly object _lock = new();
@@ -20,6 +22,8 @@ public sealed class QuotaStore
         var analyticsDirectory=Path.Combine(options.StateDirectory,"analytics");
         Directory.CreateDirectory(analyticsDirectory);
         _analyticsPath=Path.Combine(analyticsDirectory,"daily-visitors.tsv");
+        _adAnalyticsPath=Path.Combine(analyticsDirectory,"daily-ad-clicks.tsv");
+        _adDeviceAnalyticsPath=Path.Combine(analyticsDirectory,"daily-ad-click-devices.tsv");
         var keyPath=Path.Combine(options.StateDirectory,"quota.key");
         if(!File.Exists(keyPath))
         {
@@ -35,6 +39,13 @@ public sealed class QuotaStore
                 PRIMARY KEY(Day,Subject));
             CREATE TABLE IF NOT EXISTS DailyTraffic(Day TEXT PRIMARY KEY, UniqueVisitors INTEGER NOT NULL,
                 PageViews INTEGER NOT NULL, UpdatedUtc TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS DailyAdClickers(Day TEXT NOT NULL, AdId TEXT NOT NULL, Subject TEXT NOT NULL,
+                PRIMARY KEY(Day,AdId,Subject));
+            CREATE TABLE IF NOT EXISTS DailyAdTraffic(Day TEXT NOT NULL, AdId TEXT NOT NULL,
+                UniqueClickers INTEGER NOT NULL, Clicks INTEGER NOT NULL, UpdatedUtc TEXT NOT NULL,
+                PRIMARY KEY(Day,AdId));
+            CREATE TABLE IF NOT EXISTS DailyAdDeviceTraffic(Day TEXT NOT NULL, AdId TEXT NOT NULL, Device TEXT NOT NULL,
+                Clicks INTEGER NOT NULL, UpdatedUtc TEXT NOT NULL, PRIMARY KEY(Day,AdId,Device));
             """;
         cmd.ExecuteNonQuery();
     }
@@ -76,6 +87,71 @@ public sealed class QuotaStore
         }
     }
 
+    /// <summary>Records an ad click without retaining the visitor's raw IP address.</summary>
+    public void RecordAdClick(string ip,string adId,string device)
+    {
+        if(string.IsNullOrWhiteSpace(adId) || adId.Length>64)throw new ArgumentException("Invalid ad id.",nameof(adId));
+        device=device is "mobile" or "tablet" ? device : "desktop";
+        var day=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy-MM-dd");
+        var subject=HashIp(ip);
+        lock(_lock)
+        {
+            using var con=Open();using var tx=con.BeginTransaction();
+            using var clicker=con.CreateCommand();clicker.Transaction=tx;
+            clicker.CommandText="INSERT OR IGNORE INTO DailyAdClickers(Day,AdId,Subject) VALUES($day,$ad,$subject)";
+            clicker.Parameters.AddWithValue("$day",day);clicker.Parameters.AddWithValue("$ad",adId);clicker.Parameters.AddWithValue("$subject",subject);
+            var unique=clicker.ExecuteNonQuery();
+            var now=DateTimeOffset.UtcNow.ToString("O");
+            using var traffic=con.CreateCommand();traffic.Transaction=tx;
+            traffic.CommandText="""
+                INSERT INTO DailyAdTraffic(Day,AdId,UniqueClickers,Clicks,UpdatedUtc) VALUES($day,$ad,$unique,1,$now)
+                ON CONFLICT(Day,AdId) DO UPDATE SET UniqueClickers=DailyAdTraffic.UniqueClickers+$unique,
+                    Clicks=DailyAdTraffic.Clicks+1,UpdatedUtc=$now;
+                """;
+            traffic.Parameters.AddWithValue("$day",day);traffic.Parameters.AddWithValue("$ad",adId);
+            traffic.Parameters.AddWithValue("$unique",unique);traffic.Parameters.AddWithValue("$now",now);traffic.ExecuteNonQuery();
+            using var deviceTraffic=con.CreateCommand();deviceTraffic.Transaction=tx;
+            deviceTraffic.CommandText="""
+                INSERT INTO DailyAdDeviceTraffic(Day,AdId,Device,Clicks,UpdatedUtc) VALUES($day,$ad,$device,1,$now)
+                ON CONFLICT(Day,AdId,Device) DO UPDATE SET Clicks=DailyAdDeviceTraffic.Clicks+1,UpdatedUtc=$now;
+                """;
+            deviceTraffic.Parameters.AddWithValue("$day",day);deviceTraffic.Parameters.AddWithValue("$ad",adId);
+            deviceTraffic.Parameters.AddWithValue("$device",device);deviceTraffic.Parameters.AddWithValue("$now",now);deviceTraffic.ExecuteNonQuery();
+            using var prune=con.CreateCommand();prune.Transaction=tx;
+            prune.CommandText="DELETE FROM DailyAdClickers WHERE Day < $keep";
+            prune.Parameters.AddWithValue("$keep",DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).AddDays(-90).ToString("yyyy-MM-dd"));
+            prune.ExecuteNonQuery();tx.Commit();
+            WriteAdAnalyticsSummaries(con);
+        }
+    }
+
+    private void WriteAdAnalyticsSummaries(SqliteConnection con)
+    {
+        var lines=new List<string>{"Date\tAdId\tUniqueClickers\tClicks\tUpdatedUtc"};
+        using(var cmd=con.CreateCommand())
+        {
+            cmd.CommandText="SELECT Day,AdId,UniqueClickers,Clicks,UpdatedUtc FROM DailyAdTraffic ORDER BY Day DESC,AdId LIMIT 3650";
+            using var reader=cmd.ExecuteReader();
+            while(reader.Read())lines.Add($"{reader.GetString(0)}\t{reader.GetString(1)}\t{reader.GetInt64(2)}\t{reader.GetInt64(3)}\t{reader.GetString(4)}");
+        }
+        WriteSummary(_adAnalyticsPath,lines);
+        lines=new List<string>{"Date\tAdId\tDevice\tClicks\tUpdatedUtc"};
+        using(var cmd=con.CreateCommand())
+        {
+            cmd.CommandText="SELECT Day,AdId,Device,Clicks,UpdatedUtc FROM DailyAdDeviceTraffic ORDER BY Day DESC,AdId,Device LIMIT 10950";
+            using var reader=cmd.ExecuteReader();
+            while(reader.Read())lines.Add($"{reader.GetString(0)}\t{reader.GetString(1)}\t{reader.GetString(2)}\t{reader.GetInt64(3)}\t{reader.GetString(4)}");
+        }
+        WriteSummary(_adDeviceAnalyticsPath,lines);
+    }
+
+    private static void WriteSummary(string path,List<string> lines)
+    {
+        var temporary=path+".tmp";
+        File.WriteAllLines(temporary,lines,Encoding.UTF8);
+        File.Move(temporary,path,true);
+    }
+
     private void WriteAnalyticsSummary(SqliteConnection con)
     {
         var lines=new List<string>{"Date\tUniqueVisitors\tPageViews\tUpdatedUtc"};
@@ -83,9 +159,7 @@ public sealed class QuotaStore
         cmd.CommandText="SELECT Day,UniqueVisitors,PageViews,UpdatedUtc FROM DailyTraffic ORDER BY Day DESC LIMIT 365";
         using var reader=cmd.ExecuteReader();
         while(reader.Read())lines.Add($"{reader.GetString(0)}\t{reader.GetInt64(1)}\t{reader.GetInt64(2)}\t{reader.GetString(3)}");
-        var temporary=_analyticsPath+".tmp";
-        File.WriteAllLines(temporary,lines,Encoding.UTF8);
-        File.Move(temporary,_analyticsPath,true);
+        WriteSummary(_analyticsPath,lines);
     }
     public void Consume(string ip,int requestedRows)
     {

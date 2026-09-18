@@ -172,6 +172,13 @@ public static class Verification
             analytics.RecordPageView("192.0.2.1");analytics.RecordPageView("192.0.2.1");analytics.RecordPageView("192.0.2.2");
             var summary=File.ReadAllText(Path.Combine(dir,"analytics","daily-visitors.tsv"));
             Require(summary.Contains("\t2\t3\t"),"daily visitor analytics deduplicates hashed IPs");
+            analytics.RecordAdClick("192.0.2.1","sportsclassic","mobile");
+            analytics.RecordAdClick("192.0.2.1","sportsclassic","mobile");
+            analytics.RecordAdClick("192.0.2.2","sportsclassic","desktop");
+            var adSummary=File.ReadAllText(Path.Combine(dir,"analytics","daily-ad-clicks.tsv"));
+            Require(adSummary.Contains("\tsportsclassic\t2\t3\t"),"daily ad analytics deduplicates hashed IPs and counts clicks");
+            var deviceSummary=File.ReadAllText(Path.Combine(dir,"analytics","daily-ad-click-devices.tsv"));
+            Require(deviceSummary.Contains("\tsportsclassic\tdesktop\t1\t") && deviceSummary.Contains("\tsportsclassic\tmobile\t2\t"),"ad analytics records device click totals");
         }
         finally { SqliteConnection.ClearAllPools(); if(Directory.Exists(dir))Directory.Delete(dir,true); }
     }

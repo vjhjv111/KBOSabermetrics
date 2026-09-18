@@ -10,6 +10,13 @@ column -t -s $'\t' /var/data/state/analytics/daily-visitors.tsv
 
 집계 원본은 같은 상태 디렉터리의 `web_state.db`에 저장되고, 고유 방문자 판정을 위한 해시는 90일 후 정리됩니다. 요약 TSV는 최근 365일을 표시합니다.
 
+홈의 스포츠클래식 광고 클릭도 원 IP 없이 같은 방식으로 집계합니다. 날짜별 고유 클릭자와 전체 클릭은 `daily-ad-clicks.tsv`, 기기 유형별 클릭은 `daily-ad-click-devices.tsv`에서 확인할 수 있습니다.
+
+```bash
+column -t -s $'\t' /var/data/state/analytics/daily-ad-clicks.tsv
+column -t -s $'\t' /var/data/state/analytics/daily-ad-click-devices.tsv
+```
+
 ## KBO 공식 선수 사진·프로필 (2026-09-12)
 
 개인 페이지에 공식 사진, 등번호, 생년월일, 포지션·투타, 신체정보, 경력, 입단 계약금·연봉·지명 정보를 표시할 수 있습니다. `WEB/tools/sync_player_profiles.py`로 기존 SQLite 선수 ID에 연결해 별도 테이블과 사진 폴더에 수집합니다. 경기 JSON 파싱과 웹 조회에서 외부 수집을 실행하지 않습니다. [수집·DB 구조·사진 폴더 배포 안내](docs/PLAYER-PROFILES.md)를 참고하세요.

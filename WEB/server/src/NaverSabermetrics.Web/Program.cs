@@ -222,6 +222,13 @@ app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(n
     csrfToken=antiforgery.GetAndStoreTokens(c).RequestToken,
     demo=settings.Demo
 }));
+app.MapPost("/api/analytics/ad-click",(AdClickRequest request,HttpContext c,QuotaStore analytics)=>
+{
+    if(!string.Equals(request.AdId,"sportsclassic",StringComparison.Ordinal))
+        throw new RequestError("알 수 없는 광고입니다.",400,"INVALID_AD");
+    analytics.RecordAdClick(Ip(c),request.AdId,Device(c.Request.Headers.UserAgent.ToString()));
+    return Results.NoContent();
+});
 app.MapDiamondGame();
 app.MapDiamondSeason();
 app.MapDiamondCareer();
@@ -427,7 +434,16 @@ app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.Wr
 app.Run();
 
 static string Ip(HttpContext c)=>c.Connection.RemoteIpAddress?.ToString()??"unknown";
+static string Device(string userAgent)
+{
+    if(userAgent.Contains("iPad",StringComparison.OrdinalIgnoreCase) || userAgent.Contains("Tablet",StringComparison.OrdinalIgnoreCase)
+        || (userAgent.Contains("Android",StringComparison.OrdinalIgnoreCase) && !userAgent.Contains("Mobile",StringComparison.OrdinalIgnoreCase)))return "tablet";
+    if(userAgent.Contains("Mobile",StringComparison.OrdinalIgnoreCase) || userAgent.Contains("iPhone",StringComparison.OrdinalIgnoreCase)
+        || userAgent.Contains("Android",StringComparison.OrdinalIgnoreCase))return "mobile";
+    return "desktop";
+}
 public sealed record PlayerSearchRequest(string Query);
+public sealed record AdClickRequest(string AdId);
 // Response.Body에 얼마나 썼는지만 세는 얇은 래퍼. 내용에는 전혀 관여하지 않고 그대로 통과시킵니다.
 sealed class CountingStream(Stream inner) : Stream
 {
