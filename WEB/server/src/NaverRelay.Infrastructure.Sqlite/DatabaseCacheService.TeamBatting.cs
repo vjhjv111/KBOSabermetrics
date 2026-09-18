@@ -80,6 +80,20 @@ public sealed partial class DatabaseCacheService
                               WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
                                 AND (bunt_pitch.PitchResult IN ($buntFoul,$buntWhiff)
                                   OR UPPER(TRIM(COALESCE(bunt_pitch.RawPitchResult,'')))=$buntWhiffRaw)))
+                        AND (pa.ResultType=$buntOut OR (
+                          (SELECT COUNT(*)
+                           FROM Pitches strike_pitch
+                           WHERE strike_pitch.PlateAppearanceId=pa.PlateAppearanceId
+                             AND strike_pitch.StrikesAfter>strike_pitch.StrikesBefore
+                             AND strike_pitch.StrikesBefore<2)>=2
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM Pitches non_bunt_strike
+                              WHERE non_bunt_strike.PlateAppearanceId=pa.PlateAppearanceId
+                                AND non_bunt_strike.StrikesAfter>non_bunt_strike.StrikesBefore
+                                AND non_bunt_strike.StrikesBefore<2
+                                AND non_bunt_strike.PitchResult NOT IN ($calledStrike,$buntFoul,$buntWhiff)
+                                AND UPPER(TRIM(COALESCE(non_bunt_strike.RawPitchResult,'')))<>$buntWhiffRaw)))
                        THEN 1 ELSE 0 END) AS SacrificeBuntFailures,
                    CASE WHEN $hasSituation=0 THEN {leftOnBase} ELSE NULL END AS LeftOnBase
             FROM PlateAppearances pa
@@ -99,6 +113,8 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$buntFoul", (int)PitchResultType.BuntFoul);
         command.Parameters.AddWithValue("$buntWhiff", (int)PitchResultType.BuntSwingingStrike);
         command.Parameters.AddWithValue("$buntWhiffRaw", "V");
+        command.Parameters.AddWithValue("$calledStrike", (int)PitchResultType.CalledStrike);
+        command.Parameters.AddWithValue("$buntOut", (int)BattingResultType.BuntOut);
         command.Parameters.AddWithValue("$walk", (int)BattingResultType.Walk);
         command.Parameters.AddWithValue("$intentionalWalk", (int)BattingResultType.IntentionalWalk);
         command.Parameters.AddWithValue("$hitByPitch", (int)BattingResultType.HitByPitch);
