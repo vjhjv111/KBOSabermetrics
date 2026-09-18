@@ -8,6 +8,7 @@ namespace NaverSabermetrics.Web;
 public sealed class QuotaStore
 {
     private readonly string _path;
+    private readonly string _analyticsPath;
     private readonly SiteOptions _options;
     private readonly byte[] _key;
     private readonly object _lock = new();
@@ -16,6 +17,9 @@ public sealed class QuotaStore
         _options=options;
         Directory.CreateDirectory(options.StateDirectory);
         _path=Path.Combine(options.StateDirectory,"web_state.db");
+        var analyticsDirectory=Path.Combine(options.StateDirectory,"analytics");
+        Directory.CreateDirectory(analyticsDirectory);
+        _analyticsPath=Path.Combine(analyticsDirectory,"daily-visitors.tsv");
         var keyPath=Path.Combine(options.StateDirectory,"quota.key");
         if(!File.Exists(keyPath))
         {
@@ -27,6 +31,10 @@ public sealed class QuotaStore
         cmd.CommandText="""
             CREATE TABLE IF NOT EXISTS Quotas(Day TEXT NOT NULL, Subject TEXT NOT NULL,
                 Queries INTEGER NOT NULL, Rows INTEGER NOT NULL, PRIMARY KEY(Day,Subject));
+            CREATE TABLE IF NOT EXISTS DailyVisitors(Day TEXT NOT NULL, Subject TEXT NOT NULL,
+                PRIMARY KEY(Day,Subject));
+            CREATE TABLE IF NOT EXISTS DailyTraffic(Day TEXT PRIMARY KEY, UniqueVisitors INTEGER NOT NULL,
+                PageViews INTEGER NOT NULL, UpdatedUtc TEXT NOT NULL);
             """;
         cmd.ExecuteNonQuery();
     }
@@ -36,6 +44,49 @@ public sealed class QuotaStore
         con.Open();return con;
     }
     public string HashIp(string ip) => Convert.ToHexString(HMACSHA256.HashData(_key,Encoding.UTF8.GetBytes(ip)))[..24];
+
+    /// <summary>
+    /// Records one HTML entry-page load. IP addresses are never stored; only a keyed hash is
+    /// retained long enough to deduplicate visitors within a Korea-calendar day.
+    /// </summary>
+    public void RecordPageView(string ip)
+    {
+        var day=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy-MM-dd");
+        var subject=HashIp(ip);
+        lock(_lock)
+        {
+            using var con=Open();using var tx=con.BeginTransaction();
+            using var visitor=con.CreateCommand();visitor.Transaction=tx;
+            visitor.CommandText="INSERT OR IGNORE INTO DailyVisitors(Day,Subject) VALUES($day,$subject)";
+            visitor.Parameters.AddWithValue("$day",day);visitor.Parameters.AddWithValue("$subject",subject);
+            var unique=visitor.ExecuteNonQuery();
+            using var traffic=con.CreateCommand();traffic.Transaction=tx;
+            traffic.CommandText="""
+                INSERT INTO DailyTraffic(Day,UniqueVisitors,PageViews,UpdatedUtc) VALUES($day,$unique,1,$now)
+                ON CONFLICT(Day) DO UPDATE SET UniqueVisitors=DailyTraffic.UniqueVisitors+$unique,
+                    PageViews=DailyTraffic.PageViews+1,UpdatedUtc=$now;
+                """;
+            traffic.Parameters.AddWithValue("$day",day);traffic.Parameters.AddWithValue("$unique",unique);
+            traffic.Parameters.AddWithValue("$now",DateTimeOffset.UtcNow.ToString("O"));traffic.ExecuteNonQuery();
+            using var prune=con.CreateCommand();prune.Transaction=tx;
+            prune.CommandText="DELETE FROM DailyVisitors WHERE Day < $keep";
+            prune.Parameters.AddWithValue("$keep",DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).AddDays(-90).ToString("yyyy-MM-dd"));
+            prune.ExecuteNonQuery();tx.Commit();
+            WriteAnalyticsSummary(con);
+        }
+    }
+
+    private void WriteAnalyticsSummary(SqliteConnection con)
+    {
+        var lines=new List<string>{"Date\tUniqueVisitors\tPageViews\tUpdatedUtc"};
+        using var cmd=con.CreateCommand();
+        cmd.CommandText="SELECT Day,UniqueVisitors,PageViews,UpdatedUtc FROM DailyTraffic ORDER BY Day DESC LIMIT 365";
+        using var reader=cmd.ExecuteReader();
+        while(reader.Read())lines.Add($"{reader.GetString(0)}\t{reader.GetInt64(1)}\t{reader.GetInt64(2)}\t{reader.GetString(3)}");
+        var temporary=_analyticsPath+".tmp";
+        File.WriteAllLines(temporary,lines,Encoding.UTF8);
+        File.Move(temporary,_analyticsPath,true);
+    }
     public void Consume(string ip,int requestedRows)
     {
         if(requestedRows<0 || requestedRows>_options.MaxPageSize)throw new RequestError("출력량이 잘못되었습니다.");

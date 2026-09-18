@@ -124,6 +124,16 @@ else
 }
 _ = app.Services.GetRequiredService<QuotaStore>();
 if(isRender || settings.TrustedProxies.Length>0)app.UseForwardedHeaders();
+app.Use(async(c,next)=>
+{
+    // Hash-deduplicated daily visitors: count only the SPA entry document, not its assets/API calls.
+    if(c.Request.Method=="GET" && (c.Request.Path=="/" || c.Request.Path=="/index.html"))
+    {
+        try { c.RequestServices.GetRequiredService<QuotaStore>().RecordPageView(Ip(c)); }
+        catch(Exception e) { app.Logger.LogWarning(e,"Daily visitor analytics could not be recorded."); }
+    }
+    await next(c);
+});
 // 아웃바운드 트래픽 원인 파악용 임시 진단 로깅: 요청 경로별 실제 응답 바이트 수를 로그에 남깁니다.
 // 정적 파일(app.UseStaticFiles)은 커널 SendFile 최적화로 Response.Body를 거치지 않고 나갈 수 있어
 // 그런 경우엔 Content-Length 헤더 값을 쓰고, 그게 비어 있는 동적 API 응답은 Response.Body에 씌운

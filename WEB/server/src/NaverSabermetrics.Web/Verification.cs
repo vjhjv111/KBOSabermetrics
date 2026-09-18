@@ -134,6 +134,7 @@ public static class Verification
     public static async Task SelfTestAsync(string path)
     {
         // Intended for a sealed copy or generated sample, never a live desktop file.
+        VerifyVisitorAnalytics();
         var before=FileHash(path);
         await CompareDesktopAndWebAsync(path);
         Require(FileHash(path)==before,"read-only query leaves database bytes unchanged");
@@ -160,6 +161,19 @@ public static class Verification
         var ip=typeof(PitcherBasicRecordRow).GetProperty("InningsPitched")!;
         Require(Math.Abs(ViewRegistry.Threshold(ip,6.2)-(6+2.0/3))<1e-9,"innings threshold 6.2 means 20 outs");
         Console.WriteLine("SELF_TEST_ALL_PASS");
+    }
+
+    private static void VerifyVisitorAnalytics()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"saber-analytics-test-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var analytics=new QuotaStore(new SiteOptions{StateDirectory=dir});
+            analytics.RecordPageView("192.0.2.1");analytics.RecordPageView("192.0.2.1");analytics.RecordPageView("192.0.2.2");
+            var summary=File.ReadAllText(Path.Combine(dir,"analytics","daily-visitors.tsv"));
+            Require(summary.Contains("\t2\t3\t"),"daily visitor analytics deduplicates hashed IPs");
+        }
+        finally { SqliteConnection.ClearAllPools(); if(Directory.Exists(dir))Directory.Delete(dir,true); }
     }
 
     private static string FileHash(string path)
