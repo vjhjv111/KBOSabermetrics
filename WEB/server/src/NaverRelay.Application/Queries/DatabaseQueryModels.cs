@@ -307,6 +307,7 @@ public sealed class LeagueReference
     public List<LeagueConstantGridRow> Constants { get; set; } = new();
     public WobaConstants WobaModel { get; set; } = new();
     public Dictionary<int, WobaConstants> WobaConstantsBySeason { get; set; } = new();
+    public Dictionary<int, double> RunsPerWinBySeason { get; set; } = new();
 
     public WobaConstants GetWobaConstants(int? seasonYear)
     {

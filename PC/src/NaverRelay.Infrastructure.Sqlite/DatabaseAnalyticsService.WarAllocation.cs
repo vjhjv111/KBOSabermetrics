@@ -6,13 +6,12 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseAnalyticsService
 {
     private const double BatterWarShare = 1.0 - KboPitcherWarMath.DefaultPitcherWarShare; // 57%
-    private const double BatterRunsPerWin = 10.0;
-
     private sealed record WarAllocationCalibration(
         int GameCount,
         double TotalWarTarget,
         double BatterTargetWar,
         double PitcherTargetWar,
+        double BatterRunsPerWin,
         double BatterReplacementRunsPerPa,
         double PitcherWarPerInning);
 
@@ -32,7 +31,7 @@ public sealed partial class DatabaseAnalyticsService
             EndDate = query.EndDate,
             RecentGameCount = query.RecentGameCount,
         };
-        var cacheKey = $"common-war-allocation-v1:{scope.CacheKey}";
+        var cacheKey = $"common-war-allocation-season-rpw-v2:{scope.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<WarAllocationCalibration>(cacheKey, cancellationToken)
             .ConfigureAwait(false);
         if (cached is not null) return cached;
@@ -45,6 +44,7 @@ public sealed partial class DatabaseAnalyticsService
         var totalWarTarget = KboPitcherWarMath.ComputeTotalReplacementWar(gameCount);
         var batterTargetWar = totalWarTarget * BatterWarShare;
         var pitcherTargetWar = totalWarTarget * KboPitcherWarMath.DefaultPitcherWarShare;
+        var batterRunsPerWin = ResolveBatterRunsPerWin(league, query.SeasonYear);
 
         // Batter allocation: preserve batting/running/position components and solve only replacement Runs/PA
         // so league batter WAR equals 57% of the common replacement-WAR pool.
@@ -61,7 +61,7 @@ public sealed partial class DatabaseAnalyticsService
             nonReplacementRuns += battingRuns + runningRuns + row.Position.Runs;
             leaguePa += row.PlateAppearances;
         }
-        var replacementRunsNeeded = batterTargetWar * BatterRunsPerWin - nonReplacementRuns;
+        var replacementRunsNeeded = batterTargetWar * batterRunsPerWin - nonReplacementRuns;
         var batterReplacementRunsPerPa = leaguePa > 0
             ? replacementRunsNeeded / leaguePa
             : 20.0 / 600.0;
@@ -87,9 +87,18 @@ public sealed partial class DatabaseAnalyticsService
             totalWarTarget,
             batterTargetWar,
             pitcherTargetWar,
+            batterRunsPerWin,
             batterReplacementRunsPerPa,
             pitcherWarPerInning);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
+    }
+
+    private static double ResolveBatterRunsPerWin(LeagueReference league, int? seasonYear)
+    {
+        if (seasonYear.HasValue &&
+            league.RunsPerWinBySeason.TryGetValue(seasonYear.Value, out var seasonRunsPerWin))
+            return seasonRunsPerWin;
+        return Math.Max(1.0, league.LeagueRa9 * 1.5 + 3.0);
     }
 }

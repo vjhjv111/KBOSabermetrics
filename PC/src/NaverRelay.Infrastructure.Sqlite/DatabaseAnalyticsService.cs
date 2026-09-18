@@ -9,7 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v5-re24";
+    private const string AnalyticsCacheVersion = "relational-analytics-season-rpw-v6";
 
     private readonly DatabaseCacheService _database;
 
@@ -64,7 +64,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             row => PlayerKey(row.Pcode, row.TeamCode),
             StringComparer.Ordinal);
         var batterValues = data.Batters
-            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode)), allocation.BatterReplacementRunsPerPa))
+            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode)), allocation.BatterReplacementRunsPerPa, allocation.BatterRunsPerWin))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.PA)
             .ToList();
@@ -266,9 +266,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
     private static BatterValueGridRow BuildBatterValue(
         BatterAggregateRecord row,
         BatterSabermetricGridRow? saber,
-        double replacementRunsPerPa)
+        double replacementRunsPerPa,
+        double runsPerWin)
     {
-        const double runsPerWin = 10.0;
         var runningRuns = row.StolenBases * 0.20 - row.CaughtStealing * 0.40;
         var replacementRuns = row.PlateAppearances * replacementRunsPerPa;
         var battingRuns = saber?.Wraa ?? 0.0;

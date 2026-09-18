@@ -447,7 +447,7 @@ public sealed partial class RecordService
             Row("타자 WAR", "주루 Runs", "0.20×SB - 0.40×CS", "SB +0.20; CS -0.40 runs", "현재 도루·도실패만 반영"),
             Row("타자 WAR", "포지션 Runs", "FG 포지션 rate × 추정 수비이닝 ÷ 1458", "DH는 PA÷600; 포지션별 FG rate", "수비 출전 정보로 주 포지션과 보정치 추정"),
             Row("타자 WAR", "RAR", "wRAA + 주루 Runs + 포지션 Runs + 대체선수 Runs", "수비 Runs 0; 대체선수 Runs는 조회 범위 목표 WAR에 맞춰 역산", "대체선수 대비 득점"),
-            Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "Runs Per Win 10.0; 타자 목표 WAR 57%", "사이트 자체 추정 타자 WAR"),
+            Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "RPW=9×(리그 총 득점÷리그 총 이닝)×1.5+3; 타자 목표 WAR 57%", "FanGraphs RPW 방식으로 시즌 득점환경을 반영한 사이트 자체 추정 타자 WAR"),
 
             Row("기본 투구", "ERA", "9 × ER ÷ IP", "공식 ER·IP", "9이닝당 자책점"),
             Row("기본 투구", "RA9", "9 × R ÷ IP", "공식 R·IP", "9이닝당 실점"),
