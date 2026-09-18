@@ -11,7 +11,7 @@ public sealed class QueryGate : IDisposable
     public QueryGate(SiteOptions options) { _options = options; _semaphore = new(Math.Clamp(options.ConcurrentQueries,1,4)); }
     public async Task<T> RunAsync<T>(Func<CancellationToken,Task<T>> action, CancellationToken requestToken)
     {
-        if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(1), requestToken))
+        if (!await _semaphore.WaitAsync(TimeSpan.FromSeconds(5), requestToken))
             throw new RequestError("조회가 몰리고 있습니다. 잠시 후 다시 시도하세요.", 429, "QUERY_BUSY");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(_options.QuerySeconds));

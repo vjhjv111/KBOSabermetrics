@@ -52,7 +52,11 @@ async function bootstrap(){
     if(typeof diamondRoute==='function')diamondRoute();
     if(typeof analysisRoute==='function')await analysisRoute();
     if(typeof comparisonRoute==='function')await comparisonRoute();
-  }catch(e){showError(`${e.message} 서버가 실행 중인지 확인하세요.`);$('connection').textContent='연결 실패';}
+  }catch(e){
+    const limited=e.code==='QUERY_BUSY'||e.code==='RATE_LIMIT';
+    showError(limited?e.message:`${e.message} 서버가 실행 중인지 확인하세요.`);
+    $('connection').textContent=limited?'● 서버 연결됨 · 조회 대기':'연결 실패';
+  }
 }
 
 function options(select, values, selected=''){
