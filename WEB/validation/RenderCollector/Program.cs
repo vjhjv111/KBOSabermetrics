@@ -27,6 +27,11 @@ Check(eligible.Count == 2,"취소·다른 날짜 제외");
 Check(RenderCollectionPolicy.AllGamesFinal(eligible),"RESULT와 ENDED를 모두 종료로 인정");
 Check(RenderCollectionPolicy.DatabaseGameId(GameRequest.Parse(eligible[0].GameId!)) == "20260917HHKT02026",
     "DB 검증은 네이버 저장 경기 ID(연도 접미사 포함) 사용");
+var endedCache = new NaverRelayUI.Collection.NaverCollectionResult("{}",true,"kbo_r","ENDED",9,[1,2,3,4,5,6,7,8,9],[]);
+Check(NaverRelayUI.Collection.RelayCollector.ShouldRefreshNaverMetadata(endedCache,eligible[1]),
+    "ENDED 완료 캐시는 일정이 RESULT가 되면 네이버 최종 승·패 메타데이터 갱신");
+Check(!NaverRelayUI.Collection.RelayCollector.ShouldRefreshNaverMetadata(endedCache,eligible[0]),
+    "일정도 ENDED인 동안에는 완료 캐시를 반복 수집하지 않음");
 eligible[0].StatusCode = "PLAY";
 Check(!RenderCollectionPolicy.AllGamesFinal(eligible),"진행 중 경기가 하나라도 있으면 날짜 반영 보류");
 

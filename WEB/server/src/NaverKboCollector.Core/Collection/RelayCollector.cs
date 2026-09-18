@@ -58,7 +58,7 @@ public static class RelayCollector
                 {
                     // A conflicting or malformed existing file is left in place for inspection.
                     cached = UnifiedDocumentStore.ReadCache(await File.ReadAllTextAsync(path, ct), request, naverGameId);
-                    if (cached.IsComplete)
+                    if (cached.IsComplete && !ShouldRefreshNaverMetadata(cached.Naver, scheduled))
                     {
                         log?.Invoke($"건너뜀 {naverGameId} (네이버 + KBO 공식 수집 완료 파일)");
                         skipped++;
@@ -68,9 +68,13 @@ public static class RelayCollector
 
                 var errors = new List<CollectionError>();
                 var naver = cached.Naver;
-                if (naver is not { IsComplete: true })
+                var refreshNaverMetadata = ShouldRefreshNaverMetadata(naver, scheduled);
+                var naverMetadataRefreshed = !refreshNaverMetadata;
+                if (naver is not { IsComplete: true } || refreshNaverMetadata)
                 {
-                    log?.Invoke($"수집 {naverGameId}: 네이버 전체 이닝");
+                    log?.Invoke(refreshNaverMetadata
+                        ? $"갱신 {naverGameId}: 네이버 ENDED → RESULT 최종 승·패 메타데이터"
+                        : $"수집 {naverGameId}: 네이버 전체 이닝");
                     try
                     {
                         var downloaded = await downloadNaver(http, naverGameId, delayMs > 0 ? 300 : 0, log, ct);
@@ -83,6 +87,7 @@ public static class RelayCollector
                                 RoundCode = inspected.RoundCode, StatusCode = inspected.StatusCode,
                                 IsComplete = downloaded.IsComplete && inspected.IsComplete
                             };
+                            naverMetadataRefreshed = !refreshNaverMetadata || naver.StatusCode == "RESULT";
                         }
                         foreach (var error in downloaded.Errors) errors.Add(new("naver", error));
                         if (downloaded.Json is null && downloaded.Errors.Count == 0)
@@ -92,6 +97,13 @@ public static class RelayCollector
                     catch (Exception ex) { errors.Add(new("naver", ex.Message)); }
                 }
                 else log?.Invoke($"재사용 {naverGameId}: 이미 저장된 네이버 전체 중계");
+
+                if (refreshNaverMetadata && !naverMetadataRefreshed)
+                {
+                    log?.Invoke($"갱신 보류 {naverGameId}: 네이버 RESULT 메타데이터를 받지 못해 기존 완료 파일을 유지합니다.");
+                    skipped++;
+                    continue;
+                }
 
                 if (naver?.RoundCode is { } round && round != "kbo_r")
                 {
@@ -130,7 +142,7 @@ public static class RelayCollector
                 ct.ThrowIfCancellationRequested();
                 // Re-check just before committing so a completed file created by a second run
                 // is not replaced by this run's partial result.
-                if (File.Exists(path) && UnifiedDocumentStore.ReadCache(await File.ReadAllTextAsync(path, ct), request, naverGameId).IsComplete)
+                if (File.Exists(path) && !refreshNaverMetadata && UnifiedDocumentStore.ReadCache(await File.ReadAllTextAsync(path, ct), request, naverGameId).IsComplete)
                 {
                     skipped++;
                     log?.Invoke($"건너뜀 {naverGameId} (완료된 기존 파일 유지)");
@@ -166,4 +178,7 @@ public static class RelayCollector
         }
         return new(complete, partial, skipped, excluded, failed) { ExcludedGameIds = excludedGameIds };
     }
+
+    public static bool ShouldRefreshNaverMetadata(NaverCollectionResult? cached, ScheduleGame scheduled)
+        => cached is { IsComplete: true, StatusCode: "ENDED" } && scheduled.StatusCode == "RESULT";
 }
