@@ -6,13 +6,6 @@ namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed partial class DatabaseCacheService
 {
-    private const double RecordRoomWbb = 0.69;
-    private const double RecordRoomWhbp = 0.72;
-    private const double RecordRoomW1b = 0.88;
-    private const double RecordRoomW2b = 1.247;
-    private const double RecordRoomW3b = 1.578;
-    private const double RecordRoomWhr = 2.031;
-
     internal async Task<IReadOnlyList<BatterClutchRecordRow>> QueryBatterClutchAsync(
         GameQuery query,
         LeagueReference league,
@@ -298,6 +291,7 @@ public sealed partial class DatabaseCacheService
 
     internal async Task<IReadOnlyList<BatterPitchTypeRecordRow>> QueryBatterPitchTypesAsync(
         GameQuery query,
+        WobaConstants constants,
         CancellationToken cancellationToken)
     {
         var filter = BuildFilteredGamesCte(query);
@@ -318,6 +312,7 @@ public sealed partial class DatabaseCacheService
                    SUM(CASE WHEN pa.ResultType=5 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=6 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType IN (7,8) THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN pa.ResultType=8 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=9 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=10 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=17 THEN 1 ELSE 0 END),
@@ -360,6 +355,7 @@ public sealed partial class DatabaseCacheService
             var triples = ReadInt32(reader, i++);
             var homeRuns = ReadInt32(reader, i++);
             var walks = ReadInt32(reader, i++);
+            var intentionalWalks = ReadInt32(reader, i++);
             var hbp = ReadInt32(reader, i++);
             var strikeouts = ReadInt32(reader, i++);
             var sf = ReadInt32(reader, i++);
@@ -367,11 +363,9 @@ public sealed partial class DatabaseCacheService
             var avg = DivideRecordRoom(hits, ab);
             var obp = DivideRecordRoom(hits + walks + hbp, ab + walks + hbp + sf);
             var slg = DivideRecordRoom(totalBases, ab);
-            var wobaDenominator = ab + walks + hbp + sf;
-            var woba = DivideRecordRoom(
-                RecordRoomWbb * walks + RecordRoomWhbp * hbp + RecordRoomW1b * singles +
-                RecordRoomW2b * doubles + RecordRoomW3b * triples + RecordRoomWhr * homeRuns,
-                wobaDenominator);
+            var woba = constants.Calculate(
+                ab, walks, intentionalWalks, hbp, sf,
+                singles, doubles, triples, homeRuns);
 
             rows.Add(new BatterPitchTypeRecordRow
             {

@@ -220,6 +220,45 @@ public sealed class KboParkFactorV2Row
     public double Factor { get; set; } = 100.0;
 }
 
+/// <summary>
+/// 시즌의 득점 환경에서 RE24로 산출한 wOBA 선형가중치입니다.
+/// 점수 전이를 복원할 수 없는 과거 시즌은 기존 고정 계수를 폴백으로 사용합니다.
+/// </summary>
+public sealed class WobaConstants
+{
+    public int? SeasonYear { get; set; }
+    public string Source { get; set; } = "fixed-fallback";
+    public int SamplePlateAppearances { get; set; }
+    public double Scale { get; set; } = 1.20;
+    public double UnintentionalWalk { get; set; } = 0.69;
+    public double HitByPitch { get; set; } = 0.72;
+    public double Single { get; set; } = 0.88;
+    public double Double { get; set; } = 1.247;
+    public double Triple { get; set; } = 1.578;
+    public double HomeRun { get; set; } = 2.031;
+    public double LeagueWoba { get; set; }
+    public double LeagueObp { get; set; }
+    public double RunsPerPa { get; set; }
+
+    public double? Calculate(
+        int atBats,
+        int walks,
+        int intentionalWalks,
+        int hitByPitch,
+        int sacrificeFlies,
+        int singles,
+        int doubles,
+        int triples,
+        int homeRuns)
+    {
+        var denominator = atBats + walks - intentionalWalks + hitByPitch + sacrificeFlies;
+        if (denominator <= 0) return null;
+        return (UnintentionalWalk * (walks - intentionalWalks) +
+                HitByPitch * hitByPitch + Single * singles + Double * doubles +
+                Triple * triples + HomeRun * homeRuns) / denominator;
+    }
+}
+
 public sealed class LeagueReference
 {
     public int GameCount { get; set; }
@@ -266,6 +305,15 @@ public sealed class LeagueReference
     public List<ParkFactorGridRow> ParkFactors { get; set; } = new();
     public List<KboParkFactorV2Row> KboParkFactorsV2 { get; set; } = new();
     public List<LeagueConstantGridRow> Constants { get; set; } = new();
+    public WobaConstants WobaModel { get; set; } = new();
+    public Dictionary<int, WobaConstants> WobaConstantsBySeason { get; set; } = new();
+
+    public WobaConstants GetWobaConstants(int? seasonYear)
+    {
+        if (seasonYear.HasValue && WobaConstantsBySeason.TryGetValue(seasonYear.Value, out var season))
+            return season;
+        return WobaModel ?? new WobaConstants();
+    }
 }
 
 public sealed class AnalyticsSnapshot

@@ -12,14 +12,6 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabasePlayerPageService : IPlayerPageService
 {
-    private const double Wbb = 0.69;
-    private const double Whbp = 0.72;
-    private const double W1b = 0.88;
-    private const double W2b = 1.247;
-    private const double W3b = 1.578;
-    private const double Whr = 2.031;
-    private const double WobaScale = 1.20;
-
     private readonly DatabaseCacheService _database;
     private readonly DatabaseAnalyticsService _analytics;
 
@@ -115,7 +107,7 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
             HasBatting = batting.Count > 0 || plateAppearances.Any(row => row.Perspective == "타자"),
             HasPitching = pitching.Count > 0 || plateAppearances.Any(row => row.Perspective == "투수"),
             RollingWrcPlus = rolling,
-            FormulaDocumentation = BuildFormulaDocumentation(profile, batting, pitching),
+            FormulaDocumentation = BuildFormulaDocumentation(profile, batting, pitching, league),
         };
     }
 
@@ -481,7 +473,7 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
         await using var connection = await _database.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT g.GameDate, g.GameId, b.PA, b.AB, b.H, b.Singles, b.Doubles, b.Triples,
+            SELECT g.GameDate, g.GameId, g.SeasonYear, b.PA, b.AB, b.H, b.Singles, b.Doubles, b.Triples,
                    b.HR, b.BB, b.IBB, b.HBP, b.SO, b.SF, b.TB
             FROM BatterGameStats b INNER JOIN Games g ON g.GameId=b.GameId
             WHERE b.Pcode=$pcode AND LOWER(TRIM(COALESCE(g.RoundCode,'')))='kbo_r'
@@ -494,11 +486,12 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
             rows.Add(new RollingBattingGame
             {
                 Date = NullableText(reader, 0) ?? string.Empty, GameId = reader.GetString(1),
-                PA = ReadInt(reader, 2), AB = ReadInt(reader, 3), Hits = ReadInt(reader, 4),
-                Singles = ReadInt(reader, 5), Doubles = ReadInt(reader, 6), Triples = ReadInt(reader, 7),
-                HomeRuns = ReadInt(reader, 8), Walks = ReadInt(reader, 9), IntentionalWalks = ReadInt(reader, 10),
-                HitByPitch = ReadInt(reader, 11), Strikeouts = ReadInt(reader, 12),
-                SacrificeFlies = ReadInt(reader, 13), TotalBases = ReadInt(reader, 14),
+                Year = NullableInt(reader, 2),
+                PA = ReadInt(reader, 3), AB = ReadInt(reader, 4), Hits = ReadInt(reader, 5),
+                Singles = ReadInt(reader, 6), Doubles = ReadInt(reader, 7), Triples = ReadInt(reader, 8),
+                HomeRuns = ReadInt(reader, 9), Walks = ReadInt(reader, 10), IntentionalWalks = ReadInt(reader, 11),
+                HitByPitch = ReadInt(reader, 12), Strikeouts = ReadInt(reader, 13),
+                SacrificeFlies = ReadInt(reader, 14), TotalBases = ReadInt(reader, 15),
             });
         }
         return rows;
@@ -529,11 +522,15 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
         LeagueReference league)
     {
         var result = new List<RollingMetricPoint>();
-        for (var index = windowGames - 1; index < games.Count; index++)
+        foreach (var seasonGames in games.GroupBy(game => game.Year))
         {
-            var window = games.Skip(index - windowGames + 1).Take(windowGames).ToList();
+          var season = seasonGames.ToList();
+          for (var index = windowGames - 1; index < season.Count; index++)
+          {
+            var window = season.Skip(index - windowGames + 1).Take(windowGames).ToList();
             var total = new RollingBattingGame
             {
+                Year = window[^1].Year,
                 PA = window.Sum(row => row.PA), AB = window.Sum(row => row.AB), Hits = window.Sum(row => row.Hits),
                 Singles = window.Sum(row => row.Singles), Doubles = window.Sum(row => row.Doubles),
                 Triples = window.Sum(row => row.Triples), HomeRuns = window.Sum(row => row.HomeRuns),
@@ -544,36 +541,40 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
             result.Add(new RollingMetricPoint
             {
                 Date = window[^1].Date, WindowGames = windowGames, PA = total.PA,
-                WrcPlus = ComputeWrcPlus(total, league),
+                WrcPlus = ComputeWrcPlus(total, league.GetWobaConstants(total.Year)),
             });
+          }
         }
         return result;
     }
 
-    private static double? ComputeWrcPlus(RollingBattingGame row, LeagueReference league)
+    private static double? ComputeWrcPlus(RollingBattingGame row, WobaConstants constants)
     {
-        var denominator = row.AB + row.Walks - row.IntentionalWalks + row.SacrificeFlies + row.HitByPitch;
-        if (denominator <= 0 || row.PA <= 0 || league.RunsPerPa <= 0) return null;
-        var woba = (Wbb * (row.Walks - row.IntentionalWalks) + Whbp * row.HitByPitch +
-                    W1b * row.Singles + W2b * row.Doubles + W3b * row.Triples + Whr * row.HomeRuns) / denominator;
-        var wraa = (woba - league.Woba) / WobaScale * row.PA;
-        var wrc = wraa + league.RunsPerPa * row.PA;
-        return 100.0 * (wrc / row.PA) / league.RunsPerPa;
+        if (row.PA <= 0 || constants.RunsPerPa <= 0) return null;
+        var woba = constants.Calculate(
+            row.AB, row.Walks, row.IntentionalWalks, row.HitByPitch,
+            row.SacrificeFlies, row.Singles, row.Doubles, row.Triples, row.HomeRuns);
+        if (!woba.HasValue) return null;
+        var wraa = (woba.Value - constants.LeagueWoba) / constants.Scale * row.PA;
+        var wrc = wraa + constants.RunsPerPa * row.PA;
+        return 100.0 * (wrc / row.PA) / constants.RunsPerPa;
     }
 
     private static string BuildFormulaDocumentation(
         PlayerProfile profile,
         IReadOnlyList<PlayerBattingSeasonRow> batting,
-        IReadOnlyList<PlayerPitchingSeasonRow> pitching)
+        IReadOnlyList<PlayerPitchingSeasonRow> pitching,
+        LeagueReference league)
     {
         var latestBat = batting.OrderByDescending(row => row.Year).FirstOrDefault();
         var latestPit = pitching.OrderByDescending(row => row.Year).FirstOrDefault();
+        var constants = league.GetWobaConstants(latestBat?.Year);
         var lines = new List<string>
         {
             $"선수: {profile.Name} ({profile.Pcode})", $"생년월일: {profile.BirthDate}", string.Empty,
             "[타격 지표]",
-            "wOBA = (0.69×uBB + 0.72×HBP + 0.88×1B + 1.247×2B + 1.578×3B + 2.031×HR) / (AB + BB - IBB + SF + HBP)",
-            "wRAA = ((wOBA - 리그 wOBA) / 1.20) × PA",
+            $"wOBA = ({constants.UnintentionalWalk:0.000}×uBB + {constants.HitByPitch:0.000}×HBP + {constants.Single:0.000}×1B + {constants.Double:0.000}×2B + {constants.Triple:0.000}×3B + {constants.HomeRun:0.000}×HR) / (AB + BB - IBB + SF + HBP)",
+            $"wRAA = ((wOBA - 리그 wOBA) / {constants.Scale:0.000}) × PA ({constants.Source})",
             "wRC = wRAA + 리그 R/PA × PA",
             "wRC+ = 100 × (wRC / PA) / 리그 R/PA",
             "Site WAR v1 = (타격 Runs + 주루 Runs + 포지션 Runs + 대체선수 Runs) / 10",
@@ -688,6 +689,7 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
     }
     private sealed class RollingBattingGame
     {
+        public int? Year { get; init; }
         public string Date { get; init; } = string.Empty;
         public string GameId { get; init; } = string.Empty;
         public int PA { get; init; }

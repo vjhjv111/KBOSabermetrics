@@ -5,7 +5,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed class DatabaseBatterRecordRoomService : IBatterRecordRoomQueryService
 {
-    private const string CacheVersion = "batter-record-room-v2-lastpitch-index";
+    private const string CacheVersion = "batter-record-room-v3-re24";
     private readonly DatabaseCacheService _database;
 
     public DatabaseBatterRecordRoomService(DatabaseCacheService database) => _database = database;
@@ -54,7 +54,9 @@ public sealed class DatabaseBatterRecordRoomService : IBatterRecordRoomQueryServ
         var key = $"{CacheVersion}:pitch-types:{query.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<List<BatterPitchTypeRecordRow>>(key, cancellationToken).ConfigureAwait(false);
         if (cached is not null) return cached;
-        var rows = (await _database.QueryBatterPitchTypesAsync(query, cancellationToken).ConfigureAwait(false)).ToList();
+        var league = await _database.GetLeagueReferenceAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var rows = (await _database.QueryBatterPitchTypesAsync(
+            query, league.GetWobaConstants(query.SeasonYear), cancellationToken).ConfigureAwait(false)).ToList();
         await _database.SaveComputedAsync(key, rows, cancellationToken).ConfigureAwait(false);
         return rows;
     }

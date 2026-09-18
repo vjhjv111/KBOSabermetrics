@@ -1,4 +1,5 @@
 using System.Globalization;
+using NaverRelay.Application.Queries;
 
 namespace NaverRelay.Gui;
 
@@ -10,8 +11,7 @@ internal sealed class FormulaViewControl : UserControl
     private readonly Label _wobaResult = new() { AutoSize = true, Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold) };
     private readonly NumericUpDown[] _fipInputs;
     private readonly Label _fipResult = new() { AutoSize = true, Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold) };
-
-    private const double Wbb = 0.69, Whbp = 0.72, W1b = 0.88, W2b = 1.247, W3b = 1.578, Whr = 2.031;
+    private WobaConstants _woba = new();
 
     public FormulaViewControl()
     {
@@ -31,7 +31,7 @@ internal sealed class FormulaViewControl : UserControl
         _metrics.Items.AddRange(new object[]
         {
             "AVG", "OBP", "SLG", "OPS", "ISO", "BABIP", "BB% / K%", "wOBA*", "wRAA*", "wRC*", "wRC+*", "OPS+",
-            "FIP*", "xFIP*", "FIP- / xFIP-", "Swing% / Contact%", "CSW%", "RE24 (예정)", "WPA (예정)",
+            "FIP*", "xFIP*", "FIP- / xFIP-", "Swing% / Contact%", "CSW%", "RE24", "WPA (예정)",
             "Site WAR v1*", "KBO 투수 대체수준*", "KBO WARIP*", "KBO fWAR v4*",
             "KBO RA9-WAR*", "Blend WAR 70/30*", "파크 팩터*"
         });
@@ -52,6 +52,13 @@ internal sealed class FormulaViewControl : UserControl
 
         _metrics.SelectedIndexChanged += (_, _) => ShowSelectedFormula();
         _metrics.SelectedIndex = 0;
+    }
+
+    public void SetWobaConstants(WobaConstants constants)
+    {
+        _woba = constants ?? new WobaConstants();
+        ShowSelectedFormula();
+        CalculateWoba(null, EventArgs.Empty);
     }
 
     private static NumericUpDown[] AddCalculator(FlowLayoutPanel parent, string title, string[] labels, EventHandler calculate, Label result, int decimalPlaces = 0)
@@ -80,7 +87,9 @@ internal sealed class FormulaViewControl : UserControl
         var s1 = (double)_wobaInputs[3].Value; var d2 = (double)_wobaInputs[4].Value; var t3 = (double)_wobaInputs[5].Value;
         var hr = (double)_wobaInputs[6].Value; var sf = (double)_wobaInputs[7].Value;
         var den = ab + bb + hbp + sf;
-        _wobaResult.Text = den > 0 ? $"wOBA = {(Wbb * bb + Whbp * hbp + W1b * s1 + W2b * d2 + W3b * t3 + Whr * hr) / den:0.000}" : "분모가 0입니다.";
+        _wobaResult.Text = den > 0
+            ? $"wOBA = {(_woba.UnintentionalWalk * bb + _woba.HitByPitch * hbp + _woba.Single * s1 + _woba.Double * d2 + _woba.Triple * t3 + _woba.HomeRun * hr) / den:0.000} ({_woba.SeasonYear?.ToString() ?? "통합"} {_woba.Source})"
+            : "분모가 0입니다.";
     }
 
     private void CalculateFip(object? sender, EventArgs e)
@@ -102,7 +111,7 @@ internal sealed class FormulaViewControl : UserControl
             "ISO" => "ISO = SLG - AVG\r\n\r\n순수 장타력을 나타냅니다.",
             "BABIP" => "BABIP = (H - HR) / (AB - SO - HR + SF)",
             "BB% / K%" => "BB% = BB / PA\r\nK% = SO / PA",
-            "wOBA*" => "wOBA = (0.69×uBB + 0.72×HBP + 0.88×1B + 1.247×2B + 1.578×3B + 2.031×HR)\r\n       / (AB + uBB + HBP + SF)\r\n\r\n* 현재 버전은 임시 고정 가중치를 사용합니다.",
+            "wOBA*" => $"wOBA = ({_woba.UnintentionalWalk:0.000}×uBB + {_woba.HitByPitch:0.000}×HBP + {_woba.Single:0.000}×1B + {_woba.Double:0.000}×2B + {_woba.Triple:0.000}×3B + {_woba.HomeRun:0.000}×HR)\r\n       / (AB + uBB + HBP + SF)\r\n\r\n{_woba.SeasonYear?.ToString() ?? "통합"} {_woba.Source}, Scale {_woba.Scale:0.000}",
             "wRAA*" => "wRAA = ((선수 wOBA - 리그 wOBA) / wOBA Scale) × PA",
             "wRC*" => "wRC = wRAA + (리그 R/PA × PA)",
             "wRC+*" => "wRC+ = 100 × (선수 wRC/PA) / 리그 R/PA\r\n\r\n* 현재 버전은 구장 보정이 없습니다.",
@@ -112,7 +121,7 @@ internal sealed class FormulaViewControl : UserControl
             "FIP- / xFIP-" => "FIP- = 100 × 선수 FIP / 리그 RA9\r\nxFIP- = 100 × 선수 xFIP / 리그 RA9\r\n\r\n100보다 낮을수록 좋습니다.",
             "Swing% / Contact%" => "Swing% = 스윙 / 전체 투구\r\nContact% = 컨택 / 스윙",
             "CSW%" => "CSW% = (헛스윙 + 루킹 스트라이크) / 전체 투구",
-            "RE24 (예정)" => "RE24 = 타석 종료 후 기대득점 - 타석 시작 전 기대득점 + 실제 득점\r\n\r\n24개 주자·아웃 상태의 기대득점표가 완성된 뒤 적용합니다.",
+            "RE24" => "RE24 = 타석 종료 후 기대득점 - 타석 시작 전 기대득점 + 실제 득점\r\n\r\n시즌별 24개 주자·아웃 상태 기대득점표에서 이벤트별 평균 득점가치를 계산하고, 리그 OBP 스케일로 wOBA 계수를 맞춥니다.",
             "WPA (예정)" => "WPA = 타석 종료 후 승리확률 - 타석 시작 전 승리확률",
             "Site WAR v1*" => "타격 Runs = wRAA\r\n주루 Runs = 0.20×SB - 0.40×CS\r\n수비 Runs = 0 (데이터 준비 전)\r\n포지션 보정 = 0 (데이터 준비 전)\r\n대체선수 Runs = PA × 20 / 600\r\nRAR = 위 Runs의 합\r\nSite WAR v1 = RAR / 10\r\n\r\n* 임시 추정 WAR이며 공식 KBO/Statiz WAR와 동일하지 않습니다.",
             "KBO 투수 대체수준*" => "KBO fWAR v4 정책값\r\n\r\n선발 Replacement FIP- = 120\r\n구원 Replacement FIP- = 115\r\n\r\nReplacement FIPR9 = lgFIPR9 × FIP-/100\r\n\r\n2020~2025 완료 시즌과 KBO PF v2로 검증했습니다. 대체후보 WAR 중앙값은 선발 약 -0.008, 구원 약 -0.005였고 후보의 양/음수 비율이 약 50:50에 위치했습니다.",

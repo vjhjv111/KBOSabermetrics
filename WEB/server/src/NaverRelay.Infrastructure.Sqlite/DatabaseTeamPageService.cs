@@ -12,14 +12,6 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseTeamPageService : ITeamPageService
 {
-    private const double Wbb = 0.69;
-    private const double Whbp = 0.72;
-    private const double W1b = 0.88;
-    private const double W2b = 1.247;
-    private const double W3b = 1.578;
-    private const double Whr = 2.031;
-    private const double WobaScale = 1.20;
-
     private readonly DatabaseCacheService _database;
     private readonly DatabaseAnalyticsService _analytics;
 
@@ -129,9 +121,9 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         var opponentRecords = await ReadOpponentRecordsAsync(
             normalizedTeamCode, games, league, cancellationToken).ConfigureAwait(false);
         var situationSplits = await ReadSituationSplitsAsync(
-            normalizedTeamCode, cancellationToken).ConfigureAwait(false);
+            normalizedTeamCode, league, cancellationToken).ConfigureAwait(false);
         var battingByPitchType = await ReadBattingPitchTypeSplitsAsync(
-            normalizedTeamCode, cancellationToken).ConfigureAwait(false);
+            normalizedTeamCode, league, cancellationToken).ConfigureAwait(false);
         var pitchingByPitchType = await ReadPitchingPitchTypeSplitsAsync(
             normalizedTeamCode, cancellationToken).ConfigureAwait(false);
 
@@ -167,7 +159,7 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
             BattingByPitchType = battingByPitchType,
             PitchingByPitchType = pitchingByPitchType,
             GameLogs = gameLogs,
-            FormulaDocumentation = BuildFormulaDocumentation(profile),
+            FormulaDocumentation = BuildFormulaDocumentation(profile, league),
         };
     }
 
@@ -376,18 +368,16 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
                 raw.AB + raw.Walks + raw.HitByPitch + raw.SacrificeFlies);
             var slg = Divide(raw.TotalBases, raw.AB);
             var ops = obp.HasValue && slg.HasValue ? obp.Value + slg.Value : (double?)null;
-            var wobaDenominator = raw.AB + raw.Walks - raw.IntentionalWalks + raw.SacrificeFlies + raw.HitByPitch;
-            double? woba = wobaDenominator > 0
-                ? (Wbb * (raw.Walks - raw.IntentionalWalks) + Whbp * raw.HitByPitch +
-                   W1b * raw.Singles + W2b * raw.Doubles + W3b * raw.Triples + Whr * raw.HomeRuns) /
-                  wobaDenominator
-                : null;
+            var constants = league.GetWobaConstants(year);
+            var woba = constants.Calculate(
+                raw.AB, raw.Walks, raw.IntentionalWalks, raw.HitByPitch,
+                raw.SacrificeFlies, raw.Singles, raw.Doubles, raw.Triples, raw.HomeRuns);
             double? wraa = woba.HasValue
-                ? (woba.Value - league.Woba) / WobaScale * raw.PA
+                ? (woba.Value - constants.LeagueWoba) / constants.Scale * raw.PA
                 : null;
-            double? wrc = wraa.HasValue ? wraa.Value + league.RunsPerPa * raw.PA : null;
-            double? wrcPlus = wrc.HasValue && raw.PA > 0 && league.RunsPerPa > 0
-                ? 100.0 * (wrc.Value / raw.PA) / league.RunsPerPa
+            double? wrc = wraa.HasValue ? wraa.Value + constants.RunsPerPa * raw.PA : null;
+            double? wrcPlus = wrc.HasValue && raw.PA > 0 && constants.RunsPerPa > 0
+                ? 100.0 * (wrc.Value / raw.PA) / constants.RunsPerPa
                 : null;
             double? opsPlus = obp.HasValue && slg.HasValue && league.Obp > 0 && league.Slg > 0
                 ? 100.0 * (obp.Value / league.Obp + slg.Value / league.Slg - 1.0)
@@ -666,14 +656,17 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         };
     }
 
-    private static string BuildFormulaDocumentation(TeamProfile profile) => string.Join(Environment.NewLine,
-    [
+    private static string BuildFormulaDocumentation(TeamProfile profile, LeagueReference league)
+    {
+        var constants = league.GetWobaConstants(profile.LastSeason);
+        return string.Join(Environment.NewLine,
+        [
         $"팀: {profile.LatestName} ({profile.TeamCode})",
         $"팀명 이력: {profile.NameHistory}",
         string.Empty,
         "[팀 타격]",
         "팀 AVG/OBP/SLG/OPS는 선택 시즌의 모든 타자 경기 기록을 합산한 뒤 다시 계산합니다.",
-        "wOBA = (0.69×uBB + 0.72×HBP + 0.88×1B + 1.247×2B + 1.578×3B + 2.031×HR) / (AB + BB - IBB + SF + HBP)",
+        $"wOBA = ({constants.UnintentionalWalk:0.000}×uBB + {constants.HitByPitch:0.000}×HBP + {constants.Single:0.000}×1B + {constants.Double:0.000}×2B + {constants.Triple:0.000}×3B + {constants.HomeRun:0.000}×HR) / (AB + BB - IBB + SF + HBP) ({constants.Source})",
         "wRC+ = 100 × (팀 wRC / 팀 PA) / 리그 R/PA",
         string.Empty,
         "[팀 투수 가치]",
@@ -695,7 +688,8 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
         "득점권: 타석 시작 시 2루 또는 3루에 주자가 있는 상황",
         string.Empty,
         "* 팀 페이지는 관계형 SQLite 테이블만 조회하며 원본 JSON을 다시 읽지 않습니다.",
-    ]);
+        ]);
+    }
 
     private static void AddDecision(TeamGameSeasonRecord row, int? runsFor, int? runsAgainst)
     {

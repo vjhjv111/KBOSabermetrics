@@ -7,14 +7,6 @@ namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed partial class DatabaseCacheService
 {
-    private const double LeagueWbb = 0.69;
-    private const double LeagueWhbp = 0.72;
-    private const double LeagueW1b = 0.88;
-    private const double LeagueW2b = 1.247;
-    private const double LeagueW3b = 1.578;
-    private const double LeagueWhr = 2.031;
-    private const double LeagueWobaScale = 1.20;
-
     public async Task<LeagueReference> GetLeagueReferenceAsync(
         IProgress<DatabaseLoadProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -26,6 +18,7 @@ public sealed partial class DatabaseCacheService
         progress?.Report(new DatabaseLoadProgress(1, 5, "전체 kbo_r 타격 집계 조회 중"));
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         var batting = await ReadLeagueBattingAsync(connection, cancellationToken).ConfigureAwait(false);
+        var wobaConstants = await ReadWobaConstantsAsync(connection, cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new DatabaseLoadProgress(2, 5, "전체 kbo_r 투수 최종 기록 조회 중"));
         var pitching = await ReadLeaguePitchingAsync(connection, cancellationToken).ConfigureAwait(false);
@@ -36,16 +29,6 @@ public sealed partial class DatabaseCacheService
         var parkFactorsV2 = await BuildProductionParkFactorsV2Async(connection, cancellationToken).ConfigureAwait(false);
 
         var plateAppearanceInnings = batting.Outs / 3.0;
-        var wobaDenominator = batting.AtBats + batting.Walks - batting.IntentionalWalks +
-                              batting.SacrificeFlies + batting.HitByPitch;
-        var woba = Divide(
-            LeagueWbb * (batting.Walks - batting.IntentionalWalks) +
-            LeagueWhbp * batting.HitByPitch +
-            LeagueW1b * batting.Singles +
-            LeagueW2b * batting.Doubles +
-            LeagueW3b * batting.Triples +
-            LeagueWhr * batting.HomeRuns,
-            wobaDenominator);
         var obp = Divide(
             batting.Hits + batting.Walks + batting.HitByPitch,
             batting.AtBats + batting.Walks + batting.HitByPitch + batting.SacrificeFlies);
@@ -87,11 +70,11 @@ public sealed partial class DatabaseCacheService
             Outs = batting.Outs,
             Runs = batting.Runs,
             FlyBalls = batting.FlyBalls,
-            Woba = woba,
+            Woba = wobaConstants.Overall.LeagueWoba,
             Obp = obp,
             Slg = slg,
             Ops = obp + slg,
-            RunsPerPa = Divide(batting.Runs, batting.PlateAppearances),
+            RunsPerPa = wobaConstants.Overall.RunsPerPa,
             Ra9 = ra9,
             FipConstant = ra9 - fipCore,
             HrPerFlyBall = Divide(batting.HomeRuns, batting.FlyBalls),
@@ -111,6 +94,8 @@ public sealed partial class DatabaseCacheService
             AverageAbsoluteWpa = averageAbsoluteWpa > 0 ? averageAbsoluteWpa : 1.0,
             ParkFactors = parkFactors,
             KboParkFactorsV2 = parkFactorsV2,
+            WobaModel = wobaConstants.Overall,
+            WobaConstantsBySeason = wobaConstants.BySeason,
         };
 
         progress?.Report(new DatabaseLoadProgress(4, 5, "KBO 투수 대체수준과 WARIP 계산 중"));
@@ -350,14 +335,15 @@ public sealed partial class DatabaseCacheService
         Row("리그 R/PA", value.RunsPerPa, "득점 합계 ÷ 공식 타석"),
         Row("리그 OBP", value.Obp, "전체 정규시즌 출루율"),
         Row("리그 SLG", value.Slg, "전체 정규시즌 장타율"),
-        Row("리그 wOBA*", value.Woba, "Phase 1 선형가중치"),
-        Row("wOBA Scale*", LeagueWobaScale, "현재 계산 스케일"),
-        Row("uBB 가중치*", LeagueWbb, "고의4구 제외 볼넷"),
-        Row("HBP 가중치*", LeagueWhbp, "사구"),
-        Row("1B 가중치*", LeagueW1b, "단타"),
-        Row("2B 가중치*", LeagueW2b, "2루타"),
-        Row("3B 가중치*", LeagueW3b, "3루타"),
-        Row("HR 가중치*", LeagueWhr, "홈런"),
+        Row("리그 wOBA*", value.Woba, $"{value.WobaModel.Source}; {value.WobaModel.SamplePlateAppearances:N0} PA"),
+        Row("wOBA Scale*", value.WobaModel.Scale, value.WobaModel.Source),
+        Row("uBB 가중치*", value.WobaModel.UnintentionalWalk, "RE24: 고의4구 제외 볼넷"),
+        Row("HBP 가중치*", value.WobaModel.HitByPitch, "RE24: 사구"),
+        Row("1B 가중치*", value.WobaModel.Single, "RE24: 단타"),
+        Row("2B 가중치*", value.WobaModel.Double, "RE24: 2루타"),
+        Row("3B 가중치*", value.WobaModel.Triple, "RE24: 3루타"),
+        Row("HR 가중치*", value.WobaModel.HomeRun, "RE24: 홈런"),
+        .. BuildSeasonWobaRows(value),
         Row("리그 RA9*", value.Ra9, "타석 귀속 득점 기반"),
         Row("FIP 상수*", value.FipConstant, "리그 평균 FIP를 RA9에 맞춤"),
         Row("리그 HR/FB*", value.HrPerFlyBall, "문자 중계 타구 유형 기반"),
@@ -399,6 +385,26 @@ public sealed partial class DatabaseCacheService
         Row("Runs Per Win*", 10.0, "타자 Site WAR v1"),
         Row("FG 포지션 기준 이닝", 1458.0, "162경기 × 9이닝"),
     ];
+
+    private static IEnumerable<LeagueConstantGridRow> BuildSeasonWobaRows(LeagueReference value)
+    {
+        foreach (var (seasonYear, constants) in value.WobaConstantsBySeason.OrderByDescending(pair => pair.Key))
+        {
+            var prefix = $"{seasonYear} ";
+            var description = $"{constants.Source}; {constants.SamplePlateAppearances:N0} PA";
+            yield return Row(prefix + "표본 PA", constants.SamplePlateAppearances, description);
+            yield return Row(prefix + "리그 OBP", constants.LeagueObp, description);
+            yield return Row(prefix + "리그 wOBA", constants.LeagueWoba, description);
+            yield return Row(prefix + "리그 R/PA", constants.RunsPerPa, description);
+            yield return Row(prefix + "wOBA Scale", constants.Scale, description);
+            yield return Row(prefix + "uBB", constants.UnintentionalWalk, description);
+            yield return Row(prefix + "HBP", constants.HitByPitch, description);
+            yield return Row(prefix + "1B", constants.Single, description);
+            yield return Row(prefix + "2B", constants.Double, description);
+            yield return Row(prefix + "3B", constants.Triple, description);
+            yield return Row(prefix + "HR", constants.HomeRun, description);
+        }
+    }
 
     private static LeagueConstantGridRow Row(string metric, double value, string description) =>
         new() { Metric = metric, Value = value, Description = description };

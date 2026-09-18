@@ -7,6 +7,15 @@ namespace NaverSabermetrics.Web;
 
 public sealed record ViewDefinition(string Role, string Key, string Title, Type RowType);
 
+public sealed class SabermetricFormulaGridRow
+{
+    [DisplayName("구분")] public string Category { get; init; } = string.Empty;
+    [DisplayName("지표")] public string Metric { get; init; } = string.Empty;
+    [DisplayName("공식")] public string Formula { get; init; } = string.Empty;
+    [DisplayName("현재 적용 상수")] public string Constants { get; init; } = string.Empty;
+    [DisplayName("설명")] public string Description { get; init; } = string.Empty;
+}
+
 public static class ViewRegistry
 {
     public static readonly IReadOnlyList<ViewDefinition> Views = new ViewDefinition[]
@@ -37,6 +46,7 @@ public static class ViewRegistry
         new("pitcher", "discipline", "투구", typeof(PitcherPitchProfileRecordRow)),
         new("pitcher", "pitch-types", "구종", typeof(PitcherPitchTypeRecordRow)),
         new("constants", "league", "리그 상수", typeof(LeagueConstantGridRow)),
+        new("constants", "formulas", "공식", typeof(SabermetricFormulaGridRow)),
         new("constants", "parks", "파크 팩터", typeof(ParkFactorGridRow)),
         new("constants", "parks-detail", "파크 팩터 (Single)", typeof(ParkFactorByHitTypeRow)),
     };

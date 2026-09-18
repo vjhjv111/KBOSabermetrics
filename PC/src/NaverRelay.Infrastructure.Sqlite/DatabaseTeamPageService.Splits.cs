@@ -235,6 +235,7 @@ public sealed partial class DatabaseTeamPageService
 
     private async Task<IReadOnlyList<TeamSituationSplitRow>> ReadSituationSplitsAsync(
         string teamCode,
+        LeagueReference league,
         CancellationToken cancellationToken)
     {
         var map = new Dictionary<(int Year, string Perspective, string Category, string Bucket), TeamSplitAccumulator>();
@@ -309,7 +310,7 @@ public sealed partial class DatabaseTeamPageService
             Add("2아웃", outs == 2 ? "2아웃" : "0~1아웃");
         }
 
-        return map.Select(pair => ToSituationRow(pair.Key, pair.Value))
+        return map.Select(pair => ToSituationRow(pair.Key, pair.Value, league))
             .OrderByDescending(row => row.Year)
             .ThenBy(row => row.Perspective, StringComparer.CurrentCulture)
             .ThenBy(row => row.Category, StringComparer.CurrentCulture)
@@ -319,7 +320,8 @@ public sealed partial class DatabaseTeamPageService
 
     private static TeamSituationSplitRow ToSituationRow(
         (int Year, string Perspective, string Category, string Bucket) key,
-        TeamSplitAccumulator value)
+        TeamSplitAccumulator value,
+        LeagueReference league)
     {
         var avg = Divide(value.Hits, value.AB);
         var obp = Divide(value.Hits + value.Walks + value.HitByPitch,
@@ -333,12 +335,13 @@ public sealed partial class DatabaseTeamPageService
             HitByPitch = value.HitByPitch, Strikeouts = value.Strikeouts,
             AVG = avg, OBP = obp, SLG = slg,
             OPS = obp.HasValue && slg.HasValue ? obp.Value + slg.Value : null,
-            Woba = CalculateWoba(value),
+            Woba = CalculateWoba(value, league.GetWobaConstants(key.Year)),
         };
     }
 
     private async Task<IReadOnlyList<TeamPitchTypeBattingRow>> ReadBattingPitchTypeSplitsAsync(
         string teamCode,
+        LeagueReference league,
         CancellationToken cancellationToken)
     {
         var map = new Dictionary<(int Year, string PitchType), TeamSplitAccumulator>();
@@ -389,7 +392,7 @@ public sealed partial class DatabaseTeamPageService
                 Walks = value.Walks, HitByPitch = value.HitByPitch, Strikeouts = value.Strikeouts,
                 AVG = avg, OBP = obp, SLG = slg,
                 OPS = obp.HasValue && slg.HasValue ? obp.Value + slg.Value : null,
-                Woba = CalculateWoba(value),
+                Woba = CalculateWoba(value, league.GetWobaConstants(pair.Key.Year)),
             };
         })
         .OrderByDescending(row => row.Year)
@@ -497,13 +500,10 @@ public sealed partial class DatabaseTeamPageService
         .ToList();
     }
 
-    private static double? CalculateWoba(TeamSplitAccumulator value)
+    private static double? CalculateWoba(TeamSplitAccumulator value, WobaConstants constants)
     {
-        var denominator = value.AB + value.Walks - value.IntentionalWalks +
-                          value.HitByPitch + value.SacrificeFlies;
-        if (denominator <= 0) return null;
-        return (Wbb * (value.Walks - value.IntentionalWalks) + Whbp * value.HitByPitch +
-                W1b * value.Singles + W2b * value.Doubles + W3b * value.Triples +
-                Whr * value.HomeRuns) / denominator;
+        return constants.Calculate(
+            value.AB, value.Walks, value.IntentionalWalks, value.HitByPitch,
+            value.SacrificeFlies, value.Singles, value.Doubles, value.Triples, value.HomeRuns);
     }
 }

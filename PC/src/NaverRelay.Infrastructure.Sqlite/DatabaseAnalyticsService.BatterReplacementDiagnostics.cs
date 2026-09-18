@@ -9,6 +9,7 @@ public sealed partial class DatabaseAnalyticsService
         CancellationToken cancellationToken = default)
     {
         var catalog = await _database.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
+        var league = await _database.GetLeagueReferenceAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         var summaries = new List<ReplacementTeamDiagnosticRow>();
         var candidateRows = new List<BatterReplacementCandidateRow>();
 
@@ -27,7 +28,8 @@ public sealed partial class DatabaseAnalyticsService
             var gameCount = (int)Math.Round(data.TeamGames.Values.Sum() / 2.0, MidpointRounding.AwayFromZero);
             if (gameCount <= 0) continue;
 
-            var season = BuildBatterReplacementSeasonContext(data);
+            var wobaConstants = league.GetWobaConstants(year);
+            var season = BuildBatterReplacementSeasonContext(data, wobaConstants);
             var eligible = data.Batters.Where(x => x.PlateAppearances >= 20)
                 .OrderBy(x => x.PlateAppearances).ThenBy(x => x.Pcode, StringComparer.Ordinal).ToList();
             if (eligible.Count == 0) continue;
@@ -35,7 +37,7 @@ public sealed partial class DatabaseAnalyticsService
             var p35Index = Math.Clamp((int)Math.Floor((eligible.Count - 1) * 0.35), 0, eligible.Count - 1);
             var p35Threshold = Math.Min(150, Math.Max(20, eligible[p35Index].PlateAppearances));
 
-            var metrics = eligible.Select(row => BuildBatterReplacementMetric(row, season)).ToList();
+            var metrics = eligible.Select(row => BuildBatterReplacementMetric(row, season, wobaConstants)).ToList();
             foreach (var m in metrics)
             {
                 candidateRows.Add(new BatterReplacementCandidateRow
@@ -158,27 +160,16 @@ public sealed partial class DatabaseAnalyticsService
         };
     }
 
-    private static BatterReplacementSeasonContext BuildBatterReplacementSeasonContext(WarehouseAnalyticsData data)
+    private static BatterReplacementSeasonContext BuildBatterReplacementSeasonContext(
+        WarehouseAnalyticsData data,
+        WobaConstants constants)
     {
         var pa = data.Batters.Sum(x => x.PlateAppearances);
-        var ab = data.Batters.Sum(x => x.AtBats);
-        var bb = data.Batters.Sum(x => x.Walks);
-        var ibb = data.Batters.Sum(x => x.IntentionalWalks);
-        var hbp = data.Batters.Sum(x => x.HitByPitch);
-        var sf = data.Batters.Sum(x => x.SacrificeFlies);
-        var singles = data.Batters.Sum(x => x.Singles);
-        var doubles = data.Batters.Sum(x => x.Doubles);
-        var triples = data.Batters.Sum(x => x.Triples);
-        var hr = data.Batters.Sum(x => x.HomeRuns);
         var runs = data.Batters.Sum(x => x.RunsScoredOnPlays);
-        var denominator = ab + bb - ibb + sf + hbp;
-        var leagueWoba = denominator > 0
-            ? (Wbb * (bb - ibb) + Whbp * hbp + W1b * singles + W2b * doubles + W3b * triples + Whr * hr) / denominator
-            : 0.0;
         var teamGames = Math.Max(1.0, data.TeamGames.Values.Sum());
         return new BatterReplacementSeasonContext
         {
-            LeagueWoba = leagueWoba,
+            LeagueWoba = constants.LeagueWoba,
             LeagueRunsPerPa = pa > 0 ? runs / (double)pa : 0.0,
             LeagueRunsPerGame = runs / teamGames,
             PaPerTeamGame = pa / teamGames,
@@ -187,15 +178,15 @@ public sealed partial class DatabaseAnalyticsService
 
     private static BatterReplacementMetric BuildBatterReplacementMetric(
         BatterAggregateRecord row,
-        BatterReplacementSeasonContext season)
+        BatterReplacementSeasonContext season,
+        WobaConstants constants)
     {
-        var denominator = row.AtBats + row.Walks - row.IntentionalWalks + row.SacrificeFlies + row.HitByPitch;
-        var woba = denominator > 0
-            ? (Wbb * (row.Walks - row.IntentionalWalks) + Whbp * row.HitByPitch +
-               W1b * row.Singles + W2b * row.Doubles + W3b * row.Triples + Whr * row.HomeRuns) / denominator
-            : season.LeagueWoba;
+        var woba = constants.Calculate(
+            row.AtBats, row.Walks, row.IntentionalWalks, row.HitByPitch,
+            row.SacrificeFlies, row.Singles, row.Doubles, row.Triples, row.HomeRuns)
+            ?? season.LeagueWoba;
         var rawWraaPerPa = row.PlateAppearances > 0
-            ? (woba - season.LeagueWoba) / WobaScale
+            ? (woba - season.LeagueWoba) / constants.Scale
             : 0.0;
         var reliability = row.PlateAppearances > 0
             ? row.PlateAppearances / (row.PlateAppearances + 100.0)

@@ -1454,6 +1454,8 @@ public partial class MainForm : Form
             lblProgressDetail.Text = value.Message;
         });
         _leagueReference = await _databaseCache.GetLeagueReferenceAsync(progress, cancellationToken);
+        var latestYear = _leagueReference.WobaConstantsBySeason.Keys.DefaultIfEmpty().Max();
+        formulaView.SetWobaConstants(_leagueReference.GetWobaConstants(latestYear > 0 ? latestYear : null));
         return _leagueReference;
     }
 

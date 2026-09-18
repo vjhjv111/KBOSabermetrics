@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const state = { room: 'season', role: 'batter', view: 'basic', session: null, catalog: null,
   schema: [], applied: null, result: null, playerCode: null, sequence: 0, controller: null, schemaSequence: 0 };
 const roomNames = { season: '시즌', career: '통산', team: '팀', constants: '연도별 상수' };
-const descriptions = { season: '선택 시즌의 선수별 기록', career: '적재된 전체 기간의 선수 기록', team: '팀별 누적 기록과 세부 성적', constants: '적재된 전체 정규시즌 기준 · 화면 연도와 독립' };
+const descriptions = { season: '선택 시즌의 선수별 기록', career: '적재된 전체 기간의 선수 기록', team: '팀별 누적 기록과 세부 성적', constants: '연도별 wOBA 계수와 세이버메트릭스 공식·상수' };
 const teamNames = { HH: '한화', HT: 'KIA', LG: 'LG', LT: '롯데', SS: '삼성', SK: 'SSG', WO: '키움', KT: 'KT', NC: 'NC', OB: '두산' };
 const text = (tag, value, className) => { const e=document.createElement(tag); e.textContent=value; if(className)e.className=className; return e; };
 // Franchise aliases share one semantic team class; historical display names are preserved.
@@ -99,7 +99,8 @@ function navigation(){
   document.querySelector('.role-switch').hidden=constants;
   $('page-title').textContent=constants?'연도별 상수':`${roomNames[state.room]} ${state.role==='batter'?'타자':'투수'}`;
   $('page-description').textContent=descriptions[state.room];
-  $('year').disabled=state.room==='career'||(constants&&state.view!=='parks-detail');
+  $('year').disabled=state.room==='career'||(constants&&!['league','formulas','parks-detail'].includes(state.view));
+  $('year').options[0].textContent=constants?'통합':'전체';
   $('position').disabled=state.role==='pitcher'||state.room!=='season';
   $('qualification').disabled=state.room!=='season';
   $('nationality').disabled=state.room!=='season';
@@ -167,7 +168,7 @@ function readRequest(){
     startDate:custom?val('start-date'):null,endDate:custom?val('end-date'):null,recentDays:period?.startsWith('d')?Number(period.slice(1)):null,recentGames:period?.startsWith('g')?Number(period.slice(1)):null,
     weekday:val('weekday'),venue:val('venue'),opponent:val('opponent'),stadium:val('stadium'),playerName:val('player-name'),playerCode:state.playerCode,
     inning:val('inning'),outs:integer('outs'),runners:val('runners'),score:val('score'),balls:count?.[0]??null,strikes:count?.[1]??null,batOrder:integer('bat-order'),conditions,page:1,pageSize:Number(val('page-size')),sortBy:null,descending:true};
-  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,year:state.view==='parks-detail'?integer('year'):null,conditions:[],page:1,pageSize:r.pageSize};
+  if(state.room==='constants')return{room:'constants',role:state.role,view:state.view,year:['league','formulas','parks-detail'].includes(state.view)?integer('year'):null,conditions:[],page:1,pageSize:r.pageSize};
   return r;
 }
 function markDirty(){ $('draft-state').textContent='조건을 선택한 뒤 조회를 눌러 적용하세요.';$('draft-state').classList.add('dirty'); }
@@ -252,6 +253,7 @@ function renderTable(result){
     for(const col of result.columns){
       const value=row.cells[col.key]??'-',td=document.createElement('td');td.textContent=value;
       td.className=col.key==='Applied'?'applied':col.key==='Name'?'name':col.key==='Rank'?'rank':col.key==='TeamCode'?'team':col.kind==='text'?'text':'';
+      if(state.room==='constants'&&state.view==='formulas'&&['Formula','Constants','Description'].includes(col.key))td.classList.add('formula-text');
       if(col.key==='TeamCode')td.replaceChildren(teamNamesNode(value));
       if(['WrcPlus','OPS','ERA','WrcPlusParkAdjusted'].includes(col.key))td.classList.add('stat-emphasis');
       if(value!=='-'&&isParkFactorColumn(col)){td.replaceChildren(pfBadgeNode(value));td.classList.add('pf-cell');}
@@ -291,7 +293,12 @@ $('rookie-eligible').addEventListener('change',()=>{if($('rookie-eligible').chec
 // 부풀려진 팀 경기 수에 비례 계산되어 결과가 왜곡된다). 연도를 전체로 바꾸면 규정
 // 비율도 자동으로 전체(0%)로 초기화한다. (통산기록실은 연도 선택 자체가 막혀 있고
 // 위 navigation()에서 이미 처리하므로 여기서는 시즌기록실만 해당된다.)
-$('year').addEventListener('change',()=>{if($('year').value==='')$('qualification').value='0';});
+$('year').addEventListener('change',()=>{
+  if($('year').value==='')$('qualification').value='0';
+  if(state.room==='constants'){
+    try{query(readRequest());}catch(err){showError(err.message);}
+  }
+});
 $('player-name').oninput=()=>{state.playerCode=null;$('player-chip').hidden=true;};
 $('player-chip').querySelector('button').onclick=()=>{state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;markDirty();};
 $('detail-toggle').onclick=()=>{const expanded=$('detail-toggle').getAttribute('aria-expanded')==='true';$('detail-toggle').setAttribute('aria-expanded',String(!expanded));$('detail-filters').hidden=expanded;$('detail-toggle').textContent=expanded?'상세 열기 +':'상세 접기 −';};

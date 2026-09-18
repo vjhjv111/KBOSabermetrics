@@ -68,3 +68,9 @@ td.pf-cell{text-align:center}
 
 .checkbox-label{gap:5px!important}
 .checkbox-label input[type=checkbox]{width:15px;height:15px;accent-color:var(--pink);cursor:pointer}
+
+/* Formula catalog cells wrap so long equations and their live constants remain readable. */
+td.formula-text{white-space:pre-line;vertical-align:top;height:auto;line-height:1.55;padding:9px 11px}
+td.formula-text:nth-child(3){min-width:360px;max-width:520px}
+td.formula-text:nth-child(4){min-width:300px;max-width:430px}
+td.formula-text:nth-child(5){min-width:260px;max-width:380px}

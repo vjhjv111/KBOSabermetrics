@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.8";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.12";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -206,7 +206,7 @@ public sealed partial class RecordService
             {
                 if (PublicHidden(p, request.Role)) continue;
                 cells[p.Name] = WarHidden(p) || ContextHidden(p,query,request.Role) ? "-" :
-                    p.Name == "Rank" ? (skip + i + 1).ToString(CultureInfo.InvariantCulture) : ViewRegistry.Display(p, p.GetValue(row));
+                    p.Name == "Rank" ? (skip + i + 1).ToString(CultureInfo.InvariantCulture) : DisplayCell(definition, row, p);
                 if (p.Name == "Name")
                 {
                     cells["Applied"] = sort is null
@@ -233,6 +233,22 @@ public sealed partial class RecordService
             ? await BuildLeagueOverviewAsync(request, query, token).ConfigureAwait(false)
             : null;
         return new(Columns(definition, sort, request.Descending),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion,leagueOverview);
+    }
+
+    private static string DisplayCell(ViewDefinition definition, object row, PropertyInfo property)
+    {
+        if (definition.RowType == typeof(LeagueConstantGridRow) &&
+            property.Name == nameof(LeagueConstantGridRow.Value) &&
+            row is LeagueConstantGridRow constant &&
+            constant.Value.HasValue)
+        {
+            var isPlateAppearanceCount = constant.Metric.EndsWith("표본 PA", StringComparison.Ordinal);
+            return constant.Value.Value.ToString(
+                isPlateAppearanceCount ? "N0" : "0.0000",
+                CultureInfo.InvariantCulture);
+        }
+
+        return ViewRegistry.Display(property, property.GetValue(row));
     }
 
     private async Task<LeagueOverview> BuildLeagueOverviewAsync(RecordRequest request, GameQuery query, CancellationToken token)
@@ -279,7 +295,20 @@ public sealed partial class RecordService
                 return detail.Cast<object>().ToList();
             }
             var lg = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
-            return r.View == "parks" ? lg.ParkFactors.Cast<object>().ToList() : lg.Constants.Cast<object>().ToList();
+            if (r.View == "formulas") return BuildFormulaRows(lg, r.Year).Cast<object>().ToList();
+            if (r.View == "parks") return lg.ParkFactors.Cast<object>().ToList();
+            if (r.Year.HasValue)
+            {
+                var prefix = $"{r.Year.Value} ";
+                return lg.Constants
+                    .Where(row => row.Metric.StartsWith(prefix, StringComparison.Ordinal))
+                    .Cast<object>()
+                    .ToList();
+            }
+            return lg.Constants
+                .Where(row => !HasSeasonPrefix(row.Metric))
+                .Cast<object>()
+                .ToList();
         }
         var core = r.Role == "batter"
             ? new[] { "basic","advanced","value","extended","power","team-batting","steal","baserunning","discipline" }.Contains(r.View)
@@ -368,6 +397,96 @@ public sealed partial class RecordService
             rows=rows.Where(x=>eligible.Contains(RecordRoomRowFactory.Key(Convert.ToString(p?.GetValue(x)),Convert.ToString(team?.GetValue(x))))).ToList();
         }
         return rows;
+    }
+
+    private static bool HasSeasonPrefix(string metric) =>
+        metric.Length > 4 && metric[4] == ' ' && int.TryParse(metric.AsSpan(0, 4), out _);
+
+    private static IReadOnlyList<SabermetricFormulaGridRow> BuildFormulaRows(LeagueReference league, int? seasonYear)
+    {
+        var woba = league.GetWobaConstants(seasonYear);
+        var wobaScope = woba.SeasonYear?.ToString(CultureInfo.InvariantCulture) ?? "통합";
+        var wobaWeights = $"{wobaScope} {woba.Source}; PA {woba.SamplePlateAppearances:N0}; " +
+                          $"uBB {woba.UnintentionalWalk:0.0000}, HBP {woba.HitByPitch:0.0000}, " +
+                          $"1B {woba.Single:0.0000}, 2B {woba.Double:0.0000}, " +
+                          $"3B {woba.Triple:0.0000}, HR {woba.HomeRun:0.0000}";
+        var calibration = league.PitcherWar ?? new PitcherWarCalibration();
+
+        static SabermetricFormulaGridRow Row(
+            string category,
+            string metric,
+            string formula,
+            string constants,
+            string description) => new()
+            {
+                Category = category,
+                Metric = metric,
+                Formula = formula,
+                Constants = constants,
+                Description = description,
+            };
+
+        return
+        [
+            Row("기본 타격", "AVG", "H ÷ AB", "-", "타수 대비 안타 비율"),
+            Row("기본 타격", "OBP", "(H + BB + HBP) ÷ (AB + BB + HBP + SF)", "-", "출루율"),
+            Row("기본 타격", "SLG", "(1B + 2×2B + 3×3B + 4×HR) ÷ AB", "-", "장타율"),
+            Row("기본 타격", "OPS", "OBP + SLG", "-", "출루율과 장타율의 합"),
+            Row("기본 타격", "ISO", "SLG - AVG", "-", "순수 장타력"),
+            Row("기본 타격", "BABIP", "(H - HR) ÷ (AB - SO - HR + SF)", "-", "인플레이 타구의 안타 비율"),
+            Row("기본 타격", "BB% · K%", "BB ÷ PA · SO ÷ PA", "-", "타석당 볼넷과 삼진"),
+            Row("기본 타격", "BB/K", "BB ÷ SO", "-", "삼진 대비 볼넷"),
+
+            Row("타격 가치", "wOBA", "(wBB×uBB + wHBP×HBP + w1B×1B + w2B×2B + w3B×3B + wHR×HR) ÷ (AB + uBB + HBP + SF)", wobaWeights, "시즌 RE24 이벤트 득점가치를 리그 OBP에 맞춰 스케일링"),
+            Row("타격 가치", "wRAA", "((wOBA - lgwOBA) ÷ Scale) × PA", $"lgwOBA {woba.LeagueWoba:0.0000}; Scale {woba.Scale:0.0000}", "평균 타자 대비 득점 기여"),
+            Row("타격 가치", "wRC", "wRAA + (lgR/PA × PA)", $"lgR/PA {woba.RunsPerPa:0.0000}", "선수가 창출한 추정 득점"),
+            Row("타격 가치", "wRC+", "100 × (wRC ÷ PA) ÷ lgR/PA", $"lgR/PA {woba.RunsPerPa:0.0000}", "100이 리그 평균"),
+            Row("타격 가치", "wRC+(파크)", "wRC+ + (100 - 타자 PF)", "KBO PF v2; 선수의 구장별 PA 가중", "구장 효과를 단순 점수 보정한 사이트 지표"),
+            Row("타격 가치", "OPS+", "100 × (OBP÷lgOBP + SLG÷lgSLG - 1)", $"통합 lgOBP {league.Obp:0.0000}; lgSLG {league.Slg:0.0000}", "100이 리그 평균"),
+
+            Row("타자 WAR", "주루 Runs", "0.20×SB - 0.40×CS", "SB +0.20; CS -0.40 runs", "현재 도루·도실패만 반영"),
+            Row("타자 WAR", "포지션 Runs", "FG 포지션 rate × 추정 수비이닝 ÷ 1458", "DH는 PA÷600; 포지션별 FG rate", "수비 출전 정보로 주 포지션과 보정치 추정"),
+            Row("타자 WAR", "RAR", "wRAA + 주루 Runs + 포지션 Runs + 대체선수 Runs", "수비 Runs 0; 대체선수 Runs는 조회 범위 목표 WAR에 맞춰 역산", "대체선수 대비 득점"),
+            Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "Runs Per Win 10.0; 타자 목표 WAR 57%", "사이트 자체 추정 타자 WAR"),
+
+            Row("기본 투구", "ERA", "9 × ER ÷ IP", "공식 ER·IP", "9이닝당 자책점"),
+            Row("기본 투구", "RA9", "9 × R ÷ IP", "공식 R·IP", "9이닝당 실점"),
+            Row("기본 투구", "WHIP", "(H + BB) ÷ IP", "공식 투수 최종 기록", "이닝당 출루 허용"),
+            Row("기본 투구", "K-BB%", "(SO - BB) ÷ TBF", "-", "상대한 타자 대비 삼진과 볼넷 차이"),
+            Row("기본 투구", "K/9 · BB/9 · HR/9", "9 × SO·BB·HR ÷ IP", "공식 투수 최종 기록", "9이닝 기준 비율"),
+            Row("기본 투구", "투수 BABIP", "(H - HR) ÷ (TBF - BB - HBP - SO - HR + SF)", "-", "피인플레이 타구의 안타 비율"),
+            Row("기본 투구", "LOB%", "(H + BB + HBP - R) ÷ (H + BB + HBP - 1.4×HR)", "HR 계수 1.4", "주자 잔류율 추정"),
+
+            Row("수비 독립 투구", "FIP", "[13×HR + 3×(BB+HBP) - 2×SO] ÷ IP + C", $"C {league.FipConstant:0.0000}", "리그 평균 FIP가 리그 RA9에 맞도록 C 산출"),
+            Row("수비 독립 투구", "xFIP", "[13×(FB×lgHR/FB) + 3×(BB+HBP) - 2×SO] ÷ IP + C", $"lgHR/FB {league.HrPerFlyBall:0.0000}; C {league.FipConstant:0.0000}", "실제 홈런을 기대 홈런으로 대체"),
+            Row("수비 독립 투구", "FIP- · xFIP-", "100 × 선수 FIP 또는 xFIP ÷ 리그 RA9", $"리그 RA9 {league.Ra9:0.0000}", "100보다 낮을수록 우수"),
+
+            Row("KBO 투수 WAR", "ifFIP", "[13×HR + 3×(BB+HBP) - 2×(SO+IFFB)] ÷ IP + C", $"C {league.IfFipConstant:0.0000}", "내야 뜬공을 삼진과 같은 자동 아웃으로 추가"),
+            Row("KBO 투수 WAR", "FIPR9", "ifFIP + (lgRA9 - lgERA)", $"보정 {league.Ra9Adjustment:0.0000}; lgFIPR9 {league.LeagueFipR9:0.0000}", "ifFIP를 실점 스케일로 변환"),
+            Row("KBO 투수 WAR", "pFIPR9", "FIPR9 ÷ (PF÷100)", "시즌·구장별 KBO PF v2", "투구이닝으로 구장 팩터를 가중"),
+            Row("KBO 투수 WAR", "dRPW", "{[(18-IP/G)×lgFIPR9 + (IP/G)×pFIPR9]÷18 + 2}×1.5", $"lgFIPR9 {league.LeagueFipR9:0.0000}", "투수 역할과 실점 환경별 동적 승리당 득점"),
+            Row("KBO 투수 WAR", "gmLI", "구원 등판 시 평균 |WPA| ÷ 리그 평균 |WPA|", $"리그 평균 |WPA| {league.AverageAbsoluteWpa:0.0000}; 0.1~5.0 제한", "구원 등판 시점의 평균 레버리지"),
+            Row("KBO 투수 WAR", "구원 LI 배수", "(1 + gmLI) ÷ 2", "선발 1.0", "구원 품질·대체승에 적용"),
+            Row("KBO 투수 WAR", "평균 대비 승리 기여", "(lgFIPR9 - pFIPR9) ÷ dRPW × IP÷9 × LI", "구원만 LI 적용", "리그 평균보다 억제한 실점을 승리 단위로 환산"),
+            Row("KBO 투수 WAR", "대체 승", "(Repl FIPR9 - lgFIPR9) ÷ dRPW × IP÷9 × LI", $"SP {calibration.StarterReplacementFipR9:0.0000}; RP {calibration.RelieverReplacementFipR9:0.0000}", "선발·구원 역할별 대체수준"),
+            Row("KBO 투수 WAR", "KBO fWAR", "평균 대비 승리 기여 + 대체 승 + WARIP×IP", $"WARIP {calibration.FipWarPerInning:0.000000}; 투수 WAR 몫 {calibration.PitcherWarShare:P0}; 대체승률 {calibration.ReplacementWinningPercentage:0.000}", "조회 범위의 투수 목표 WAR에 맞춰 최종 보정"),
+
+            Row("투구 접근", "Swing%", "Swing ÷ Pitches", "-", "전체 투구 중 스윙 비율"),
+            Row("투구 접근", "Contact%", "Contact ÷ Swing", "-", "스윙 중 컨택 비율"),
+            Row("투구 접근", "Whiff%", "Whiff ÷ Swing", "-", "스윙 중 헛스윙 비율"),
+            Row("투구 접근", "CSW%", "(Whiff + Called Strike) ÷ Pitches", "-", "헛스윙과 루킹 스트라이크 비율"),
+            Row("투구 접근", "Z-Swing% · O-Swing%", "Zone Swing÷Zone Pitches · Chase Swing÷Out-Zone Pitches", "-", "존 안 스윙과 존 밖 추격 비율"),
+            Row("투구 접근", "Z-Contact% · O-Contact%", "Zone Contact÷Zone Swing · Out-Zone Contact÷Chase Swing", "-", "존 안팎 컨택 비율"),
+            Row("투구 접근", "SwStr% · 1st Swing%", "Whiff÷Pitches · First-Pitch Swing÷First Pitches", "-", "전체 헛스윙과 초구 스윙 비율"),
+            Row("투구 접근", "P/PA", "Pitches ÷ PA 또는 TBF", "-", "타자·투수의 타석당 투구 수"),
+
+            Row("상황 가치", "RE24", "타석 후 기대득점 - 타석 전 기대득점 + 실제 득점", "24개 주자·아웃 상태", "wOBA 이벤트 가중치의 기초"),
+            Row("상황 가치", "WPA", "타석 후 승리확률 - 타석 전 승리확률", "원본 metricOption.wpaByPlate", "한 타석이 승리확률에 준 변화"),
+            Row("상황 가치", "pLI", "타석의 |WPA| ÷ 리그 평균 |WPA|", $"리그 평균 |WPA| {league.AverageAbsoluteWpa:0.0000}", "상황 중요도"),
+            Row("상황 가치", "WPA/LI", "WPA ÷ pLI", "-", "상황 중요도를 중립화한 WPA"),
+
+            Row("구장", "KBO PF v2", "최근 5년 PF 가중결합 → 100 회귀 → 85~115 제한 → 리그 평균 100 재중앙화", "최근가중 30/25/20/15/10%; Reliability=G÷(G+100)", "타자는 구장별 PA, 투수는 구장별 IP로 가중"),
+        ];
     }
 
     private static bool ContextHidden(PropertyInfo p, GameQuery q, string role)

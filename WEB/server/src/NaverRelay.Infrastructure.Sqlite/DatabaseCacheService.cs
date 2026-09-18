@@ -20,7 +20,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
     private const string ParserCacheVersion = "sabermetrics-v2-combined-official-v8";
-    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-common-war-v1";
+    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-woba-re24-v2";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

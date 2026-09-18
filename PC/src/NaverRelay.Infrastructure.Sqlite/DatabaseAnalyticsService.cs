@@ -9,14 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v4";
-    private const double Wbb = 0.69;
-    private const double Whbp = 0.72;
-    private const double W1b = 0.88;
-    private const double W2b = 1.247;
-    private const double W3b = 1.578;
-    private const double Whr = 2.031;
-    private const double WobaScale = 1.20;
+    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v5-re24";
 
     private readonly DatabaseCacheService _database;
 
@@ -46,7 +39,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .OrderByDescending(row => row.PA)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
-        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league))
+        var batterSaber = data.Batters.Select(row => BuildBatterSaber(row, league, seasonYear))
             .OrderByDescending(row => row.PA)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -139,29 +132,27 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         };
     }
 
-    private static BatterSabermetricGridRow BuildBatterSaber(BatterAggregateRecord row, LeagueReference league)
+    private static BatterSabermetricGridRow BuildBatterSaber(
+        BatterAggregateRecord row,
+        LeagueReference league,
+        int? seasonYear)
     {
+        var constants = league.GetWobaConstants(seasonYear);
         var avg = Divide(row.Hits, row.AtBats);
         var slg = Divide(row.TotalBases, row.AtBats);
         var obp = Divide(row.Hits + row.Walks + row.HitByPitch,
             row.AtBats + row.Walks + row.HitByPitch + row.SacrificeFlies);
-        var denominator = row.AtBats + row.Walks - row.IntentionalWalks + row.SacrificeFlies + row.HitByPitch;
-        var woba = Divide(
-            Wbb * (row.Walks - row.IntentionalWalks) +
-            Whbp * row.HitByPitch +
-            W1b * row.Singles +
-            W2b * row.Doubles +
-            W3b * row.Triples +
-            Whr * row.HomeRuns,
-            denominator);
+        var woba = constants.Calculate(
+            row.AtBats, row.Walks, row.IntentionalWalks, row.HitByPitch,
+            row.SacrificeFlies, row.Singles, row.Doubles, row.Triples, row.HomeRuns);
         double? wraa = woba.HasValue
-            ? (woba.Value - league.Woba) / WobaScale * row.PlateAppearances
+            ? (woba.Value - constants.LeagueWoba) / constants.Scale * row.PlateAppearances
             : null;
         double? wrc = wraa.HasValue
-            ? wraa.Value + league.RunsPerPa * row.PlateAppearances
+            ? wraa.Value + constants.RunsPerPa * row.PlateAppearances
             : null;
-        double? wrcPlus = wrc.HasValue && row.PlateAppearances > 0 && league.RunsPerPa > 0
-            ? 100.0 * (wrc.Value / row.PlateAppearances) / league.RunsPerPa
+        double? wrcPlus = wrc.HasValue && row.PlateAppearances > 0 && constants.RunsPerPa > 0
+            ? 100.0 * (wrc.Value / row.PlateAppearances) / constants.RunsPerPa
             : null;
         double? opsPlus = obp.HasValue && slg.HasValue && league.Obp > 0 && league.Slg > 0
             ? 100.0 * (obp.Value / league.Obp + slg.Value / league.Slg - 1.0)
