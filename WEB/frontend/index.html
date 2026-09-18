@@ -20,14 +20,14 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png?v=20260916-fanzai-brand-v1">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=20260916-fanzai-brand-v1">
 
-  <link rel="stylesheet" href="/app.css?v=20260919-formula-catalog-v1">
+  <link rel="stylesheet" href="/app.css?v=20260919-formula-csv-v2">
   <link rel="stylesheet" href="/home.css?v=20260913-five-game-compact-v4">
   <link rel="stylesheet" href="/forecast-method.css?v=20260913-formula-v1">
   <link rel="stylesheet" href="/player-profile.css?v=20260912-official-profiles-v1">
   <link rel="stylesheet" href="/analysis.css?v=20260912-analysis-v1">
   <link rel="stylesheet" href="/comparison.css?v=20260912-comparison-v1">
   <script defer src="/forecast-method.js?v=20260913-formula-v1"></script>
-  <script defer src="/app.js?v=20260919-formula-catalog-v1"></script>
+  <script defer src="/app.js?v=20260919-formula-csv-v2"></script>
   <script src="/games.js?v=20260916-fanzai-brand-v1" defer></script>
   <script src="/diamond.js?v=20260916-fanzai-brand-v1" defer></script>
   <script src="/analysis.js?v=20260916-fanzai-brand-v1" defer></script>
@@ -95,7 +95,7 @@
       <div class="filter-footer"><span id="draft-state" class="muted">필터를 선택해 조회하세요.</span><span id="player-chip" class="player-chip" hidden><span></span><button type="button" aria-label="선수 지정 해제">×</button></span><span class="private-note"><span class="dot"></span> 서버 조회 · 페이지 단위 제공</span></div>
     </form>
     <section class="record-body" aria-label="조회 결과">
-      <div class="subnav-bar"><nav id="view-nav" class="view-nav" aria-label="기록 종류"></nav><button id="policy" class="text-button" type="button">이용·계산 안내 ⓘ</button></div>
+      <div class="subnav-bar"><nav id="view-nav" class="view-nav" aria-label="기록 종류"></nav><button id="formula-csv" class="button outline" type="button" hidden disabled>CSV 다운로드</button><button id="policy" class="text-button" type="button">이용·계산 안내 ⓘ</button></div>
       <div id="league-overview" class="league-overview" hidden><div id="league-overview-title" class="league-overview-title">리그 전체</div><div id="league-overview-metrics" class="league-overview-metrics"></div></div>
       <div class="result-bar"><div><span id="result-title">조회 결과</span><span id="result-count" class="muted"></span></div><span id="timing" class="muted"></span></div>
       <div id="error-box" class="alert error" role="alert" hidden></div>

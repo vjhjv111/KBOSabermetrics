@@ -23,17 +23,36 @@ function colorTeamSelect(select){
 }
 function showError(message){ $('error-box').textContent=message; $('error-box').hidden=false; }
 function clearError(){ $('error-box').hidden=true; $('error-box').textContent=''; }
-async function api(path, body, signal, _retried){
+function retryDelay(ms,signal){
+  return new Promise((resolve,reject)=>{
+    if(signal?.aborted){reject(new DOMException('요청이 취소되었습니다.','AbortError'));return;}
+    const timer=setTimeout(done,ms);
+    function done(){signal?.removeEventListener('abort',cancel);resolve();}
+    function cancel(){clearTimeout(timer);signal?.removeEventListener('abort',cancel);reject(new DOMException('요청이 취소되었습니다.','AbortError'));}
+    signal?.addEventListener('abort',cancel,{once:true});
+  });
+}
+async function api(path, body, signal, _csrfRetried=false, _busyAttempt=0){
   const response = await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal,
     headers:body===undefined?{}:{'Content-Type':'application/json','X-CSRF-TOKEN':state.session?.csrfToken??''},
     body:body===undefined?undefined:JSON.stringify(body)});
   const data = await response.json().catch(()=>({message:'서버 응답을 읽지 못했습니다.'}));
   if(!response.ok){
+    // 동시 조회 슬롯이 잠깐 찬 경우 사용자가 시즌을 다시 선택할 필요 없이
+    // 간격을 늘려 최대 세 번 재시도한다. 일일/IP 제한(RATE_LIMIT)은 재시도로
+    // 해결되지 않으므로 여기 포함하지 않아 불필요한 요청을 늘리지 않는다.
+    if(response.status===429 && data.code==='QUERY_BUSY' && _busyAttempt<3){
+      const retryAfter=Number(response.headers.get('Retry-After'));
+      const fallback=800*(2**_busyAttempt)+Math.floor(Math.random()*250);
+      const delay=Number.isFinite(retryAfter)&&retryAfter>0?Math.min(retryAfter*1000,5000):fallback;
+      await retryDelay(delay,signal);
+      return await api(path,body,signal,_csrfRetried,_busyAttempt+1);
+    }
     // 페이지 초기 로드 시 세션 토큰을 받기 전에 요청이 먼저 나가면 CSRF 검증이
     // 실패할 수 있다. 이 경우 세션을 한 번 다시 받아 원래 요청을 자동으로
     // 재시도해서, 사용자가 수동으로 새로고침하지 않아도 되게 한다.
-    if(response.status===400 && data.code==='CSRF' && body!==undefined && !_retried){
-      try{ state.session=await api('/api/session'); return await api(path, body, signal, true); }catch{}
+    if(response.status===400 && data.code==='CSRF' && body!==undefined && !_csrfRetried){
+      try{ state.session=await api('/api/session',undefined,signal); return await api(path,body,signal,true,_busyAttempt); }catch{}
     }
     const error = new Error(data.message??`조회에 실패했습니다. (${response.status})`);
     error.status=response.status; error.code=data.code; error.requestId=data.requestId;
@@ -70,6 +89,7 @@ async function loadCatalog(){
   const c=state.catalog;
   c.teams=c.teams.filter(t=>!['EA','WE'].includes(t.toUpperCase()));
   options($('year'),c.years, String(Math.max(...c.years)));
+  if(state.room==='season'&&$('year').value!=='')$('qualification').value='100';
   options($('team'),c.teams.map(t=>[t,teamNames[t]??t]));
   options($('opponent'),c.teams.map(t=>[t,teamNames[t]??t]));
   options($('stadium'),c.stadiums);
@@ -96,17 +116,23 @@ function navigation(){
   syncRoomNavigation();
   document.querySelectorAll('.role').forEach(b=>{const yes=b.dataset.role===state.role;b.classList.toggle('active',yes);b.setAttribute('aria-pressed',String(yes));});
   const constants=state.room==='constants';
+  const formulaView=constants&&state.view==='formulas';
+  $('formula-csv').hidden=!formulaView;
+  $('formula-csv').disabled=!formulaView||!state.result?.rows?.length;
   document.querySelector('.role-switch').hidden=constants;
   $('page-title').textContent=constants?'연도별 상수':`${roomNames[state.room]} ${state.role==='batter'?'타자':'투수'}`;
   $('page-description').textContent=descriptions[state.room];
   $('year').disabled=state.room==='career'||(constants&&!['league','formulas','parks-detail'].includes(state.view));
   $('year').options[0].textContent=constants?'통합':'전체';
   $('position').disabled=state.role==='pitcher'||state.room!=='season';
+  const qualificationWasDisabled=$('qualification').disabled;
   $('qualification').disabled=state.room!=='season';
   $('nationality').disabled=state.room!=='season';
   $('rookie-eligible').disabled=state.room!=='season';
   if($('position').disabled)$('position').value='';
-  if($('qualification').disabled||(state.room==='season'&&$('year').value===''))$('qualification').value='0';
+  if($('qualification').disabled)$('qualification').value='0';
+  else if($('year').value==='')$('qualification').value='0';
+  else if(qualificationWasDisabled)$('qualification').value='100';
   if($('nationality').disabled)$('nationality').value='';
   if($('rookie-eligible').disabled)$('rookie-eligible').checked=false;
   $('qual-label').textContent=state.role==='batter'?'규정타석':'규정이닝';
@@ -123,6 +149,7 @@ function navigation(){
 }
 async function changeView(){
   abortQuery();clearError();state.applied=null;state.result=null;
+  $('formula-csv').disabled=true;
   navigation();
   $('records').querySelector('tbody').replaceChildren();$('empty').hidden=false;
   $('result-count').textContent='';$('page-caption').textContent='—';$('timing').textContent='';
@@ -276,6 +303,23 @@ function renderTable(result){
   $('page-number').textContent=`${result.page} / ${Math.max(1,Math.ceil(result.accessibleTotal/result.pageSize))}`;
   $('previous').disabled=result.page<=1;$('next').disabled=result.page*result.pageSize>=result.accessibleTotal;
   $('warnings').replaceChildren(...result.warnings.map(w=>text('p',w)));
+  $('formula-csv').disabled=!(state.room==='constants'&&state.view==='formulas'&&result.rows.length);
+}
+function csvCell(value){
+  const raw=String(value??'');
+  // Downloaded text must not be interpreted as a spreadsheet formula.
+  const safe=/^[=+\-@]/.test(raw)?`'${raw}`:raw;
+  return `"${safe.replaceAll('"','""')}"`;
+}
+function downloadFormulaCsv(){
+  if(state.room!=='constants'||state.view!=='formulas'||!state.result?.rows?.length)return;
+  const columns=state.result.columns,year=$('year').value||'통합';
+  const lines=[['연도',...columns.map(c=>c.label)].map(csvCell).join(',')];
+  for(const row of state.result.rows)lines.push([year,...columns.map(c=>row.cells[c.key]??'')].map(csvCell).join(','));
+  const blob=new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`FANZAI_세이버메트릭스_공식_${year}.csv`;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 function selectPlayer(code,name){
   $('search-dialog').close();
@@ -294,7 +338,7 @@ $('rookie-eligible').addEventListener('change',()=>{if($('rookie-eligible').chec
 // 비율도 자동으로 전체(0%)로 초기화한다. (통산기록실은 연도 선택 자체가 막혀 있고
 // 위 navigation()에서 이미 처리하므로 여기서는 시즌기록실만 해당된다.)
 $('year').addEventListener('change',()=>{
-  if($('year').value==='')$('qualification').value='0';
+  if(state.room==='season')$('qualification').value=$('year').value===''?'0':'100';
   if(state.room==='constants'){
     try{query(readRequest());}catch(err){showError(err.message);}
   }
@@ -308,6 +352,7 @@ $('reset').onclick=()=>{
   $('start-date').disabled=$('end-date').disabled=true;state.playerCode=null;$('player-chip').hidden=true;navigation();markDirty();
 };
 $('cancel-query').onclick=()=>{abortQuery();$('draft-state').textContent='조회 요청을 취소했습니다.';};
+$('formula-csv').onclick=downloadFormulaCsv;
 $('previous').onclick=()=>state.applied&&query({...state.applied,page:state.applied.page-1});
 $('next').onclick=()=>state.applied&&query({...state.applied,page:state.applied.page+1});
 for(const b of document.querySelectorAll('.room'))b.onclick=async()=>{if(state.room===b.dataset.room)return;state.room=b.dataset.room;state.view=state.room==='constants'?'league':'basic';if(['team','constants'].includes(state.room)){state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;}await changeView();};
