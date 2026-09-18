@@ -238,7 +238,8 @@ public sealed partial class RecordService
     private async Task<LeagueOverview> BuildLeagueOverviewAsync(RecordRequest request, GameQuery query, CancellationToken token)
     {
         var league = await _db.GetLeagueReferenceAsync(cancellationToken: token).ConfigureAwait(false);
-        var snapshot = await _analytics.GetWebRoleSnapshotAsync(query, league, request.Role == "pitcher", token).ConfigureAwait(false);
+        var snapshot = await _analytics.GetWebRoleSnapshotAsync(query, league, request.Role == "pitcher",
+            includeTeamBattingContext: false, cancellationToken: token).ConfigureAwait(false);
         var fullLeague = string.IsNullOrWhiteSpace(request.Team);
         LeagueOverview overview;
         if (request.Role == "pitcher")
@@ -287,7 +288,8 @@ public sealed partial class RecordService
         var needsLeague = needsSnapshot || r.View is "clutch" or "wp" or "reliever";
         var league = needsLeague ? await _db.GetLeagueReferenceAsync(cancellationToken:token).ConfigureAwait(false) : new LeagueReference();
         var snapshot = needsSnapshot
-            ? await _analytics.GetWebRoleSnapshotAsync(q,league,r.Role=="pitcher",token).ConfigureAwait(false)
+            ? await _analytics.GetWebRoleSnapshotAsync(q,league,r.Role=="pitcher",
+                includeTeamBattingContext: r.Role=="batter" && r.View=="team-batting", cancellationToken:token).ConfigureAwait(false)
             : new AnalyticsSnapshot();
         object result;
         if (r.Role == "batter")
