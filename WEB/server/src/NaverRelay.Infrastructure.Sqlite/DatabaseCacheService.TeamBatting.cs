@@ -69,43 +69,17 @@ public sealed partial class DatabaseCacheService
                           OR NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerName,'')),'') IS NOT NULL
                           OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerPcode,'')),'') IS NOT NULL
                           OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerName,'')),'') IS NOT NULL)
-                        AND ((pa.BattedBallType=$bunt
-                              AND pa.IsSacrifice=0
-                              AND pa.IsHit=0)
-                          OR ((pa.IsOut=1 OR pa.ResultType=$fieldersChoice)
-                              AND pa.IsSacrifice=0
-                              AND EXISTS (
-                                  SELECT 1
-                                  FROM Pitches bunt_pitch
-                                  WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
-                                    AND bunt_pitch.PitchResult=$buntFoul))
-                          OR (pa.IsSacrifice=0
-                              AND pa.IsHit=0
-                              AND pa.ResultType NOT IN ($walk,$intentionalWalk,$hitByPitch)
-                              AND EXISTS (
-                                  SELECT 1
-                                  FROM Pitches bunt_whiff
-                                  WHERE bunt_whiff.PlateAppearanceId=pa.PlateAppearanceId
-                                    AND (bunt_whiff.PitchResult=$buntWhiff
-                                      OR UPPER(TRIM(COALESCE(bunt_whiff.RawPitchResult,'')))=$buntWhiffRaw))))
-                        AND (pa.BattedBallType<>$bunt OR NOT EXISTS (
-                            SELECT 1
-                            FROM RunnerEvents lead_advance
-                            WHERE lead_advance.PlateAppearanceId=pa.PlateAppearanceId
-                              AND lead_advance.IsOut=0
-                              AND lead_advance.ToBase>lead_advance.FromBase
-                              AND lead_advance.Reason<>$runnerError
-                              AND NOT (
-                                  lead_advance.Reason=$runnerBatterPlay
-                                  AND (pa.ResultType=$reachedOnError
-                                    OR COALESCE(pa.ResultText,'') LIKE '%실책%'))
-                              AND lead_advance.FromBase=CASE
-                                  WHEN NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerPcode,'')),'') IS NOT NULL
-                                    OR NULLIF(TRIM(COALESCE(pa.BeforeThirdRunnerName,'')),'') IS NOT NULL THEN 3
-                                  WHEN NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerPcode,'')),'') IS NOT NULL
-                                    OR NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerName,'')),'') IS NOT NULL THEN 2
-                                  ELSE 1
-                              END))
+                        AND pa.IsOut=1
+                        AND pa.IsHit=0
+                        AND pa.IsSacrifice=0
+                        AND pa.ResultType NOT IN ($walk,$intentionalWalk,$hitByPitch,$reachedOnError,$fieldersChoice)
+                        AND (pa.BattedBallType=$bunt
+                          OR EXISTS (
+                              SELECT 1
+                              FROM Pitches bunt_pitch
+                              WHERE bunt_pitch.PlateAppearanceId=pa.PlateAppearanceId
+                                AND (bunt_pitch.PitchResult IN ($buntFoul,$buntWhiff)
+                                  OR UPPER(TRIM(COALESCE(bunt_pitch.RawPitchResult,'')))=$buntWhiffRaw)))
                        THEN 1 ELSE 0 END) AS SacrificeBuntFailures,
                    CASE WHEN $hasSituation=0 THEN {leftOnBase} ELSE NULL END AS LeftOnBase
             FROM PlateAppearances pa
@@ -129,8 +103,6 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$intentionalWalk", (int)BattingResultType.IntentionalWalk);
         command.Parameters.AddWithValue("$hitByPitch", (int)BattingResultType.HitByPitch);
         command.Parameters.AddWithValue("$fieldersChoice", (int)BattingResultType.FieldersChoice);
-        command.Parameters.AddWithValue("$runnerError", (int)RunnerAdvanceReason.Error);
-        command.Parameters.AddWithValue("$runnerBatterPlay", (int)RunnerAdvanceReason.BatterPlay);
         command.Parameters.AddWithValue("$reachedOnError", (int)BattingResultType.ReachedOnError);
         command.Parameters.AddWithValue("$hasSituation", query.HasSituationFilters ? 1 : 0);
 
