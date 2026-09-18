@@ -88,7 +88,7 @@ public sealed partial class DatabaseCacheService
                                   WHERE bunt_whiff.PlateAppearanceId=pa.PlateAppearanceId
                                     AND (bunt_whiff.PitchResult=$buntWhiff
                                       OR UPPER(TRIM(COALESCE(bunt_whiff.RawPitchResult,'')))=$buntWhiffRaw))))
-                        AND NOT EXISTS (
+                        AND (pa.BattedBallType<>$bunt OR NOT EXISTS (
                             SELECT 1
                             FROM RunnerEvents lead_advance
                             WHERE lead_advance.PlateAppearanceId=pa.PlateAppearanceId
@@ -105,7 +105,7 @@ public sealed partial class DatabaseCacheService
                                   WHEN NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerPcode,'')),'') IS NOT NULL
                                     OR NULLIF(TRIM(COALESCE(pa.BeforeSecondRunnerName,'')),'') IS NOT NULL THEN 2
                                   ELSE 1
-                              END)
+                              END))
                        THEN 1 ELSE 0 END) AS SacrificeBuntFailures,
                    CASE WHEN $hasSituation=0 THEN {leftOnBase} ELSE NULL END AS LeftOnBase
             FROM PlateAppearances pa
