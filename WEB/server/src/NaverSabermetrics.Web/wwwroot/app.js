@@ -116,9 +116,6 @@ function navigation(){
   syncRoomNavigation();
   document.querySelectorAll('.role').forEach(b=>{const yes=b.dataset.role===state.role;b.classList.toggle('active',yes);b.setAttribute('aria-pressed',String(yes));});
   const constants=state.room==='constants';
-  const formulaView=constants&&state.view==='formulas';
-  $('formula-csv').hidden=!formulaView;
-  $('formula-csv').disabled=!formulaView||!state.result?.rows?.length;
   document.querySelector('.role-switch').hidden=constants;
   $('page-title').textContent=constants?'연도별 상수':`${roomNames[state.room]} ${state.role==='batter'?'타자':'투수'}`;
   $('page-description').textContent=descriptions[state.room];
@@ -149,7 +146,6 @@ function navigation(){
 }
 async function changeView(){
   abortQuery();clearError();state.applied=null;state.result=null;
-  $('formula-csv').disabled=true;
   navigation();
   $('records').querySelector('tbody').replaceChildren();$('empty').hidden=false;
   $('result-count').textContent='';$('page-caption').textContent='—';$('timing').textContent='';
@@ -303,23 +299,6 @@ function renderTable(result){
   $('page-number').textContent=`${result.page} / ${Math.max(1,Math.ceil(result.accessibleTotal/result.pageSize))}`;
   $('previous').disabled=result.page<=1;$('next').disabled=result.page*result.pageSize>=result.accessibleTotal;
   $('warnings').replaceChildren(...result.warnings.map(w=>text('p',w)));
-  $('formula-csv').disabled=!(state.room==='constants'&&state.view==='formulas'&&result.rows.length);
-}
-function csvCell(value){
-  const raw=String(value??'');
-  // Downloaded text must not be interpreted as a spreadsheet formula.
-  const safe=/^[=+\-@]/.test(raw)?`'${raw}`:raw;
-  return `"${safe.replaceAll('"','""')}"`;
-}
-function downloadFormulaCsv(){
-  if(state.room!=='constants'||state.view!=='formulas'||!state.result?.rows?.length)return;
-  const columns=state.result.columns,year=$('year').value||'통합';
-  const lines=[['연도',...columns.map(c=>c.label)].map(csvCell).join(',')];
-  for(const row of state.result.rows)lines.push([year,...columns.map(c=>row.cells[c.key]??'')].map(csvCell).join(','));
-  const blob=new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`FANZAI_세이버메트릭스_공식_${year}.csv`;document.body.append(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 function selectPlayer(code,name){
   $('search-dialog').close();
@@ -352,7 +331,6 @@ $('reset').onclick=()=>{
   $('start-date').disabled=$('end-date').disabled=true;state.playerCode=null;$('player-chip').hidden=true;navigation();markDirty();
 };
 $('cancel-query').onclick=()=>{abortQuery();$('draft-state').textContent='조회 요청을 취소했습니다.';};
-$('formula-csv').onclick=downloadFormulaCsv;
 $('previous').onclick=()=>state.applied&&query({...state.applied,page:state.applied.page-1});
 $('next').onclick=()=>state.applied&&query({...state.applied,page:state.applied.page+1});
 for(const b of document.querySelectorAll('.room'))b.onclick=async()=>{if(state.room===b.dataset.room)return;state.room=b.dataset.room;state.view=state.room==='constants'?'league':'basic';if(['team','constants'].includes(state.room)){state.playerCode=null;$('player-name').value='';$('player-chip').hidden=true;}await changeView();};
