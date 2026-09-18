@@ -72,7 +72,7 @@ public sealed partial class DatabaseCacheService
                         AND ((pa.BattedBallType=$bunt
                               AND pa.IsSacrifice=0
                               AND pa.IsHit=0)
-                          OR (pa.IsOut=1
+                          OR ((pa.IsOut=1 OR pa.ResultType=$fieldersChoice)
                               AND pa.IsSacrifice=0
                               AND EXISTS (
                                   SELECT 1
@@ -128,6 +128,7 @@ public sealed partial class DatabaseCacheService
         command.Parameters.AddWithValue("$walk", (int)BattingResultType.Walk);
         command.Parameters.AddWithValue("$intentionalWalk", (int)BattingResultType.IntentionalWalk);
         command.Parameters.AddWithValue("$hitByPitch", (int)BattingResultType.HitByPitch);
+        command.Parameters.AddWithValue("$fieldersChoice", (int)BattingResultType.FieldersChoice);
         command.Parameters.AddWithValue("$runnerError", (int)RunnerAdvanceReason.Error);
         command.Parameters.AddWithValue("$runnerBatterPlay", (int)RunnerAdvanceReason.BatterPlay);
         command.Parameters.AddWithValue("$reachedOnError", (int)BattingResultType.ReachedOnError);
