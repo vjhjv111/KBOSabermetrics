@@ -1,0 +1,50 @@
+name: Defense validation
+
+on:
+  push:
+    branches: ['feature/fanzai-defense-v1']
+  pull_request:
+    paths:
+      - 'PC/**'
+      - 'WEB/**'
+      - 'tests/DefenseValidation/**'
+      - '.github/workflows/defense-validation.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: defense-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+      - name: Export exact review source
+        run: |
+          mkdir -p /tmp/defense-review
+          git archive --format=zip --output=/tmp/defense-review/source.zip HEAD
+          git rev-parse HEAD > /tmp/defense-review/commit.txt
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: defense-review-source
+          path: /tmp/defense-review/*
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build PC
+        working-directory: PC
+        run: dotnet build src/NaverRelay.Gui/NaverRelay.Gui.csproj -c Release -p:EnableWindowsTargeting=true
+      - name: Build web calculation library
+        working-directory: WEB
+        run: dotnet build server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj -c Release
+      - name: Run defensive reconstruction and metric tests
+        if: ${{ hashFiles('tests/DefenseValidation/DefenseValidation.csproj') != '' }}
+        run: dotnet run --project tests/DefenseValidation/DefenseValidation.csproj -c Release
