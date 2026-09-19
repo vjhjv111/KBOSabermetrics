@@ -359,9 +359,18 @@ internal static class WarehousePositionAdjustment
         if (designatedHitterPlateAppearances > 0)
             basis.Add($"DH/PH {designatedHitterPlateAppearances}PA");
 
-        var primary = positive.Count > 0
-            ? positive[0].Key
-            : designatedHitterPlateAppearances > 0 ? "DH" : "-";
+        // 주포지션은 "풀타임 환산 출전 비중"이 가장 큰 자리로 정합니다. 수비 포지션은
+        // 이닝/풀시즌이닝(1458), DH는 PA/풀시즌PA(600)로 같은 척도로 맞춰 비교하므로,
+        // 수비를 겸업하더라도 DH로 가장 많이 나온 선수는 DH로 표기됩니다.
+        var candidates = positive
+            .Select(item => (Key: item.Key, Share: item.Value / FullSeasonInnings))
+            .ToList();
+        if (designatedHitterPlateAppearances > 0)
+            candidates.Add(("DH", designatedHitterPlateAppearances / DesignatedHitterFullSeasonPlateAppearances));
+
+        var primary = candidates.Count > 0
+            ? candidates.OrderByDescending(c => c.Share).First().Key
+            : "-";
         return new PositionAdjustmentSummary(
             runs,
             basis.Count > 0 ? string.Join(", ", basis) : "포지션 기록 없음",
