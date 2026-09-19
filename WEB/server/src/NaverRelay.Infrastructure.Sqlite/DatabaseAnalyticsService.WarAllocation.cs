@@ -6,14 +6,17 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseAnalyticsService
 {
     private const double BatterWarShare = 1.0 - KboPitcherWarMath.DefaultPitcherWarShare; // 57%
+    private const double BatterRunsPerWin = 10.0;
+
     private sealed record WarAllocationCalibration(
         int GameCount,
         double TotalWarTarget,
         double BatterTargetWar,
         double PitcherTargetWar,
-        double BatterRunsPerWin,
         double BatterReplacementRunsPerPa,
-        double PitcherWarPerInning);
+        double PitcherWarPerInning,
+        double FanGraphsPitcherWarPerInning,
+        double LoweredReplacementPitcherWarPerInning);
 
     private async Task<WarAllocationCalibration> GetWarAllocationCalibrationAsync(
         GameQuery query,
@@ -31,7 +34,7 @@ public sealed partial class DatabaseAnalyticsService
             EndDate = query.EndDate,
             RecentGameCount = query.RecentGameCount,
         };
-        var cacheKey = $"common-war-allocation-season-rpw-v2:{scope.CacheKey}";
+        var cacheKey = $"common-war-allocation-v1:{scope.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<WarAllocationCalibration>(cacheKey, cancellationToken)
             .ConfigureAwait(false);
         if (cached is not null) return cached;
@@ -44,7 +47,6 @@ public sealed partial class DatabaseAnalyticsService
         var totalWarTarget = KboPitcherWarMath.ComputeTotalReplacementWar(gameCount);
         var batterTargetWar = totalWarTarget * BatterWarShare;
         var pitcherTargetWar = totalWarTarget * KboPitcherWarMath.DefaultPitcherWarShare;
-        var batterRunsPerWin = ResolveBatterRunsPerWin(league, query.SeasonYear);
 
         // Batter allocation: preserve batting/running/position components and solve only replacement Runs/PA
         // so league batter WAR equals 57% of the common replacement-WAR pool.
@@ -61,7 +63,7 @@ public sealed partial class DatabaseAnalyticsService
             nonReplacementRuns += battingRuns + runningRuns + row.Position.Runs;
             leaguePa += row.PlateAppearances;
         }
-        var replacementRunsNeeded = batterTargetWar * batterRunsPerWin - nonReplacementRuns;
+        var replacementRunsNeeded = batterTargetWar * BatterRunsPerWin - nonReplacementRuns;
         var batterReplacementRunsPerPa = leaguePa > 0
             ? replacementRunsNeeded / leaguePa
             : 20.0 / 600.0;
@@ -72,14 +74,30 @@ public sealed partial class DatabaseAnalyticsService
         // the final league-wide calibration to the 43% pitcher target for this exact time scope.
         var pitcherIp = 0.0;
         var pitcherPreWar = 0.0;
+        var pitcherFgPreWar = 0.0;
         foreach (var row in leagueData.Pitchers.Where(x => x.FinalGames > 0))
         {
             var value = BuildPitcherValue(row, league, scope.SeasonYear, pitcherWarPerInning: 0.0);
             pitcherIp += value.InningsPitched ?? 0.0;
             pitcherPreWar += value.WarBeforeCorrection ?? 0.0;
+            pitcherFgPreWar += value.FanGraphsWarBeforeCorrection ?? 0.0;
         }
         var pitcherWarPerInning = pitcherIp > 0
             ? (pitcherTargetWar - pitcherPreWar) / pitcherIp
+            : 0.0;
+
+        // 비교용 WAR ①(팬그래프 공식 그대로): 목표 WAR은 지금 "War"와 같은 0.294 기준을 쓰되,
+        // 원천 합계는 팬그래프 고정 대체수준으로 계산한 pitcherFgPreWar를 씁니다.
+        var fanGraphsPitcherWarPerInning = pitcherIp > 0
+            ? (pitcherTargetWar - pitcherFgPreWar) / pitcherIp
+            : 0.0;
+
+        // 비교용 WAR ②(대체승률 0.275): 원천 합계(pitcherPreWar)는 지금 "War"와 완전히 동일하게
+        // 두고, 목표 WAR만 대체선수 승률 0.275 기준으로 다시 계산합니다.
+        var loweredPitcherTargetWar = KboPitcherWarMath.ComputeTotalReplacementWar(
+            gameCount, KboPitcherWarMath.LoweredReplacementWinningPercentage) * KboPitcherWarMath.DefaultPitcherWarShare;
+        var loweredReplacementPitcherWarPerInning = pitcherIp > 0
+            ? (loweredPitcherTargetWar - pitcherPreWar) / pitcherIp
             : 0.0;
 
         var result = new WarAllocationCalibration(
@@ -87,18 +105,11 @@ public sealed partial class DatabaseAnalyticsService
             totalWarTarget,
             batterTargetWar,
             pitcherTargetWar,
-            batterRunsPerWin,
             batterReplacementRunsPerPa,
-            pitcherWarPerInning);
+            pitcherWarPerInning,
+            fanGraphsPitcherWarPerInning,
+            loweredReplacementPitcherWarPerInning);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
-    }
-
-    private static double ResolveBatterRunsPerWin(LeagueReference league, int? seasonYear)
-    {
-        if (seasonYear.HasValue &&
-            league.RunsPerWinBySeason.TryGetValue(seasonYear.Value, out var seasonRunsPerWin))
-            return seasonRunsPerWin;
-        return Math.Max(1.0, league.LeagueRa9 * 1.5 + 3.0);
     }
 }

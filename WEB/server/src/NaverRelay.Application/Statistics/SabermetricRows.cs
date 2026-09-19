@@ -144,6 +144,7 @@ public sealed class PitcherValueGridRow
     [Browsable(false)] public double? RelieverQualityWins { get; init; }
     [Browsable(false)] public double? StarterWarBeforeCorrection { get; init; }
     [Browsable(false)] public double? RelieverWarBeforeCorrection { get; init; }
+    [Browsable(false)] public double? FanGraphsWarBeforeCorrection { get; init; }
 
     // 이전 코드 호환용
     [Browsable(false)] public double? Fip { get; init; }

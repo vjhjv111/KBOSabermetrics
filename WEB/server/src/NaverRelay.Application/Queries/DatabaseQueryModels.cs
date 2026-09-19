@@ -203,14 +203,6 @@ public sealed class PitcherWarCalibration
 
     public double BlendFipWeight { get; set; } = 0.70;
     public double BlendRa9Weight { get; set; } = 0.30;
-
-    // 팬그래프 공식 그대로(고정 대체수준 0.03/0.12×GS비율, FIP 단독, RA9 블렌드 없음) 비교용 WAR의
-    // 리그 보정값. 목표 WAR 자체는 위 TargetPitcherWar(대체선수 승률 0.294 기준)를 그대로 씁니다.
-    public double FanGraphsWarPerInning { get; set; }
-
-    // 지금 KBO 공식은 그대로 두고 대체선수 승률 기준만 0.275로 낮춘 비교용 WAR의 리그 보정값.
-    public double LoweredReplacementFipWarPerInning { get; set; }
-    public double LoweredReplacementRa9WarPerInning { get; set; }
 }
 
 /// <summary>
@@ -315,7 +307,6 @@ public sealed class LeagueReference
     public List<LeagueConstantGridRow> Constants { get; set; } = new();
     public WobaConstants WobaModel { get; set; } = new();
     public Dictionary<int, WobaConstants> WobaConstantsBySeason { get; set; } = new();
-    public Dictionary<int, double> RunsPerWinBySeason { get; set; } = new();
 
     public WobaConstants GetWobaConstants(int? seasonYear)
     {

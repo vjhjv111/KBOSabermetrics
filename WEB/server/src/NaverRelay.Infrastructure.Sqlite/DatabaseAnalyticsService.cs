@@ -112,7 +112,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .ToList();
         var pitcherValues = data.Pitchers
             .Where(row => row.FinalGames > 0)
-            .Select(row => BuildPitcherValue(row, league, seasonYear, allocation.PitcherWarPerInning))
+            .Select(row => BuildPitcherValue(
+                row, league, seasonYear, allocation.PitcherWarPerInning,
+                allocation.FanGraphsPitcherWarPerInning, allocation.LoweredReplacementPitcherWarPerInning))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.InningsPitched)
             .ToList();
@@ -371,7 +373,13 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         };
     }
 
-    private static PitcherValueGridRow BuildPitcherValue(PitcherAggregateRecord row, LeagueReference league, int? seasonYear, double pitcherWarPerInning)
+    private static PitcherValueGridRow BuildPitcherValue(
+        PitcherAggregateRecord row,
+        LeagueReference league,
+        int? seasonYear,
+        double pitcherWarPerInning,
+        double fanGraphsWarPerInning = 0.0,
+        double loweredReplacementWarPerInning = 0.0)
     {
         var innings = row.InningsOuts / 3.0;
         var starterInnings = row.StarterInningsOuts / 3.0;
@@ -495,15 +503,18 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 
         // 비교용 WAR ①: 팬그래프 공식 그대로 - 대체수준은 그 투수 시즌의 GS/G로 가중평균한
         // 고정 0.03(구원)/0.12(선발)승/경기를 쓰고, RA9 블렌드 없이 FIP 단독으로 계산합니다.
+        // 리그 보정(fanGraphsWarPerInning)은 지금 "War"와 똑같은 조회 범위(WarAllocationCalibration)
+        // 기준으로 계산해서 넘어온 값이어야 두 컬럼이 서로 정합적으로 비교됩니다.
         var fgReplacementPerGame = KboPitcherWarMath.FanGraphsReplacementLevelWinsPerGame(row.GamesStarted, games);
         var fgReplacementWins = fgReplacementPerGame * (innings / 9.0);
         var fgWarBeforeCorrection = starterQualityWins + relieverQualityWins + fgReplacementWins;
-        var fgLeagueCorrection = calibration.FanGraphsWarPerInning * innings;
+        var fgLeagueCorrection = fanGraphsWarPerInning * innings;
         var fanGraphsWar = fgWarBeforeCorrection + fgLeagueCorrection;
 
         // 비교용 WAR ②: 지금 공식(KBO fWAR v4, FIP 기반)은 그대로 두고, 목표 WAR을 정할 때
-        // 쓰는 대체선수 승률 기준만 0.294 -> 0.275로 낮춘 교정값을 적용합니다.
-        var loweredReplacementFipLeagueCorrection = calibration.LoweredReplacementFipWarPerInning * innings;
+        // 쓰는 대체선수 승률 기준만 0.294 -> 0.275로 낮춘 교정값을 적용합니다. 이 보정값도
+        // "War"와 같은 조회 범위 기준(WarAllocationCalibration)으로 계산되어 넘어옵니다.
+        var loweredReplacementFipLeagueCorrection = loweredReplacementWarPerInning * innings;
         var loweredReplacementWar = fipWarBeforeCorrection + loweredReplacementFipLeagueCorrection;
 
         return new PitcherValueGridRow
@@ -538,6 +549,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             RunsAboveReplacement = fipWar * fipRunsPerWin, RunsPerWin = fipRunsPerWin,
             Fip = ifFip, ReplacementRa9 = weightedReplacementRa9,
             FanGraphsWar = fanGraphsWar, LoweredReplacementWar = loweredReplacementWar,
+            FanGraphsWarBeforeCorrection = fgWarBeforeCorrection,
         };
     }
 
