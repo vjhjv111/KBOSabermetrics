@@ -139,6 +139,7 @@ public sealed class PitcherValueGridRow
     [DisplayName("RPW")] public double? RunsPerWin { get; init; }
     [DisplayName("팬그래프 공식 WAR")] public double? FanGraphsWar { get; init; }
     [DisplayName("대체승률.275 WAR")] public double? LoweredReplacementWar { get; init; }
+    [DisplayName("팬그래프 대체승률.275 WAR")] public double? LoweredReplacementFanGraphsWar { get; init; }
 
     [Browsable(false)] public double? StarterQualityWins { get; init; }
     [Browsable(false)] public double? RelieverQualityWins { get; init; }

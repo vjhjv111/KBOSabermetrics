@@ -114,7 +114,8 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .Where(row => row.FinalGames > 0)
             .Select(row => BuildPitcherValue(
                 row, league, seasonYear, allocation.PitcherWarPerInning,
-                allocation.FanGraphsPitcherWarPerInning, allocation.LoweredReplacementPitcherWarPerInning))
+                allocation.FanGraphsPitcherWarPerInning, allocation.LoweredReplacementPitcherWarPerInning,
+                allocation.LoweredReplacementFanGraphsPitcherWarPerInning))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.InningsPitched)
             .ToList();
@@ -379,7 +380,8 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         int? seasonYear,
         double pitcherWarPerInning,
         double fanGraphsWarPerInning = 0.0,
-        double loweredReplacementWarPerInning = 0.0)
+        double loweredReplacementWarPerInning = 0.0,
+        double loweredReplacementFanGraphsWarPerInning = 0.0)
     {
         var innings = row.InningsOuts / 3.0;
         var starterInnings = row.StarterInningsOuts / 3.0;
@@ -517,6 +519,11 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         var loweredReplacementFipLeagueCorrection = loweredReplacementWarPerInning * innings;
         var loweredReplacementWar = fipWarBeforeCorrection + loweredReplacementFipLeagueCorrection;
 
+        // 비교용 WAR ③: 팬그래프 공식(①)과 대체승률 0.275(②)를 함께 적용합니다 - 원천 합계는
+        // 팬그래프 고정 대체수준(fgWarBeforeCorrection), 목표 WAR은 대체승률 0.275 기준입니다.
+        var loweredReplacementFgLeagueCorrection = loweredReplacementFanGraphsWarPerInning * innings;
+        var loweredReplacementFanGraphsWar = fgWarBeforeCorrection + loweredReplacementFgLeagueCorrection;
+
         return new PitcherValueGridRow
         {
             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode),
@@ -550,6 +557,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             Fip = ifFip, ReplacementRa9 = weightedReplacementRa9,
             FanGraphsWar = fanGraphsWar, LoweredReplacementWar = loweredReplacementWar,
             FanGraphsWarBeforeCorrection = fgWarBeforeCorrection,
+            LoweredReplacementFanGraphsWar = loweredReplacementFanGraphsWar,
         };
     }
 

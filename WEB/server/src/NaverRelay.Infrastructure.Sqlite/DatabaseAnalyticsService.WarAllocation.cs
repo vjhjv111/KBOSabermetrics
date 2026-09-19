@@ -16,7 +16,8 @@ public sealed partial class DatabaseAnalyticsService
         double BatterReplacementRunsPerPa,
         double PitcherWarPerInning,
         double FanGraphsPitcherWarPerInning,
-        double LoweredReplacementPitcherWarPerInning);
+        double LoweredReplacementPitcherWarPerInning,
+        double LoweredReplacementFanGraphsPitcherWarPerInning);
 
     private async Task<WarAllocationCalibration> GetWarAllocationCalibrationAsync(
         GameQuery query,
@@ -100,6 +101,12 @@ public sealed partial class DatabaseAnalyticsService
             ? (loweredPitcherTargetWar - pitcherPreWar) / pitcherIp
             : 0.0;
 
+        // 비교용 WAR ③(팬그래프 공식 + 대체승률 0.275): 원천 합계는 ①과 같은 pitcherFgPreWar를
+        // 쓰고, 목표 WAR은 ②와 같은 loweredPitcherTargetWar를 써서 두 변경을 함께 적용합니다.
+        var loweredReplacementFanGraphsPitcherWarPerInning = pitcherIp > 0
+            ? (loweredPitcherTargetWar - pitcherFgPreWar) / pitcherIp
+            : 0.0;
+
         var result = new WarAllocationCalibration(
             gameCount,
             totalWarTarget,
@@ -108,7 +115,8 @@ public sealed partial class DatabaseAnalyticsService
             batterReplacementRunsPerPa,
             pitcherWarPerInning,
             fanGraphsPitcherWarPerInning,
-            loweredReplacementPitcherWarPerInning);
+            loweredReplacementPitcherWarPerInning,
+            loweredReplacementFanGraphsPitcherWarPerInning);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
     }
