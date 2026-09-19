@@ -1,0 +1,62 @@
+name: FANZAI Defense Validation
+on:
+  push:
+    branches: [feature/fanzai-defense-v1-20260919]
+  pull_request:
+    paths:
+      - 'PC/**'
+      - 'WEB/**'
+      - 'tests/Defense/**'
+      - '.github/workflows/fanzai-defense-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Export source for reproducible review
+        run: |
+          mkdir -p artifacts
+          git archive --format=zip --output=artifacts/source.zip HEAD PC WEB .github
+          git rev-parse HEAD > artifacts/source-commit.txt
+      - name: Web build
+        id: web
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          dotnet build WEB/server/src/NaverSabermetrics.Web/NaverSabermetrics.Web.csproj -c Release 2>&1 | tee artifacts/web-build.log
+      - name: PC build
+        id: pc
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          project=$(find PC -name NaverRelay.Gui.csproj -print -quit)
+          test -n "$project"
+          dotnet build "$project" -c Release -p:EnableWindowsTargeting=true 2>&1 | tee artifacts/pc-build.log
+      - name: Defense regression tests
+        id: defense
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if test -f tests/Defense/Defense.Tests.csproj; then
+            dotnet run --project tests/Defense/Defense.Tests.csproj -c Release 2>&1 | tee artifacts/defense-tests.log
+          else
+            echo 'BASELINE: defense tests not introduced yet' | tee artifacts/defense-tests.log
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fanzai-defense-review
+          path: artifacts/
+          retention-days: 7
+      - name: Require passing builds and tests
+        if: steps.web.outcome != 'success' || steps.pc.outcome != 'success' || steps.defense.outcome != 'success'
+        run: exit 1
