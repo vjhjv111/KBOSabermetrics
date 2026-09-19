@@ -81,6 +81,34 @@ public sealed partial class DatabaseCacheService
         var fipWarIp = totalInnings > 0 ? (targetWar - preFipWar) / totalInnings : 0.0;
         var ra9WarIp = totalInnings > 0 ? (targetWar - preRa9War) / totalInnings : 0.0;
 
+        // 비교용 WAR ①: 팬그래프 공식 그대로 - 선발/구원 대체수준 대신 고정 0.03/0.12승(경기당)을
+        // 그 투수 시즌의 GS/G로 가중평균한 값을 쓰고, RA9 블렌드 없이 FIP 단독으로 계산합니다.
+        // 목표 WAR(리그 전체 43% 몫)은 기존과 동일한 기준(대체선수 승률 0.294)을 그대로 씁니다.
+        var preFgWar = 0.0;
+        foreach (var group in roleLines.GroupBy(line => (line.SeasonYear, line.Pcode)))
+        {
+            var totalGames = group.Sum(line => line.Games);
+            var startedGames = group.Where(line => line.IsStarter).Sum(line => line.Games);
+            var fgReplacementPerGame = KboPitcherWarMath.FanGraphsReplacementLevelWinsPerGame(startedGames, totalGames);
+            foreach (var line in group)
+            {
+                var fgRunsPerWin = KboPitcherWarMath.DynamicRunsPerWin(
+                    league.LeagueFipR9, line.ParkAdjustedFipR9, line.Innings, line.Games);
+                var fgLeverage = KboPitcherWarMath.LeverageMultiplier(line.GmLi, !line.IsStarter);
+                var fgQuality = KboPitcherWarMath.WinsAboveAverage(
+                    league.LeagueFipR9, line.ParkAdjustedFipR9, line.Innings, fgRunsPerWin, fgLeverage);
+                preFgWar += fgQuality + fgReplacementPerGame * (line.Innings / 9.0);
+            }
+        }
+        var fgWarIp = totalInnings > 0 ? (targetWar - preFgWar) / totalInnings : 0.0;
+
+        // 비교용 WAR ②: 지금 KBO 공식(선발/구원 경험적 대체수준, FIP 70%+RA9 30% 블렌드)은 그대로
+        // 두고, 목표 WAR을 정할 때 쓰는 대체선수 승률 기준만 0.294 -> 0.275로 낮춥니다.
+        var loweredTargetWar = KboPitcherWarMath.ComputeTargetPitcherWar(
+            league.GameCount, KboPitcherWarMath.LoweredReplacementWinningPercentage);
+        var loweredFipWarIp = totalInnings > 0 ? (loweredTargetWar - preFipWar) / totalInnings : 0.0;
+        var loweredRa9WarIp = totalInnings > 0 ? (loweredTargetWar - preRa9War) / totalInnings : 0.0;
+
         return new PitcherWarCalibration
         {
             ReplacementWinningPercentage = KboPitcherWarMath.DefaultReplacementWinningPercentage,
@@ -116,6 +144,9 @@ public sealed partial class DatabaseCacheService
             TotalPitchingInnings = totalInnings,
             BlendFipWeight = KboPitcherWarMath.DefaultBlendFipWeight,
             BlendRa9Weight = KboPitcherWarMath.DefaultBlendRa9Weight,
+            FanGraphsWarPerInning = fgWarIp,
+            LoweredReplacementFipWarPerInning = loweredFipWarIp,
+            LoweredReplacementRa9WarPerInning = loweredRa9WarIp,
         };
     }
 

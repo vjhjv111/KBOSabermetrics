@@ -9,7 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-season-rpw-v6";
+    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v5-re24";
 
     private readonly DatabaseCacheService _database;
 
@@ -106,7 +106,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             row => PlayerKey(row.Pcode, row.TeamCode),
             StringComparer.Ordinal);
         var batterValues = data.Batters
-            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode)), allocation.BatterReplacementRunsPerPa, allocation.BatterRunsPerWin))
+            .Select(row => BuildBatterValue(row, saberByKey.GetValueOrDefault(PlayerKey(row.Pcode, row.TeamCode)), allocation.BatterReplacementRunsPerPa))
             .OrderByDescending(row => row.War)
             .ThenByDescending(row => row.PA)
             .ToList();
@@ -351,9 +351,9 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
     private static BatterValueGridRow BuildBatterValue(
         BatterAggregateRecord row,
         BatterSabermetricGridRow? saber,
-        double replacementRunsPerPa,
-        double runsPerWin)
+        double replacementRunsPerPa)
     {
+        const double runsPerWin = 10.0;
         var runningRuns = row.StolenBases * 0.20 - row.CaughtStealing * 0.40;
         var replacementRuns = row.PlateAppearances * replacementRunsPerPa;
         var battingRuns = saber?.Wraa ?? 0.0;
@@ -493,6 +493,19 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             ? (starterReplacementRa9 * starterInnings + relieverReplacementRa9 * reliefInnings) / innings
             : league.LeagueRa9;
 
+        // 비교용 WAR ①: 팬그래프 공식 그대로 - 대체수준은 그 투수 시즌의 GS/G로 가중평균한
+        // 고정 0.03(구원)/0.12(선발)승/경기를 쓰고, RA9 블렌드 없이 FIP 단독으로 계산합니다.
+        var fgReplacementPerGame = KboPitcherWarMath.FanGraphsReplacementLevelWinsPerGame(row.GamesStarted, games);
+        var fgReplacementWins = fgReplacementPerGame * (innings / 9.0);
+        var fgWarBeforeCorrection = starterQualityWins + relieverQualityWins + fgReplacementWins;
+        var fgLeagueCorrection = calibration.FanGraphsWarPerInning * innings;
+        var fanGraphsWar = fgWarBeforeCorrection + fgLeagueCorrection;
+
+        // 비교용 WAR ②: 지금 공식(KBO fWAR v4, FIP 기반)은 그대로 두고, 목표 WAR을 정할 때
+        // 쓰는 대체선수 승률 기준만 0.294 -> 0.275로 낮춘 교정값을 적용합니다.
+        var loweredReplacementFipLeagueCorrection = calibration.LoweredReplacementFipWarPerInning * innings;
+        var loweredReplacementWar = fipWarBeforeCorrection + loweredReplacementFipLeagueCorrection;
+
         return new PitcherValueGridRow
         {
             Pcode = Empty(row.Pcode), Name = Empty(row.Name), TeamCode = Empty(row.TeamCode),
@@ -524,6 +537,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             Ra9War = ra9War, BlendWar = blendWar,
             RunsAboveReplacement = fipWar * fipRunsPerWin, RunsPerWin = fipRunsPerWin,
             Fip = ifFip, ReplacementRa9 = weightedReplacementRa9,
+            FanGraphsWar = fanGraphsWar, LoweredReplacementWar = loweredReplacementWar,
         };
     }
 

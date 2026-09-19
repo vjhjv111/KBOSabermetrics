@@ -34,6 +34,8 @@ public sealed class PitcherBasicRecordRow
     [DisplayName("KBO fWAR")] public double? War { get; init; }
     [DisplayName("KBO RA9-WAR*")] public double? Ra9War { get; init; }
     [DisplayName("Blend WAR*")] public double? BlendWar { get; init; }
+    [DisplayName("팬그래프 공식 WAR")] public double? FanGraphsWar { get; init; }
+    [DisplayName("대체승률.275 WAR")] public double? LoweredReplacementWar { get; init; }
 }
 
 public sealed class PitcherAdvancedRecordRow
@@ -104,6 +106,8 @@ public sealed class PitcherDetailedValueRecordRow
     [DisplayName("pRA9*")] public double? ParkAdjustedRa9 { get; init; }
     [DisplayName("KBO RA9-WAR*")] public double? Ra9War { get; init; }
     [DisplayName("Blend WAR 70/30*")] public double? BlendWar { get; init; }
+    [DisplayName("팬그래프 공식 WAR")] public double? FanGraphsWar { get; init; }
+    [DisplayName("대체승률.275 WAR")] public double? LoweredReplacementWar { get; init; }
 }
 
 public sealed class PitcherExtendedRecordRow
@@ -439,6 +443,8 @@ public static class PitcherRecordRoomRowFactory
                     War = valueRow?.War,
                     Ra9War = valueRow?.Ra9War,
                     BlendWar = valueRow?.BlendWar,
+                    FanGraphsWar = valueRow?.FanGraphsWar,
+                    LoweredReplacementWar = valueRow?.LoweredReplacementWar,
                 };
             })
             .OrderByDescending(row => row.War ?? double.MinValue)
@@ -571,6 +577,8 @@ public static class PitcherRecordRoomRowFactory
                     ParkAdjustedRa9 = row.ParkAdjustedRa9,
                     Ra9War = row.Ra9War,
                     BlendWar = row.BlendWar,
+                    FanGraphsWar = row.FanGraphsWar,
+                    LoweredReplacementWar = row.LoweredReplacementWar,
                 };
             })
             .OrderByDescending(row => row.War ?? double.MinValue)

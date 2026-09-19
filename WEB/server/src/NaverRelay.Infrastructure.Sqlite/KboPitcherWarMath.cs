@@ -7,6 +7,15 @@ internal static class KboPitcherWarMath
     public const double DefaultBlendFipWeight = 0.70;
     public const double DefaultBlendRa9Weight = 0.30;
 
+    // FanGraphs 원 공식의 고정 대체수준(경기당 승수): 구원 0.03승, 선발 0.12승.
+    // (지금 KBO 사이트 공식은 대신 최근 시즌 표본에서 경험적으로 추정한 선발/구원별
+    // 대체수준을 쓰지만, "팬그래프 공식 그대로" 비교용 WAR은 이 고정값을 씁니다.)
+    public const double FanGraphsReplacementRelieverWinsPerGame = 0.03;
+    public const double FanGraphsReplacementStarterWinsPerGame = 0.12;
+
+    // 지금 공식은 그대로 두고 대체선수 승률 기준만 낮춘 비교용 WAR에 쓰는 값.
+    public const double LoweredReplacementWinningPercentage = 0.275;
+
     public static double DynamicRunsPerWin(
         double leagueRunRate,
         double pitcherRunRate,
@@ -59,4 +68,14 @@ internal static class KboPitcherWarMath
         double replacementWinningPercentage = DefaultReplacementWinningPercentage,
         double pitcherShare = DefaultPitcherWarShare) =>
         ComputeTotalReplacementWar(leagueGameCount, replacementWinningPercentage) * pitcherShare;
+
+    // FanGraphs 공식의 대체수준: 그 투수 시즌 전체의 선발 비중(GS/G)으로
+    // 구원 0.03승/경기와 선발 0.12승/경기를 가중평균합니다.
+    public static double FanGraphsReplacementLevelWinsPerGame(double gamesStarted, double games)
+    {
+        if (games <= 0) return FanGraphsReplacementRelieverWinsPerGame;
+        var startShare = Math.Clamp(gamesStarted / games, 0.0, 1.0);
+        return FanGraphsReplacementRelieverWinsPerGame * (1.0 - startShare) +
+               FanGraphsReplacementStarterWinsPerGame * startShare;
+    }
 }
