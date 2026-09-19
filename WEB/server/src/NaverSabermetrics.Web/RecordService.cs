@@ -358,14 +358,14 @@ public sealed partial class RecordService
                 {
                     var starts=(await _pitchers.GetStarterAsync(q,token).ConfigureAwait(false)).ToList();
                     var values=PitcherRecordRoomRowFactory.BuildValue(snapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
-                    foreach(var x in starts) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.StarterWar=v.War;
+                    foreach(var x in starts) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.StarterWar=v.FanGraphsWar;
                     result=starts; break;
                 }
                 case "reliever":
                 {
                     var relievers=(await _pitchers.GetRelieverAsync(q,league,token).ConfigureAwait(false)).ToList();
                     var values=PitcherRecordRoomRowFactory.BuildValue(snapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
-                    foreach(var x in relievers) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.ReliefWar=v.War;
+                    foreach(var x in relievers) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.ReliefWar=v.FanGraphsWar;
                     result=relievers; break;
                 }
                 case "batted-ball": result=await _pitchers.GetBattedBallAsync(q,token).ConfigureAwait(false); break;

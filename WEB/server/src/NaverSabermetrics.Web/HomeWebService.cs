@@ -25,7 +25,7 @@ public sealed partial class RecordService
                 var props=ViewRegistry.Properties(def);var code=def.RowType.GetProperty("Pcode");var name=def.RowType.GetProperty("Name");var team=def.RowType.GetProperty("TeamCode");
                 foreach(var p in props)
                 {
-                    var label=ViewRegistry.Label(p).Replace("*","");var warMetric=role=="batter"?label=="WAR":label=="KBO fWAR";
+                    var label=ViewRegistry.Label(p).Replace("*","");var warMetric=label=="WAR";
                     var allowed=role=="batter"?new[]{"AVG","OBP","SLG","OPS","HR","RBI","SB"}:new[]{"ERA","WHIP","FIP","SO","K/9","BB/9"};
                     if((!warMetric&&!allowed.Contains(label))||!ViewRegistry.IsNumber(p)||WarHidden(p)||PublicHidden(p,role)||!found.Add(label))continue;
                     var rate=label is "AVG" or "OBP" or "SLG" or "OPS" or "ERA" or "WHIP" or "FIP" or "K/9" or "BB/9";
@@ -42,7 +42,7 @@ public sealed partial class RecordService
                 }
             }
         }
-        return new{war=war.OrderByDescending(x=>x.Value).ThenBy(x=>x.Code,StringComparer.Ordinal).Take(10).ToArray(),leaders,note="정규시즌 적재 기록 기준. 비율 지표는 최다 팀 경기수 × 3.1타석 / 1이닝 이상. WAR는 사이트 자체 계산값이며 투수는 KBO fWAR 기준입니다."};
+        return new{war=war.OrderByDescending(x=>x.Value).ThenBy(x=>x.Code,StringComparer.Ordinal).Take(10).ToArray(),leaders,note="정규시즌 적재 기록 기준. 비율 지표는 최다 팀 경기수 × 3.1타석 / 1이닝 이상. WAR는 사이트 자체 계산값이며 투수는 팬그래프 공식(고정 대체수준, FIP 단독) 기준입니다."};
     }
 }
 

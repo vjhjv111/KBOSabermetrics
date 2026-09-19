@@ -37,7 +37,7 @@ public static class LeagueOverviewBuilder
         return new LeagueOverview(fullLeague ? "리그 전체" : "선택 조건 합계", new[]
         {
             M("G", games, "0"), M("IP", ip, "0.0"), M("ER", er), M("R", r), M("H", h), M("HR", rows.Sum(x=>x.HomeRunsAllowed)), M("BB", bb), M("SO", rows.Sum(x=>x.Strikeouts)),
-            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("완봉", teamShutouts), M("KBO fWAR", rows.Where(x=>x.War.HasValue).Sum(x=>x.War!.Value), "0.00", true),
+            M("ERA", era, "0.00", true), M("RA9", ra9, "0.00"), M("FIP", fip, "0.00"), M("WHIP", whip, "0.00"), M("완봉", teamShutouts), M("WAR", rows.Where(x=>x.FanGraphsWar.HasValue).Sum(x=>x.FanGraphsWar!.Value), "0.00", true),
             M("RA9-WAR", rows.Where(x=>x.Ra9War.HasValue).Sum(x=>x.Ra9War!.Value), "0.00"), M("Blend WAR", rows.Where(x=>x.BlendWar.HasValue).Sum(x=>x.BlendWar!.Value), "0.00"),
         });
     }
