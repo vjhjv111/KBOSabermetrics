@@ -1,18 +1,14 @@
 name: Defense validation
-
 on:
   push:
     branches: ['feature/fanzai-defense-v1']
   pull_request:
     paths: ['PC/**', 'WEB/**', 'tests/DefenseValidation/**', '.github/workflows/defense-validation.yml']
-
 permissions:
   contents: read
-
 concurrency:
   group: defense-validation-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -21,17 +17,6 @@ jobs:
       - uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
-      - name: Export exact review source
-        run: |
-          mkdir -p /tmp/defense-review
-          git archive --format=zip --output=/tmp/defense-review/source.zip HEAD
-          git rev-parse HEAD > /tmp/defense-review/commit.txt
-      - uses: actions/upload-artifact@v4.6.2
-        with:
-          name: defense-review-source
-          path: /tmp/defense-review/*
-          retention-days: 7
-          if-no-files-found: error
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -41,31 +26,26 @@ jobs:
       - name: Build web calculation library
         working-directory: WEB
         run: dotnet build server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj -c Release
-      - name: Export .NET 8 compiler and public dependency cache for offline review
+      - name: Export matching .NET 8 runtime for offline tests
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/fanzai-defense-v1' }}
         shell: bash
         run: |
           set -euo pipefail
           root=$(dirname "$(readlink -f "$(command -v dotnet)")")
-          mkdir -p /tmp/defense-toolchain
+          mkdir -p /tmp/defense-runtime
           python3 - "$root" <<'PY'
           import pathlib,sys,tarfile
           root=pathlib.Path(sys.argv[1])
-          with tarfile.open('/tmp/defense-toolchain/dotnet8.tgz','w:gz') as tar:
-              for name in ['dotnet','LICENSE.txt','ThirdPartyNotices.txt']:
-                  if (root/name).exists(): tar.add(root/name,arcname=name)
-              for sub in ['host/fxr','sdk','shared/Microsoft.NETCore.App','shared/Microsoft.AspNetCore.App','packs/Microsoft.NETCore.App.Ref','packs/Microsoft.AspNetCore.App.Ref','packs/Microsoft.NETCore.App.Host.linux-x64','packs/Microsoft.WindowsDesktop.App.Ref']:
-                  choices=sorted((root/sub).glob('8.*'))
+          with tarfile.open('/tmp/defense-runtime/runtime.tgz','w:gz') as tar:
+              for sub in ['host/fxr','shared/Microsoft.NETCore.App','shared/Microsoft.AspNetCore.App','packs/Microsoft.NETCore.App.Ref','packs/Microsoft.AspNetCore.App.Ref','packs/Microsoft.NETCore.App.Host.linux-x64','packs/Microsoft.WindowsDesktop.App.Ref']:
+                  choices=sorted((root/sub).glob('8.*'),key=lambda p:tuple(map(int,p.name.split('.'))))
                   if choices: tar.add(choices[-1],arcname=str(choices[-1].relative_to(root)))
-          with tarfile.open('/tmp/defense-toolchain/nuget.tgz','w:gz') as tar:
-              packages=pathlib.Path.home()/'.nuget/packages'
-              tar.add(packages,arcname='packages')
           PY
       - uses: actions/upload-artifact@v4.6.2
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/fanzai-defense-v1' }}
         with:
-          name: defense-offline-toolchain
-          path: /tmp/defense-toolchain/*
+          name: defense-offline-runtime
+          path: /tmp/defense-runtime/*
           retention-days: 1
           if-no-files-found: error
       - name: Run defensive reconstruction and metric tests
