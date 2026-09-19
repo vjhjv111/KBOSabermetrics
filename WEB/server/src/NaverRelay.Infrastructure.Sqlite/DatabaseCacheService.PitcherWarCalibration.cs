@@ -81,10 +81,27 @@ public sealed partial class DatabaseCacheService
         var fipWarIp = totalInnings > 0 ? (targetWar - preFipWar) / totalInnings : 0.0;
         var ra9WarIp = totalInnings > 0 ? (targetWar - preRa9War) / totalInnings : 0.0;
 
-        // 팬그래프 공식 WAR / 대체승률.275 WAR 비교 컬럼의 리그 보정값은 여기(다시즌 표본 기반
-        // 캘리브레이션)이 아니라 DatabaseAnalyticsService.WarAllocation.cs의 조회 범위별
-        // WarAllocationCalibration에서 "War"와 동일한 기준으로 계산합니다. (두 컬럼이 War와
-        // 다른 표본/범위로 계산되면 서로 비교가 안 맞는 값이 나오기 때문입니다.)
+        // 실제 조회 화면의 팬그래프 공식 WAR(사이트 대표 WAR) 보정값은 여기(다시즌 표본 기반
+        // 캘리브레이션)가 아니라 DatabaseAnalyticsService.WarAllocation.cs의 조회 범위별
+        // WarAllocationCalibration에서 계산합니다. 아래 fgWarIp는 "리그 상수"/"공식" 탭에만
+        // 쓰는 다시즌 참고값입니다.
+        var preFgWar = 0.0;
+        foreach (var group in roleLines.GroupBy(line => (line.SeasonYear, line.Pcode)))
+        {
+            var totalGames = group.Sum(line => line.Games);
+            var startedGames = group.Where(line => line.IsStarter).Sum(line => line.Games);
+            var fgReplacementPerGame = KboPitcherWarMath.FanGraphsReplacementLevelWinsPerGame(startedGames, totalGames);
+            foreach (var line in group)
+            {
+                var fgRunsPerWin = KboPitcherWarMath.DynamicRunsPerWin(
+                    league.LeagueFipR9, line.ParkAdjustedFipR9, line.Innings, line.Games);
+                var fgLeverage = KboPitcherWarMath.LeverageMultiplier(line.GmLi, !line.IsStarter);
+                var fgQuality = KboPitcherWarMath.WinsAboveAverage(
+                    league.LeagueFipR9, line.ParkAdjustedFipR9, line.Innings, fgRunsPerWin, fgLeverage);
+                preFgWar += fgQuality + fgReplacementPerGame * (line.Innings / 9.0);
+            }
+        }
+        var fgWarIp = totalInnings > 0 ? (targetWar - preFgWar) / totalInnings : 0.0;
 
         return new PitcherWarCalibration
         {
@@ -121,6 +138,7 @@ public sealed partial class DatabaseCacheService
             TotalPitchingInnings = totalInnings,
             BlendFipWeight = KboPitcherWarMath.DefaultBlendFipWeight,
             BlendRa9Weight = KboPitcherWarMath.DefaultBlendRa9Weight,
+            FanGraphsWarPerInning = fgWarIp,
         };
     }
 

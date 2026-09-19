@@ -203,6 +203,11 @@ public sealed class PitcherWarCalibration
 
     public double BlendFipWeight { get; set; } = 0.70;
     public double BlendRa9Weight { get; set; } = 0.30;
+
+    // 사이트 대표 투수 WAR(팬그래프 공식: 고정 대체수준 0.03/0.12×GS비율, FIP 단독)의 다시즌
+    // 참고용 WARIP. 실제 조회 화면에 쓰이는 값은 조회 범위별 WarAllocationCalibration에서
+    // 따로 계산되며, 이 값은 "리그 상수"/"공식" 탭의 참고 표시 전용입니다.
+    public double FanGraphsWarPerInning { get; set; }
 }
 
 /// <summary>
@@ -307,7 +312,6 @@ public sealed class LeagueReference
     public List<LeagueConstantGridRow> Constants { get; set; } = new();
     public WobaConstants WobaModel { get; set; } = new();
     public Dictionary<int, WobaConstants> WobaConstantsBySeason { get; set; } = new();
-    public Dictionary<int, double> RunsPerWinBySeason { get; set; } = new();
 
     public WobaConstants GetWobaConstants(int? seasonYear)
     {

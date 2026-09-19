@@ -22,7 +22,6 @@ public sealed partial class DatabaseCacheService
 
         progress?.Report(new DatabaseLoadProgress(2, 5, "전체 kbo_r 투수 최종 기록 조회 중"));
         var pitching = await ReadLeaguePitchingAsync(connection, cancellationToken).ConfigureAwait(false);
-        var seasonPitchingTotals = await ReadDiagnosticSeasonTotalsAsync(connection, cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new DatabaseLoadProgress(3, 5, "원본 WPA와 구장별 FIP 환경 조회 중"));
         var averageAbsoluteWpa = await ReadAverageAbsoluteWpaAsync(connection, cancellationToken).ConfigureAwait(false);
@@ -97,9 +96,6 @@ public sealed partial class DatabaseCacheService
             KboParkFactorsV2 = parkFactorsV2,
             WobaModel = wobaConstants.Overall,
             WobaConstantsBySeason = wobaConstants.BySeason,
-            RunsPerWinBySeason = seasonPitchingTotals.ToDictionary(
-                row => row.Year,
-                row => Math.Max(1.0, 9.0 * (row.RunsAllowed / row.Innings) * 1.5 + 3.0)),
         };
 
         progress?.Report(new DatabaseLoadProgress(4, 5, "KBO 투수 대체수준과 WARIP 계산 중"));
@@ -348,7 +344,7 @@ public sealed partial class DatabaseCacheService
         Row("2B 가중치*", value.WobaModel.Double, "RE24: 2루타"),
         Row("3B 가중치*", value.WobaModel.Triple, "RE24: 3루타"),
         Row("HR 가중치*", value.WobaModel.HomeRun, "RE24: 홈런"),
-        .. BuildSeasonLeagueRows(value),
+        .. BuildSeasonWobaRows(value),
         Row("리그 RA9*", value.Ra9, "타석 귀속 득점 기반"),
         Row("FIP 상수*", value.FipConstant, "리그 평균 FIP를 RA9에 맞춤"),
         Row("리그 HR/FB*", value.HrPerFlyBall, "문자 중계 타구 유형 기반"),
@@ -372,6 +368,9 @@ public sealed partial class DatabaseCacheService
         Row("KBO RA9-WAR 목표 달성률(보정 전)", value.PitcherWar.TargetPitcherWar > 0 ? value.PitcherWar.PreCorrectionRa9War / value.PitcherWar.TargetPitcherWar : 0.0, "보정 전 RA9-WAR 합÷목표 투수 WAR"),
         Row("KBO RA9 WARIP", value.PitcherWar.Ra9WarPerInning, "(목표 WAR-RA9 보정 전 합)÷리그 IP"),
         Row("KBO RA9 WARIP 총보정", value.PitcherWar.Ra9WarPerInning * value.PitcherWar.TotalPitchingInnings, "RA9 WARIP×리그 전체 IP"),
+        Row("팬그래프 구원 대체 승/경기", KboPitcherWarMath.FanGraphsReplacementRelieverWinsPerGame, "팬그래프 원 공식의 고정 대체수준(구원)"),
+        Row("팬그래프 선발 대체 승/경기", KboPitcherWarMath.FanGraphsReplacementStarterWinsPerGame, "팬그래프 원 공식의 고정 대체수준(선발); 그 투수 시즌 GS/G로 구원 값과 가중평균"),
+        Row("팬그래프 공식 WAR WARIP(다시즌 참고값)", value.PitcherWar.FanGraphsWarPerInning, "사이트 대표 투수 WAR의 다시즌 참고 WARIP - 실제 표시값은 조회 범위별로 다시 계산됩니다"),
         Row("대체수준 표본 선발 수", value.PitcherWar.StarterSamplePitchers, $"{value.PitcherWar.ReplacementSampleSeasons} 저사용 선발 역할 표본; {value.PitcherWar.StarterSampleInnings:0.0} IP"),
         Row("대체수준 표본 구원 수", value.PitcherWar.RelieverSamplePitchers, $"{value.PitcherWar.ReplacementSampleSeasons} 저사용 구원 역할 표본; {value.PitcherWar.RelieverSampleInnings:0.0} IP"),
         Row("KBO 선발 관측 Repl FIPR9", value.PitcherWar.EmpiricalStarterReplacementFipR9, "저사용 선발 표본을 리그 평균으로 회귀한 관측값"),
@@ -387,8 +386,7 @@ public sealed partial class DatabaseCacheService
         Row("Blend fWAR 가중치", value.PitcherWar.BlendFipWeight, "KBO Blend WAR에서 fWAR 비중"),
         Row("Blend RA9 가중치", value.PitcherWar.BlendRa9Weight, "KBO Blend WAR에서 RA9-WAR 비중"),
         Row("대체선수 Runs/600PA*", 20.0, "타자 Site WAR v1"),
-        Row("타자 Runs Per Win*", Math.Max(1.0, value.LeagueRa9 * 1.5 + 3.0), "FanGraphs식: 9 × (리그 총 득점 ÷ 리그 총 이닝) × 1.5 + 3"),
-        Row("투수 평균 dRPW", Math.Max(1.0, (value.LeagueFipR9 + 2.0) * 1.5), "리그 평균 투수 기준; 실제 KBO fWAR는 투수별 IP/G와 pFIPR9로 계산"),
+        Row("Runs Per Win*", 10.0, "타자 Site WAR v1"),
         Row("FG 포지션 기준 이닝", WarehousePositionAdjustment.FullSeasonInnings, "162경기 × 9이닝 (수비 포지션 보정치의 풀타임 기준)"),
         Row("FG 포지션 기준 PA(DH)", WarehousePositionAdjustment.DesignatedHitterFullSeasonPlateAppearances, "지명타자 보정치의 풀타임 기준 타석"),
         Row("포지션 보정 C*", WarehousePositionAdjustment.Rates["C"], "포수, 풀타임(1458이닝) 기준 run/season"),
@@ -402,34 +400,23 @@ public sealed partial class DatabaseCacheService
         Row("포지션 보정 DH*", WarehousePositionAdjustment.Rates["DH"], "지명타자, 풀타임(600PA) 기준 run/season"),
     ];
 
-    private static IEnumerable<LeagueConstantGridRow> BuildSeasonLeagueRows(LeagueReference value)
+    private static IEnumerable<LeagueConstantGridRow> BuildSeasonWobaRows(LeagueReference value)
     {
-        var years = value.WobaConstantsBySeason.Keys
-            .Union(value.RunsPerWinBySeason.Keys)
-            .OrderByDescending(year => year);
-        foreach (var seasonYear in years)
+        foreach (var (seasonYear, constants) in value.WobaConstantsBySeason.OrderByDescending(pair => pair.Key))
         {
             var prefix = $"{seasonYear} ";
-            if (value.WobaConstantsBySeason.TryGetValue(seasonYear, out var constants))
-            {
-                var description = $"{constants.Source}; {constants.SamplePlateAppearances:N0} PA";
-                yield return Row(prefix + "표본 PA", constants.SamplePlateAppearances, description);
-                yield return Row(prefix + "리그 OBP", constants.LeagueObp, description);
-                yield return Row(prefix + "리그 wOBA", constants.LeagueWoba, description);
-                yield return Row(prefix + "리그 R/PA", constants.RunsPerPa, description);
-                yield return Row(prefix + "wOBA Scale", constants.Scale, description);
-                yield return Row(prefix + "uBB", constants.UnintentionalWalk, description);
-                yield return Row(prefix + "HBP", constants.HitByPitch, description);
-                yield return Row(prefix + "1B", constants.Single, description);
-                yield return Row(prefix + "2B", constants.Double, description);
-                yield return Row(prefix + "3B", constants.Triple, description);
-                yield return Row(prefix + "HR", constants.HomeRun, description);
-            }
-            if (value.RunsPerWinBySeason.TryGetValue(seasonYear, out var pitcherRpw))
-            {
-                yield return Row(prefix + "타자 RPW", pitcherRpw, "FanGraphs식: 9 × (리그 총 득점 ÷ 리그 총 이닝) × 1.5 + 3; 해당 연도 Site WAR에 적용");
-                yield return Row(prefix + "투수 평균 dRPW", pitcherRpw, "(시즌 lgFIPR9 + 2) × 1.5; 실제 값은 투수별 IP/G와 pFIPR9에 따라 달라짐");
-            }
+            var description = $"{constants.Source}; {constants.SamplePlateAppearances:N0} PA";
+            yield return Row(prefix + "표본 PA", constants.SamplePlateAppearances, description);
+            yield return Row(prefix + "리그 OBP", constants.LeagueObp, description);
+            yield return Row(prefix + "리그 wOBA", constants.LeagueWoba, description);
+            yield return Row(prefix + "리그 R/PA", constants.RunsPerPa, description);
+            yield return Row(prefix + "wOBA Scale", constants.Scale, description);
+            yield return Row(prefix + "uBB", constants.UnintentionalWalk, description);
+            yield return Row(prefix + "HBP", constants.HitByPitch, description);
+            yield return Row(prefix + "1B", constants.Single, description);
+            yield return Row(prefix + "2B", constants.Double, description);
+            yield return Row(prefix + "3B", constants.Triple, description);
+            yield return Row(prefix + "HR", constants.HomeRun, description);
         }
     }
 

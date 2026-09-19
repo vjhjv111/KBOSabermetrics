@@ -116,7 +116,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
                 row, league, seasonYear, allocation.PitcherWarPerInning,
                 allocation.FanGraphsPitcherWarPerInning, allocation.LoweredReplacementPitcherWarPerInning,
                 allocation.LoweredReplacementFanGraphsPitcherWarPerInning))
-            .OrderByDescending(row => row.War)
+            .OrderByDescending(row => row.FanGraphsWar)
             .ThenByDescending(row => row.InningsPitched)
             .ToList();
 

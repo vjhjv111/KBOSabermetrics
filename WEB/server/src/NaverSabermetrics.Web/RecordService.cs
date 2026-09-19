@@ -55,12 +55,15 @@ public sealed partial class RecordService
 
     // Public web policy: keep the calculations internally, but never expose
     // pitcher RA9-WAR or blended WAR in schemas, filters, sorting, or row DTOs.
+    // "팬그래프 공식 WAR"가 사이트 대표 투수 WAR이므로, 예전 KBO fWAR("War")과 대체승률.275
+    // 비교용 WAR 두 종류도 계산은 그대로 두고 화면에서만 숨깁니다(값 삭제 아님).
     private static bool PublicHidden(PropertyInfo p, string role)
     {
         if (!string.Equals(role, "pitcher", StringComparison.OrdinalIgnoreCase)) return false;
         var name = p.Name;
         return name.Contains("Ra9War", StringComparison.OrdinalIgnoreCase)
-            || name.Contains("BlendWar", StringComparison.OrdinalIgnoreCase);
+            || name.Contains("BlendWar", StringComparison.OrdinalIgnoreCase)
+            || name is "War" or "LoweredReplacementWar" or "LoweredReplacementFanGraphsWar";
     }
 
     public async Task<TablePage> QueryAsync(RecordRequest request, CancellationToken token)
@@ -219,7 +222,7 @@ public sealed partial class RecordService
         var warnings = new List<string>();
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
         else warnings.Add(request.Role == "pitcher"
-            ? "웹 공개 지표는 KBO fWAR만 제공합니다. 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
+            ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
         if (request.Role == "batter" && request.View == "team-batting")
@@ -447,7 +450,7 @@ public sealed partial class RecordService
             Row("타자 WAR", "주루 Runs", "0.20×SB - 0.40×CS", "SB +0.20; CS -0.40 runs", "현재 도루·도실패만 반영"),
             Row("타자 WAR", "포지션 Runs", "FG 포지션 rate × 추정 수비이닝 ÷ 1458", "DH는 PA÷600; 포지션별 FG rate", "수비 출전 정보로 주 포지션과 보정치 추정"),
             Row("타자 WAR", "RAR", "wRAA + 주루 Runs + 포지션 Runs + 대체선수 Runs", "수비 Runs 0; 대체선수 Runs는 조회 범위 목표 WAR에 맞춰 역산", "대체선수 대비 득점"),
-            Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "RPW=9×(리그 총 득점÷리그 총 이닝)×1.5+3; 타자 목표 WAR 57%", "FanGraphs RPW 방식으로 시즌 득점환경을 반영한 사이트 자체 추정 타자 WAR"),
+            Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "Runs Per Win 10.0; 타자 목표 WAR 57%", "사이트 자체 추정 타자 WAR"),
 
             Row("기본 투구", "ERA", "9 × ER ÷ IP", "공식 ER·IP", "9이닝당 자책점"),
             Row("기본 투구", "RA9", "9 × R ÷ IP", "공식 R·IP", "9이닝당 실점"),
@@ -469,7 +472,12 @@ public sealed partial class RecordService
             Row("KBO 투수 WAR", "구원 LI 배수", "(1 + gmLI) ÷ 2", "선발 1.0", "구원 품질·대체승에 적용"),
             Row("KBO 투수 WAR", "평균 대비 승리 기여", "(lgFIPR9 - pFIPR9) ÷ dRPW × IP÷9 × LI", "구원만 LI 적용", "리그 평균보다 억제한 실점을 승리 단위로 환산"),
             Row("KBO 투수 WAR", "대체 승", "(Repl FIPR9 - lgFIPR9) ÷ dRPW × IP÷9 × LI", $"SP {calibration.StarterReplacementFipR9:0.0000}; RP {calibration.RelieverReplacementFipR9:0.0000}", "선발·구원 역할별 대체수준"),
-            Row("KBO 투수 WAR", "KBO fWAR", "평균 대비 승리 기여 + 대체 승 + WARIP×IP", $"WARIP {calibration.FipWarPerInning:0.000000}; 투수 WAR 몫 {calibration.PitcherWarShare:P0}; 대체승률 {calibration.ReplacementWinningPercentage:0.000}", "조회 범위의 투수 목표 WAR에 맞춰 최종 보정"),
+            Row("KBO 투수 WAR", "KBO fWAR", "평균 대비 승리 기여 + 대체 승 + WARIP×IP", $"WARIP {calibration.FipWarPerInning:0.000000}; 투수 WAR 몫 {calibration.PitcherWarShare:P0}; 대체승률 {calibration.ReplacementWinningPercentage:0.000}", "비공개(참고용) - 선발·구원 역할별 관측 대체수준을 쓰는 이전 버전 공식"),
+
+            Row("팬그래프 공식 투수 WAR", "ifFIP · FIPR9 · pFIPR9 · dRPW · gmLI · 구원 LI 배수", "KBO 투수 WAR과 동일", "-", "이 구간까지는 KBO 투수 WAR과 계산식이 같습니다"),
+            Row("팬그래프 공식 투수 WAR", "평균 대비 승리 기여", "(lgFIPR9 - pFIPR9) ÷ dRPW × IP÷9 × LI", "구원만 LI 적용", "리그 평균보다 억제한 실점을 승리 단위로 환산 (KBO 투수 WAR과 동일)"),
+            Row("팬그래프 공식 투수 WAR", "대체 승", "대체수준(승/경기) × IP÷9", "구원 0.03승/경기; 선발 0.12승/경기; 그 투수 시즌 GS/G로 가중평균", "선발·구원 역할별 관측치 대신 팬그래프 원 공식의 고정 대체수준을 사용 (LI 미적용)"),
+            Row("팬그래프 공식 투수 WAR", "팬그래프 공식 WAR", "평균 대비 승리 기여 + 대체 승 + WARIP×IP", $"WARIP {calibration.FanGraphsWarPerInning:0.000000}(다시즌 참고값; 실제 표시값은 조회 범위별 재계산); 투수 WAR 몫 {calibration.PitcherWarShare:P0}; 대체승률 {calibration.ReplacementWinningPercentage:0.000}", "사이트 대표 투수 WAR(기본/가치 탭의 \"팬그래프 공식 WAR\" 컬럼) - RA9 블렌드 없이 FIP 단독"),
 
             Row("투구 접근", "Swing%", "Swing ÷ Pitches", "-", "전체 투구 중 스윙 비율"),
             Row("투구 접근", "Contact%", "Contact ÷ Swing", "-", "스윙 중 컨택 비율"),

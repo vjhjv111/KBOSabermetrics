@@ -450,7 +450,7 @@ public static class PitcherRecordRoomRowFactory
                     LoweredReplacementFanGraphsWar = valueRow?.LoweredReplacementFanGraphsWar,
                 };
             })
-            .OrderByDescending(row => row.War ?? double.MinValue)
+            .OrderByDescending(row => row.FanGraphsWar ?? double.MinValue)
             .ThenByDescending(row => row.InningsPitched ?? 0.0)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -585,7 +585,7 @@ public static class PitcherRecordRoomRowFactory
                     LoweredReplacementFanGraphsWar = row.LoweredReplacementFanGraphsWar,
                 };
             })
-            .OrderByDescending(row => row.War ?? double.MinValue)
+            .OrderByDescending(row => row.FanGraphsWar ?? double.MinValue)
             .ThenByDescending(row => row.InningsPitched ?? 0.0)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
