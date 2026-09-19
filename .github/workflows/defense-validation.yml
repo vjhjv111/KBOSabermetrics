@@ -4,11 +4,7 @@ on:
   push:
     branches: ['feature/fanzai-defense-v1']
   pull_request:
-    paths:
-      - 'PC/**'
-      - 'WEB/**'
-      - 'tests/DefenseValidation/**'
-      - '.github/workflows/defense-validation.yml'
+    paths: ['PC/**', 'WEB/**', 'tests/DefenseValidation/**', '.github/workflows/defense-validation.yml']
 
 permissions:
   contents: read
@@ -45,6 +41,33 @@ jobs:
       - name: Build web calculation library
         working-directory: WEB
         run: dotnet build server/src/NaverRelay.Infrastructure.Sqlite/NaverRelay.Infrastructure.Sqlite.csproj -c Release
+      - name: Export .NET 8 compiler and public dependency cache for offline review
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/fanzai-defense-v1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=$(dirname "$(readlink -f "$(command -v dotnet)")")
+          mkdir -p /tmp/defense-toolchain
+          python3 - "$root" <<'PY'
+          import pathlib,sys,tarfile
+          root=pathlib.Path(sys.argv[1])
+          with tarfile.open('/tmp/defense-toolchain/dotnet8.tgz','w:gz') as tar:
+              for name in ['dotnet','LICENSE.txt','ThirdPartyNotices.txt']:
+                  if (root/name).exists(): tar.add(root/name,arcname=name)
+              for sub in ['host/fxr','sdk','shared/Microsoft.NETCore.App','shared/Microsoft.AspNetCore.App','packs/Microsoft.NETCore.App.Ref','packs/Microsoft.AspNetCore.App.Ref','packs/Microsoft.NETCore.App.Host.linux-x64','packs/Microsoft.WindowsDesktop.App.Ref']:
+                  choices=sorted((root/sub).glob('8.*'))
+                  if choices: tar.add(choices[-1],arcname=str(choices[-1].relative_to(root)))
+          with tarfile.open('/tmp/defense-toolchain/nuget.tgz','w:gz') as tar:
+              packages=pathlib.Path.home()/'.nuget/packages'
+              tar.add(packages,arcname='packages')
+          PY
+      - uses: actions/upload-artifact@v4.6.2
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/fanzai-defense-v1' }}
+        with:
+          name: defense-offline-toolchain
+          path: /tmp/defense-toolchain/*
+          retention-days: 1
+          if-no-files-found: error
       - name: Run defensive reconstruction and metric tests
         if: ${{ hashFiles('tests/DefenseValidation/DefenseValidation.csproj') != '' }}
         run: dotnet run --project tests/DefenseValidation/DefenseValidation.csproj -c Release
