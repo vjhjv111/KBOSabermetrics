@@ -41,9 +41,44 @@ function gameHighlights(d){
   card.append(homeTable(['순위','이닝','공격팀','순간','WPA'],plays.map((p,i)=>{const a=text('a',[p.Title,...(p.events??[]).filter(line=>line.includes(' : '))].filter(Boolean).join(' · ')||'중계 보기','player-link');a.href=`#play-${p.Seq}`;a.onclick=e=>{e.preventDefault();const target=document.getElementById(`play-${p.Seq}`);if(target){target.open=true;target.scrollIntoView({behavior:'smooth',block:'center'});target.focus();}};return [1+plays.filter(x=>Math.abs(x.WPA)>Math.abs(p.WPA)).length,gamePlayLabel(p,d.game),teamNameNode(p.Team),a,gameWpa(p.WPA)];})));
   if(!plays.length)card.append(text('p','수집된 WPA 데이터가 없습니다.'));return card;
 }
+// 타석별 미니 스트라이크존 — 배경·선수 이미지 없이 존과 번호가 매겨진 투구 위치만 그립니다.
+// X는 홈플레이트 기준 원본 좌표(ft), z는 그 투구의 존 하단(0)~상단(1)으로 정규화된 값입니다.
+const PITCH_ZONE_HALF_WIDTH = 0.7083;
+const pitchCategoryColors = { ball: '#3ba866', strike: '#df3131', foul: '#e0a72b', inplay: '#3989dc', other: '#8a97a8' };
+const pitchCategoryLabels = { ball: '볼', strike: '스트라이크', foul: '파울', inplay: '타격', other: '결과 미상' };
+function renderPitchZone(pitches){
+  const valid=(pitches??[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z));
+  if(!valid.length)return null;
+  const size=104,pad=12;
+  const extent=Math.max(1.3,...valid.map(p=>Math.abs(p.x)))+0.3;
+  const minZ=Math.min(-0.35,...valid.map(p=>p.z)),maxZ=Math.max(1.35,...valid.map(p=>p.z));
+  const x=v=>pad+(v+extent)/(extent*2)*(size-pad*2),y=v=>size-pad-(v-minZ)/(maxZ-minZ)*(size-pad*2);
+  const svg=svgNode('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,role:'img','aria-label':'타석 투구 위치'});
+  svg.append(svgNode('rect',{x:x(-PITCH_ZONE_HALF_WIDTH),y:y(1),width:x(PITCH_ZONE_HALF_WIDTH)-x(-PITCH_ZONE_HALF_WIDTH),height:y(0)-y(1),fill:'#f0f2f4',stroke:'#b7bfc8'}));
+  for(const p of valid){
+    const color=pitchCategoryColors[p.category]||pitchCategoryColors.other;
+    const dot=svgNode('circle',{cx:x(p.x),cy:y(p.z),r:9,fill:color});
+    const label=svgNode('text',{x:x(p.x),y:y(p.z)+3.5,'text-anchor':'middle','font-size':9,'font-weight':700,fill:'#fff'},p.num??'');
+    const title=svgNode('title');
+    const parts=[p.num!=null?`${p.num}구`:null,pitchCategoryLabels[p.category]||null,p.speed!=null?`${Math.round(p.speed)}km/h`:null,p.type||null,p.balls!=null&&p.strikes!=null?`${p.balls}-${p.strikes}`:null];
+    title.textContent=parts.filter(Boolean).join(' ');
+    dot.append(title);
+    svg.append(dot,label);
+  }
+  return svg;
+}
 function gamePlayLog(d){
-  const card=playerCard('플레이로그');card.append(text('p','경기 진행 순서 · 각 중계를 펼치면 투구·주루·교체 등 수집된 상세 내용을 볼 수 있습니다.','player-note'));
-  for(const p of d.plays??[]){const item=document.createElement('details');item.className='game-play';item.id=`play-${p.Seq}`;item.tabIndex=-1;const summary=text('summary',`${gamePlayLabel(p,d.game)} · ${p.Title||'중계'} · ${p.AA??'—'}:${p.AH??'—'} · WPA ${gameWpa(p.WPA)}`);const lines=text('div','','game-play-events');for(const line of p.events??[])lines.append(text('p',line));if(!p.events?.length)lines.append(text('p','상세 중계 내용이 없습니다.'));item.append(summary,lines);card.append(item);}
+  const card=playerCard('플레이로그');card.append(text('p','경기 진행 순서 · 각 중계를 펼치면 투구 위치·주루·교체 등 수집된 상세 내용을 볼 수 있습니다.','player-note'));
+  for(const p of d.plays??[]){
+    const item=document.createElement('details');item.className='game-play';item.id=`play-${p.Seq}`;item.tabIndex=-1;
+    const summary=text('summary',`${gamePlayLabel(p,d.game)} · ${p.Title||'중계'} · ${p.AA??'—'}:${p.AH??'—'} · WPA ${gameWpa(p.WPA)}`);
+    const body=text('div','','game-play-body');
+    const lines=text('div','','game-play-events');for(const line of p.events??[])lines.append(text('p',line));if(!p.events?.length)lines.append(text('p','상세 중계 내용이 없습니다.'));
+    const zone=renderPitchZone(p.pitches);
+    if(zone){const zoneWrap=text('div','','game-pitch-zone');zoneWrap.append(zone);body.append(zoneWrap,lines);}
+    else body.append(lines);
+    item.append(summary,body);card.append(item);
+  }
   if(!d.plays?.length)card.append(text('p','수집된 플레이로그가 없습니다.'));return card;
 }
 function gameProbability(d){

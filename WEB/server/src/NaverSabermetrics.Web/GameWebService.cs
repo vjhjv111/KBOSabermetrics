@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using NaverRelay.Infrastructure.Sqlite;
+using NaverRelay.Parsing;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 namespace NaverSabermetrics.Web;
@@ -59,6 +60,31 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options)
             return $"{text} {detail}";
         }
         foreach(var play in plays)play["events"]=grouped[Convert.ToString(play["Id"])].Select(FormatEvent).ToArray();
+        // 타석별 투구 위치 미니 스트라이크존 시각화용 — 배경/선수 이미지 없이 좌표·구종·구속·카운트만 내려줍니다.
+        var pitchRows=await Read("SELECT RelayGroupId GroupId,DisplayPitchNumber Num,CrossPlateX X,CalculatedCrossPlateZ Z,TopStrikeZone Top,BottomStrikeZone Bottom,PitchResult Result,PitchType Type,SpeedKmh Speed,BallsAfter B,StrikesAfter S FROM Pitches WHERE GameId=$id ORDER BY ActualPitchIndex",r,ct);
+        var pitchGrouped=pitchRows.ToLookup(p=>Convert.ToString(p["GroupId"]));
+        static string PitchCategory(int result)=>(PitchResultType)result switch
+        {
+            PitchResultType.Ball=>"ball",
+            PitchResultType.Foul or PitchResultType.BuntFoul=>"foul",
+            PitchResultType.InPlay=>"inplay",
+            PitchResultType.SwingingStrike or PitchResultType.CalledStrike or PitchResultType.BuntSwingingStrike=>"strike",
+            _=>"other",
+        };
+        static object? FormatPitch(Dictionary<string,object?> p)
+        {
+            if(p["X"] is not double x||p["Z"] is not double z||p["Top"] is not double top||p["Bottom"] is not double bottom||top<=bottom)return null;
+            return new{
+                num=p["Num"] is null?(int?)null:Convert.ToInt32(p["Num"]),
+                x,z=(z-bottom)/(top-bottom),
+                category=PitchCategory(p["Result"] is null?0:Convert.ToInt32(p["Result"])),
+                type=p["Type"] as string,
+                speed=p["Speed"] is null?(double?)null:Convert.ToDouble(p["Speed"]),
+                balls=p["B"] is null?(int?)null:Convert.ToInt32(p["B"]),
+                strikes=p["S"] is null?(int?)null:Convert.ToInt32(p["S"])
+            };
+        }
+        foreach(var play in plays)play["pitches"]=pitchGrouped[Convert.ToString(play["Id"])].Select(FormatPitch).Where(x=>x!=null).ToArray();
         return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays};
     }
 }
