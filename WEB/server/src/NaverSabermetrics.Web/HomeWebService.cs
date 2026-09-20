@@ -91,11 +91,42 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 else try{var playedHome=new int[list.Length,list.Length];for(int a=0;a<list.Length;a++)for(int b=0;b<list.Length;b++)playedHome[a,b]=homeMatches.GetValueOrDefault((list[a].Code,list[b].Code));var forecast=PlayoffModel.ComputeCalibrated(list,playedHome,ct);odds=forecast.Odds;forecastDetails=forecast.Teams;}catch(ArgumentException){reason="적재 전적과 2026 공식 홈·원정 대진 배정이 일치하지 않아 확률을 계산하지 않습니다.";}
                 var leader=list.OrderByDescending(x=>x.Pct??-1).ThenByDescending(x=>x.W).FirstOrDefault();
                 var rows=list.Select((t,i)=>new{team=t.Code,g=t.G,w=t.W,d=t.D,l=t.L,pct=t.Pct,rf=t.RF,ra=t.RA,rank=1+list.Count(x=>(x.Pct??-1)>(t.Pct??-1)),gb=leader is null?0:((leader.W-t.W)+(t.L-leader.L))/2.0,pyth=t.Pyth,pythWins=t.Pyth*(t.W+t.L),winDifference=t.W-t.Pyth*(t.W+t.L),remaining=Math.Max(0,144-t.G),playoff=odds?[i]}).OrderBy(x=>x.rank).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
+                var magicRanks=Enumerable.Range(1,9).Reverse().ToArray();
+                var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>(Team:x.team,Wins:x.w,Remaining:x.remaining,Rank:x.rank)).ToArray(),magicRanks):null;
                 var latestGames=await LatestResults(c,r.Year,last,ct);
                 var monthlyRows=teams.Keys.Select(code=>monthly.GetValueOrDefault(code)??new ForecastTeam(code,0,0,0,0,0)).Select(t=>new{team=t.Code,w=t.W,d=t.D,l=t.L,pct=t.Pct,rank=t.Pct is null?(int?)null:1+monthly.Values.Count(x=>(x.Pct??-1)>t.Pct.Value)}).OrderBy(x=>x.rank??int.MaxValue).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
-                result=new{rows,latestGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                result=new{rows,latestGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="매직넘버는 (경쟁팀 최대승수-내승수+1), 트래직넘버는 (내최대승수-기준팀승수+1)로 계산하는 통상적 방식이며, 10개 팀이 모두 있을 때만 제공합니다. 동률 순위·타이브레이커·잔여 맞대결 조합은 반영하지 않는 단순화된 근사치입니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}
+    }
+
+    // 매직/트래직 넘버: (팀,목표순위)마다 그 순위 이내 확정에 필요한 "내 승리+상대 패배" 조합 수를
+    // 계산합니다. 순위는 승률 기준이지만 통상적인 매직넘버 표기 관례를 따라 승수 기준(잔여경기를
+    // 전부 승리로 가정한 최대 승수)으로 근사합니다. 동률 타이브레이커·잔여 맞대결 조합 등 세부
+    // 시나리오는 반영하지 않은 단순화된(간이) 계산입니다.
+    private static object[] BuildMagicMatrix(IReadOnlyList<(string Team,int Wins,int Remaining,int Rank)> standings,int[] ranks)
+    {
+        var byPosition=standings.OrderBy(x=>x.Rank).ThenByDescending(x=>x.Wins).ThenBy(x=>x.Team,StringComparer.Ordinal).ToArray();
+        return standings.Select(t=>new{
+            team=t.Team,
+            cells=ranks.Select(rank=>{
+                if(t.Rank<=rank)
+                {
+                    var chasers=byPosition.Skip(rank).ToArray();
+                    if(chasers.Length==0)return new{rank,state="secured",value=(int?)null,ownRemaining=(int?)null};
+                    var rival=chasers.OrderByDescending(x=>x.Wins+x.Remaining).First();
+                    var magic=rival.Wins+rival.Remaining-t.Wins+1;
+                    if(magic<=0)return new{rank,state="secured",value=(int?)null,ownRemaining=(int?)null};
+                    if(magic>t.Remaining)return new{rank,state="needsHelp",value=(int?)magic,ownRemaining=(int?)t.Remaining};
+                    return new{rank,state="magic",value=(int?)magic,ownRemaining=(int?)null};
+                }
+                if(rank-1>=byPosition.Length)return new{rank,state="none",value=(int?)null,ownRemaining=(int?)null};
+                var target=byPosition[rank-1];
+                var tragic=t.Wins+t.Remaining-target.Wins+1;
+                if(tragic<=0)return new{rank,state="eliminated",value=(int?)null,ownRemaining=(int?)null};
+                return new{rank,state="tragic",value=(int?)tragic,ownRemaining=(int?)null};
+            }).ToArray()
+        }).Cast<object>().ToArray();
     }
 }
