@@ -371,11 +371,15 @@ app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bo
     HttpContext c, RecordService records, QueryGate gate, QuotaStore quotas) =>
 {
     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    // wRC+는 파크팩터 보정 전(WrcPlus)·후(WrcPlusParkAdjusted) 두 값이 별도 열로 존재합니다.
+    // 봇 호출자가 "wRC+"에 대응하는 값으로 통상 WrcPlus를 보낼 가능성이 높으므로, 여기서는
+    // 항상 보정된 값(WrcPlusParkAdjusted)으로 정렬·표시되도록 정규화합니다.
+    var normalizedStat = string.Equals(stat,"WrcPlus",StringComparison.OrdinalIgnoreCase) ? "WrcPlusParkAdjusted" : stat;
     var request=new RecordRequest
     {
         Room="season",Role=role,View="basic",Year=year ?? DateTime.UtcNow.Year,
         Team=string.IsNullOrWhiteSpace(team)?null:team,QualificationPercent=qualPercent ?? 0,
-        SortBy=stat,Descending=desc ?? true,Page=1,PageSize=Math.Clamp(limit ?? 10,1,20)
+        SortBy=normalizedStat,Descending=desc ?? true,Page=1,PageSize=Math.Clamp(limit ?? 10,1,20)
     };
     request.Validate(settings);
     quotas.Consume(Ip(c),request.PageSize);

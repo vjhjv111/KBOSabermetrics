@@ -21,8 +21,8 @@
 .home-team-tile:hover{background:#fff;border-color:var(--team-text-color)}
 .home-team-tile:focus-visible{outline:3px solid var(--team-text-color);outline-offset:2px}
 .home-page .home-top-grid,.home-page .home-secondary-grid{display:grid;align-items:stretch;gap:24px;margin-bottom:20px}
-.home-page .home-top-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.home-page .home-secondary-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.home-page .home-top-grid{grid-template-columns:minmax(220px,1.5fr) minmax(220px,1.5fr) minmax(0,7fr)}
+.home-page .home-secondary-grid{grid-template-columns:minmax(220px,3fr) minmax(0,7fr)}
 .home-page .home-top-grid>.player-card,.home-page .home-secondary-grid>.player-card{height:auto;margin-bottom:0}
 .home-page .home-upcoming-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .home-page .home-upcoming-row .home-team-link{flex-direction:column;gap:2px;font-size:12px;line-height:18px;min-width:0;letter-spacing:0}
