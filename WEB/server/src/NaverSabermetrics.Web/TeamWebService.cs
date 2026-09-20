@@ -26,7 +26,10 @@ public sealed class TeamWebService(DatabaseCacheService db,SiteOptions options)
     static double N(Dictionary<string,object?> r,string k)=>r.GetValueOrDefault(k) is object v?Convert.ToDouble(v,CultureInfo.InvariantCulture):0;
     static string S(Dictionary<string,object?> r,string k)=>Convert.ToString(r.GetValueOrDefault(k),CultureInfo.InvariantCulture)??"";
     static double? Rate(double n,double d)=>d>0?Math.Round(n/d,3):null;
-    static string Round(string c)=>"UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND "+(c switch{"정규시즌"=>"LOWER(TRIM(g.RoundCode))='kbo_r'","시범경기"=>$"g.CompetitionType={(int)GameCompetitionType.Preseason}","포스트시즌"=>$"g.CompetitionType={(int)GameCompetitionType.Postseason}",_=>"1=1"});
+    // "전체"는 라운드로 거르지 않지만, 경기일정 화면에만 쓰는 예정 경기 자리표시자
+    // (RoundCode='kbo_scheduled')는 여기서도 제외합니다 — 그렇지 않으면 팀 페이지의
+    // "최근 경기" 목록(날짜 내림차순)에 아직 열리지 않은 경기가 맨 위로 섞여 나옵니다.
+    static string Round(string c)=>"UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND "+(c switch{"정규시즌"=>"LOWER(TRIM(g.RoundCode))='kbo_r'","시범경기"=>$"g.CompetitionType={(int)GameCompetitionType.Preseason}","포스트시즌"=>$"g.CompetitionType={(int)GameCompetitionType.Postseason}",_=>$"LOWER(TRIM(COALESCE(g.RoundCode,'')))<>'{DatabaseCacheService.ScheduledPlaceholderRoundCode}'"});
     async Task<List<Dictionary<string,object?>>> Sql(string sql,TeamWebRequest r,CancellationToken ct)
     {
         await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);

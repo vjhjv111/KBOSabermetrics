@@ -22,6 +22,8 @@ public sealed class RenderCollectorOptions
     public bool ReconcileOfficialRecords { get; set; } = true;
     public int ReconciliationRetryMinutes { get; set; } = 10;
     public string ReconciliationStatePath { get; set; } = "/var/data/kbo-render-reconciliation.json";
+    public bool ScheduleSyncEnabled { get; set; } = true;
+    public int ScheduleSyncIntervalMinutes { get; set; } = 180;
 }
 
 public sealed record RenderReconciliationState(int Year, string DateKey, DateTimeOffset LastAttemptUtc,
@@ -86,6 +88,7 @@ public sealed class RenderCollectorWorker : BackgroundService
     private readonly TimeZoneInfo korea;
     private readonly HttpClient http;
     private DatabaseCacheService? writer;
+    private DateTimeOffset? lastScheduleSyncUtc;
 
     public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options)
     {
@@ -101,7 +104,8 @@ public sealed class RenderCollectorWorker : BackgroundService
     {
         if (!options.Enabled) return;
         if (options.IntervalMinutes is < 1 or > 60 || options.LookbackDays is < 0 or > 7 ||
-            options.ReconciliationRetryMinutes is < 1 or > 1440)
+            options.ReconciliationRetryMinutes is < 1 or > 1440 ||
+            options.ScheduleSyncIntervalMinutes is < 10 or > 1440)
             throw new InvalidOperationException("RenderCollector 주기 또는 조회 일수 설정이 올바르지 않습니다.");
         if (string.IsNullOrWhiteSpace(site.DatabasePath) || !Path.IsPathFullyQualified(site.DatabasePath))
             throw new InvalidOperationException("RenderCollector에는 절대 DB 경로가 필요합니다.");
@@ -225,6 +229,91 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         if (options.ReconcileOfficialRecords && readyForReconciliation is { } target)
             await ReconcileOfficialRecordsAsync(target.Year, target.DateKey, token);
+
+        if (options.ScheduleSyncEnabled && (lastScheduleSyncUtc is null ||
+                DateTimeOffset.UtcNow - lastScheduleSyncUtc >= TimeSpan.FromMinutes(options.ScheduleSyncIntervalMinutes)))
+        {
+            try { await SyncUpcomingScheduleAsync(now, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception ex) { logger.LogWarning(ex, "예정 경기 일정 반영 보류; 다음 주기에 재시도합니다."); }
+            lastScheduleSyncUtc = DateTimeOffset.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// 아직 시작하지 않은 남은 정규시즌 경기를 경기일정 화면에 표시할 수 있도록 자리표시자
+    /// 행으로 DB에 반영합니다. 팀·통계 페이지가 쓰는 RoundCode='kbo_r' 실제 경기와는
+    /// 완전히 분리된 값(<see cref="DatabaseCacheService.ScheduledPlaceholderRoundCode"/>)을
+    /// 쓰므로 WAR·순위·리그 평균 등 기존 계산에는 영향이 없습니다. 실제로 경기가 열리면
+    /// 이 자리표시자는 평소 결과 반영 경로(삭제 후 재삽입)로 자동 교체됩니다.
+    /// </summary>
+    private async Task SyncUpcomingScheduleAsync(DateTimeOffset now, CancellationToken token)
+    {
+        var from = now.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var to = new DateTime(now.Year, 12, 31).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        void Log(string message) => logger.LogInformation("[schedule] {Message}", message);
+
+        var games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token);
+        var candidates = games
+            .Where(g => !g.Cancel && !g.Suspended && g.StatusCode == "BEFORE" &&
+                !string.IsNullOrWhiteSpace(g.GameId) &&
+                !string.IsNullOrWhiteSpace(g.HomeTeamCode) && !string.IsNullOrWhiteSpace(g.AwayTeamCode) &&
+                g.HomeTeamCode!.ToUpperInvariant() is not ("EA" or "WE") &&
+                g.AwayTeamCode!.ToUpperInvariant() is not ("EA" or "WE"))
+            .OrderBy(g => g.GameId, StringComparer.Ordinal)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            logger.LogInformation("[schedule] {From}~{To} 예정 경기 없음", from, to);
+            return;
+        }
+
+        writer ??= new DatabaseCacheService(site.DatabasePath);
+        await writer.InitializeAsync(token);
+
+        var placeholders = new List<ScheduledGamePlaceholder>();
+        var usedHomeGames = new Dictionary<(string Home, string Away), int>();
+        foreach (var game in candidates)
+        {
+            GameRequest parsed;
+            try { parsed = GameRequest.Parse(game.GameId!); }
+            catch (FormatException) { continue; }
+
+            var home = game.HomeTeamCode!.ToUpperInvariant();
+            var away = game.AwayTeamCode!.ToUpperInvariant();
+            var year = int.Parse(parsed.Year, CultureInfo.InvariantCulture);
+
+            int quota;
+            try { quota = PlayoffSchedule2026.HomeGames(home, away); }
+            catch (ArgumentException) { continue; } // 알 수 없는 팀 코드 — 안전하게 건너뜀
+
+            var key = (home, away);
+            if (!usedHomeGames.TryGetValue(key, out var used))
+            {
+                used = await writer.CountRegularSeasonHomeGamesAsync(year, home, away, token);
+                usedHomeGames[key] = used;
+            }
+            // 정규시즌 홈/원정 공식 배정 한도를 넘으면 포스트시즌(또는 그 밖의 비정규 라운드)
+            // 경기로 간주해 제외합니다 — 이 목록 API에는 roundCode가 없어 직접 구분할 수
+            // 없기 때문입니다.
+            if (used >= quota) continue;
+            usedHomeGames[key] = used + 1;
+
+            placeholders.Add(new ScheduledGamePlaceholder(
+                RenderCollectionPolicy.DatabaseGameId(parsed), year,
+                game.GameDate ?? parsed.GameId[..8], game.GameDateTime,
+                home, away, null, game.StatusCode ?? "BEFORE"));
+        }
+
+        if (placeholders.Count == 0)
+        {
+            logger.LogInformation("[schedule] {From}~{To} 반영할 정규시즌 예정 경기 없음 (포스트시즌 등 제외)", from, to);
+            return;
+        }
+
+        var inserted = await writer.UpsertScheduledGamesAsync(placeholders, token);
+        logger.LogInformation("[schedule] {From}~{To} 예정 경기 {Count}건 확인, 신규 {Inserted}건 반영",
+            from, to, placeholders.Count, inserted);
     }
 
     private async Task PublishDayAsync(string dateKey, IReadOnlyList<InputDocument> documents,

@@ -16,7 +16,9 @@ public sealed partial class DatabaseCacheService
         DateTime? maxDate = null;
         await using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT COUNT(*), MIN(GameDate), MAX(GameDate) FROM Games;";
+            // 예정된(미종료) 경기는 경기일정 화면에만 노출되는 자리표시자 행이며, 여기서
+            // 집계에 섞이면 "최근 N일" 등의 기준일과 통계 대체수준 계산이 틀어집니다.
+            command.CommandText = "SELECT COUNT(*), MIN(GameDate), MAX(GameDate) FROM Games WHERE UPPER(StatusCode) IN ('RESULT','ENDED');";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
