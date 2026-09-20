@@ -638,7 +638,7 @@ function renderHomeTeams(year,codes=state.catalog?.teams??[]){
 }
 function initHome(){
   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
-  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details>';
+  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><section id="home-magic" class="player-card home-magic-card"><h2>매직넘버 · 트래직넘버</h2></section><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details>';
   const results=text('section','','player-card');results.id='home-results';results.append(text('h2','최근 경기 결과'));home.querySelector('.home-top-grid').prepend(results);
   home.querySelector('.home-ad-reserve a').addEventListener('click',()=>{
     const body=JSON.stringify({adId:'sportsclassic'});
@@ -666,10 +666,10 @@ async function loadHome(){
   $('home-results').replaceChildren(text('h2','최근 경기 결과'),text('p','불러오는 중…','muted'));
   homeState.controller?.abort();const controller=new AbortController();homeState.controller=controller;const seq=++homeState.seq;const year=Number($('home-year').value);$('home-status').textContent='리그 기록을 불러오는 중…';
   renderHomeTeams(year);
-  for(const [id,title] of [['home-war','WAR TOP 10'],['home-standings','팀 순위 · 피타고리안 전망'],['home-batters','타자 주요 순위'],['home-pitchers','투수 주요 순위']])$(id).replaceChildren(text('h2',title),text('p','불러오는 중…','muted'));$('home-model-note').textContent='';
+  for(const [id,title] of [['home-war','WAR TOP 10'],['home-standings','팀 순위 · 피타고리안 전망'],['home-magic','매직넘버 · 트래직넘버'],['home-batters','타자 주요 순위'],['home-pitchers','투수 주요 순위']])$(id).replaceChildren(text('h2',title),text('p','불러오는 중…','muted'));$('home-model-note').textContent='';
   const results=await Promise.allSettled(['standings','leaders'].map(async section=>{const data=await api('/api/home',{year,section},controller.signal);if(seq!==homeState.seq)return;if(section==='standings')renderHomeStandings(data,year);else renderHomeLeaders(data);}));
   if(seq!==homeState.seq)return;const errors=results.filter(x=>x.status==='rejected'&&x.reason.name!=='AbortError');$('home-status').textContent=errors.length?errors.map(x=>x.reason.message).join(' · '):`${year} 정규시즌 · 수집된 종료 경기 기준`;
-  for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-results','home-standings','home-monthly']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
+  for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-results','home-standings','home-magic','home-monthly']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
 }
 function renderHomeStandings(d,year){
   renderHomeTeams(year,d.rows.map(r=>r.team));
@@ -690,11 +690,8 @@ function magicCellText(cell){
   return String(cell.value);
 }
 function renderMagicMatrix(d,year){
-  const card=$('home-standings');
-  const old=card.querySelector('.magic-matrix-wrap');if(old)old.remove();
-  if(!d.magicMatrix?.length||!d.magicRanks?.length)return;
-  const wrap=text('div','','magic-matrix-wrap');
-  wrap.append(text('h3','매직넘버 · 트래직넘버'));
+  const card=$('home-magic');card.replaceChildren(text('h2','매직넘버 · 트래직넘버'));
+  if(!d.magicMatrix?.length||!d.magicRanks?.length){card.append(text('p','표시할 매직·트래직 넘버가 없습니다.','player-empty'));return;}
   const byTeam=new Map(d.magicMatrix.map(x=>[x.team,x]));
   const table=document.createElement('table');table.className='magic-grid';
   const thead=document.createElement('thead'),headRow=document.createElement('tr');
@@ -712,10 +709,9 @@ function renderMagicMatrix(d,year){
     tbody.append(tr);
   }
   table.append(tbody);
-  const scroll=scrollableTable();scroll.append(table);wrap.append(text('p','↔ 좌우로 밀어 순위별 매직·트래직 넘버를 확인하세요.','scroll-hint'),scroll);
-  wrap.append(text('p','확보(파랑) · 매직넘버(초록) · 자력 확정 불가 · 잔여경기/매직넘버(노랑) · 트래직넘버(분홍) · 불가(회색)','player-note'));
-  if(d.magicNote)wrap.append(text('p',d.magicNote,'player-note'));
-  card.append(wrap);
+  const scroll=scrollableTable();scroll.append(table);card.append(text('p','↔ 좌우로 밀어 순위별 매직·트래직 넘버를 확인하세요.','scroll-hint'),scroll);
+  card.append(text('p','확보(파랑) · 매직넘버(초록) · 자력 확정 불가 · 잔여경기/매직넘버(노랑) · 트래직넘버(분홍) · 불가(회색)','player-note'));
+  if(d.magicNote)card.append(text('p',d.magicNote,'player-note'));
 }
 function renderHomeResults(d,year){
   const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
