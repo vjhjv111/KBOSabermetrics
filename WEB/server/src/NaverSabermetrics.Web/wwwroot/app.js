@@ -6,6 +6,9 @@ const state = { room: 'season', role: 'batter', view: 'basic', session: null, ca
 const roomNames = { season: '시즌', career: '통산', team: '팀', constants: '연도별 상수' };
 const descriptions = { season: '선택 시즌의 선수별 기록', career: '적재된 전체 기간의 선수 기록', team: '팀별 누적 기록과 세부 성적', constants: '연도별 wOBA 계수와 세이버메트릭스 공식·상수' };
 const teamNames = { HH: '한화', HT: 'KIA', LG: 'LG', LT: '롯데', SS: '삼성', SK: 'SSG', WO: '키움', KT: 'KT', NC: 'NC', OB: '두산' };
+// 예정 경기(자리표시자)는 구장 정보를 아직 수집하지 못해 비어 있는 경우가 많습니다.
+// 오른쪽(홈팀)의 홈구장으로 대체 표시합니다.
+const homeStadiums = { HH: '대전', HT: '광주', LG: '잠실', LT: '사직', SS: '대구', SK: '문학', WO: '고척', KT: '수원', NC: '창원', OB: '잠실' };
 const text = (tag, value, className) => { const e=document.createElement(tag); e.textContent=value; if(className)e.className=className; return e; };
 // Franchise aliases share one semantic team class; historical display names are preserved.
 const teamAliases={HH:'HH',HANWHA:'HH','한화':'HH','한화이글스':'HH','빙그레':'HH','빙그레이글스':'HH',HT:'HT',KIA:'HT','KIA타이거즈':'HT','기아':'HT','기아타이거즈':'HT','해태':'HT','해태타이거즈':'HT',LG:'LG','LG트윈스':'LG','MBC':'LG','MBC청룡':'LG',LT:'LT',LOTTE:'LT','롯데':'LT','롯데자이언츠':'LT',SS:'SS',SAMSUNG:'SS','삼성':'SS','삼성라이온즈':'SS',SK:'SK',SSG:'SK','SSG/SK':'SK','SSG랜더스':'SK','SK와이번스':'SK',WO:'WO',KIWOOM:'WO','키움':'WO','키움히어로즈':'WO','넥센':'WO','넥센히어로즈':'WO','우리':'WO','우리히어로즈':'WO','서울히어로즈':'WO','히어로즈':'WO',KT:'KT','KT위즈':'KT',NC:'NC','NC다이노스':'NC',OB:'OB',DOOSAN:'OB','두산':'OB','두산베어스':'OB','OB베어스':'OB'};
@@ -752,12 +755,13 @@ function renderHomeUpcoming(d,year){
   const card=$('home-upcoming');card.replaceChildren(text('h2',d.upcomingDate?`${d.upcomingDate} 경기 일정`:'다음 경기 일정'));
   const list=text('div','','home-results-list home-upcoming-list');
   for(const g of d.upcomingGames??[]){
-    const game=text('article','','home-game home-upcoming-game');game.title=`${g.stadium??'구장 정보 없음'} · 경기 예정`;
+    const stadium=g.stadium??homeStadiums[g.homeTeamCode]??'구장 정보 없음';
+    const game=text('article','','home-game home-upcoming-game');game.title=`${stadium} · 경기 예정`;
     const row=text('div','','home-upcoming-row');
     const away=homeTeamLink(g.awayTeamCode,year);away.title='원정';
     const home=homeTeamLink(g.homeTeamCode,year);home.title='홈';
     row.append(away,text('span',g.gameDateTime?.slice(11,16)||'—','home-upcoming-time'),home);
-    const meta=text('div','','home-game-meta');meta.append(text('span',`${g.stadium??'구장 정보 없음'} · 예정`));
+    const meta=text('div','','home-game-meta');meta.append(text('span',`${stadium} · 예정`));
     const detail=text('a','경기 정보 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.gameId)}`;detail.setAttribute('aria-label',`${teamNames[g.awayTeamCode]??g.awayTeamCode} 대 ${teamNames[g.homeTeamCode]??g.homeTeamCode} 경기 정보`);meta.append(detail);
     game.append(row,meta);list.append(game);
   }
