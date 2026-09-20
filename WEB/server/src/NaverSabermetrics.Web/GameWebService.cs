@@ -43,9 +43,22 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options)
         await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);var decisions=await Decisions(c,r.Id,ct);
         object? original=null;var exists=await Read("SELECT name FROM sqlite_master WHERE type='table' AND name='GameMetadata'",r,ct);if(exists.Count>0){var meta=await Read("SELECT HomeInnings,AwayInnings FROM GameMetadata WHERE GameId=$id",r,ct);if(meta.Count>0)original=new{home=meta[0]["HomeInnings"] is string h?JsonSerializer.Deserialize<string[]>(h):null,away=meta[0]["AwayInnings"] is string a?JsonSerializer.Deserialize<string[]>(a):null};}
         var plays=await Read("SELECT r.RelayGroupId Id,r.ChronologicalIndex Seq,r.Inning,r.BattingTeamCode Team,r.Title,r.BeforeHomeScore BH,r.BeforeAwayScore BA,r.AfterHomeScore AH,r.AfterAwayScore AA,r.HomeWinRateAfter Home,r.AwayWinRateAfter Away,r.WpaByPlate WPA FROM RelayGroups r WHERE r.GameId=$id ORDER BY r.ChronologicalIndex",r,ct);
-        var events=await Read("SELECT RelayGroupId GroupId,RawText Text FROM NormalizedEvents WHERE GameId=$id AND RawText IS NOT NULL AND TRIM(RawText)<>'' ORDER BY ChronologicalIndex",r,ct);
+        // 투구 한 줄(예: "1구 볼")에 구종·구속을 덧붙이기 위해 Pitches를 원본 이벤트(SourceEventId=EventId)로
+        // LEFT JOIN합니다. 결정(승리투수 등)·주자·교체 등 투구가 아닌 이벤트는 매칭되는 Pitches 행이
+        // 없어 PitchType/SpeedKmh가 NULL로 나오므로 그대로 원문만 표시합니다.
+        var events=await Read("SELECT ne.RelayGroupId GroupId,ne.RawText Text,p.PitchType PitchType,p.SpeedKmh SpeedKmh FROM NormalizedEvents ne LEFT JOIN Pitches p ON p.SourceEventId=ne.EventId WHERE ne.GameId=$id AND ne.RawText IS NOT NULL AND TRIM(ne.RawText)<>'' ORDER BY ne.ChronologicalIndex",r,ct);
         var grouped=events.ToLookup(e=>Convert.ToString(e["GroupId"]));
-        foreach(var play in plays)play["events"]=grouped[Convert.ToString(play["Id"])].Select(e=>e["Text"]).ToArray();
+        static string FormatEvent(Dictionary<string,object?> e)
+        {
+            var text=Convert.ToString(e["Text"])??"";
+            var pitchType=e["PitchType"] as string;
+            double? speed=e["SpeedKmh"] is null?null:Convert.ToDouble(e["SpeedKmh"]);
+            var hasType=!string.IsNullOrWhiteSpace(pitchType);
+            if(!hasType&&speed is null)return text;
+            var detail=hasType&&speed is not null?$"{pitchType}({speed.Value:0}km/h)":hasType?pitchType!:$"{speed!.Value:0}km/h";
+            return $"{text} {detail}";
+        }
+        foreach(var play in plays)play["events"]=grouped[Convert.ToString(play["Id"])].Select(FormatEvent).ToArray();
         return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays};
     }
 }
