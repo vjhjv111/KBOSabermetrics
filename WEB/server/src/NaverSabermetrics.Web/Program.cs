@@ -439,6 +439,48 @@ app.MapGet("/api/bot/wpa", async (string date, int? limit, HttpContext c, QueryG
     },c.RequestAborted);
     return Results.Ok(new{date,rows});
 });
+// 📅 팀 월간 일정 — "/월간일정 팀이름"이 더 이상 PC(공유폴더 파일 IPC)를 거치지 않고 폰에서
+// 바로 이 API를 호출합니다. 해당 팀이 홈이든 원정이든 그 달에 걸린 모든 경기(끝난 경기
+// RoundCode='kbo_r' + 예정 경기 RoundCode='kbo_scheduled')를 날짜순으로 돌려줍니다.
+app.MapGet("/api/bot/schedule", async (string team, int? year, int? month, HttpContext c, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    var teamCode=(team??"").Trim().ToUpperInvariant();
+    if (!botTeamNames.ContainsKey(teamCode)) throw new RequestError("알 수 없는 팀입니다.");
+    var y=year ?? DateTime.UtcNow.Year;
+    var m=month ?? DateTime.UtcNow.Month;
+    if (m<1||m>12) throw new RequestError("월은 1~12 사이여야 합니다.");
+    var yearMonth=$"{y:0000}-{m:00}";
+    quotas.Consume(Ip(c),10);
+    var games=await gate.RunAsync(async t=>
+    {
+        await using var conn=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());
+        await conn.OpenAsync(t);
+        await using var cmd=conn.CreateCommand();cmd.CommandTimeout=settings.QuerySeconds;
+        cmd.CommandText="SELECT SUBSTR(GameDate,1,10) Date,HomeTeamCode Home,AwayTeamCode Away FROM Games "
+            +"WHERE SeasonYear=$year AND SUBSTR(GameDate,1,7)=$yearMonth "
+            +"AND LOWER(TRIM(COALESCE(RoundCode,''))) IN ('kbo_r','kbo_scheduled') "
+            +"AND (UPPER(HomeTeamCode)=$team OR UPPER(AwayTeamCode)=$team) "
+            +"AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') "
+            +"ORDER BY GameDate,GameId";
+        cmd.Parameters.AddWithValue("$year",y);cmd.Parameters.AddWithValue("$yearMonth",yearMonth);cmd.Parameters.AddWithValue("$team",teamCode);
+        using var cancel=t.Register(cmd.Cancel);
+        var list=new List<object>();
+        await using var reader=await cmd.ExecuteReaderAsync(t);
+        while(await reader.ReadAsync(t))
+        {
+            var home=reader.GetString(1);var away=reader.GetString(2);
+            list.Add(new{
+                date=reader.GetString(0),
+                home,away,
+                homeName=botTeamNames.TryGetValue(home,out var hn)?hn:home,
+                awayName=botTeamNames.TryGetValue(away,out var an)?an:away
+            });
+        }
+        return list;
+    },c.RequestAborted);
+    return Results.Ok(new{year=y,month=m,team=teamCode,teamName=botTeamNames[teamCode],games});
+});
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});
 app.Run();
