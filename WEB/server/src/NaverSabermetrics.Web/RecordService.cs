@@ -31,15 +31,15 @@ public sealed partial class RecordService
     public object Schema(string room, string role, string view)
     {
         var definition = ViewRegistry.Get(room == "constants" ? "constants" : role, view);
-        return new { columns = Columns(definition), title = definition.Title };
+        return new { columns = Columns(definition, room: room), title = definition.Title };
     }
 
-    private IReadOnlyList<WebColumn> Columns(ViewDefinition definition, PropertyInfo? sort = null, bool descending = true)
+    private IReadOnlyList<WebColumn> Columns(ViewDefinition definition, PropertyInfo? sort = null, bool descending = true, string room = "")
     {
         var columns = new List<WebColumn>();
         foreach (var p in ViewRegistry.Properties(definition))
         {
-            if (PublicHidden(p, definition.Role)) continue;
+            if (PublicHidden(p, definition.Role, room)) continue;
             columns.Add(new(p.Name, ViewRegistry.Label(p), ViewRegistry.Kind(p), ViewRegistry.IsNumber(p) && !WarHidden(p), !WarHidden(p)));
             if (p.Name == "Name")
             {
@@ -57,8 +57,11 @@ public sealed partial class RecordService
     // pitcher RA9-WAR or blended WAR in schemas, filters, sorting, or row DTOs.
     // "팬그래프 공식 WAR"가 사이트 대표 투수 WAR이므로, 예전 KBO fWAR("War")과 대체승률.275
     // 비교용 WAR 두 종류도 계산은 그대로 두고 화면에서만 숨깁니다(값 삭제 아님).
-    private static bool PublicHidden(PropertyInfo p, string role)
+    private static bool PublicHidden(PropertyInfo p, string role, string room = "")
     {
+        // 팀 단위(AnalyticsGrouping.Team) 집계 행은 한 팀의 여러 선수 수비 이닝을 모두 합친
+        // 값이라 "주 포지션"이 개인 의미를 갖지 않으므로 그리드에서 숨깁니다.
+        if (string.Equals(room, "team", StringComparison.OrdinalIgnoreCase) && p.Name == "PrimaryPosition") return true;
         if (!string.Equals(role, "pitcher", StringComparison.OrdinalIgnoreCase)) return false;
         var name = p.Name;
         return name.Contains("Ra9War", StringComparison.OrdinalIgnoreCase)
@@ -94,14 +97,14 @@ public sealed partial class RecordService
         foreach (var condition in request.Conditions)
         {
             var p = properties.FirstOrDefault(x => x.Name == condition.Stat && ViewRegistry.IsNumber(x));
-            if (p is null || PublicHidden(p, request.Role) || WarHidden(p) || ContextHidden(p, query, request.Role)) throw new RequestError("현재 탭에서 사용할 수 없는 스탯 조건입니다.");
+            if (p is null || PublicHidden(p, request.Role, request.Room) || WarHidden(p) || ContextHidden(p, query, request.Role)) throw new RequestError("현재 탭에서 사용할 수 없는 스탯 조건입니다.");
             _ = ViewRegistry.Threshold(p, condition.Value);
         }
         PropertyInfo? sort = null;
         if (!string.IsNullOrEmpty(request.SortBy))
         {
             sort = properties.FirstOrDefault(x => x.Name == request.SortBy);
-            if (sort is null || PublicHidden(sort, request.Role) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
+            if (sort is null || PublicHidden(sort, request.Role, request.Room) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
         var key = $"web-v3-result-v7|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
@@ -207,7 +210,7 @@ public sealed partial class RecordService
             var cells = new Dictionary<string,string>();
             foreach (var p in properties)
             {
-                if (PublicHidden(p, request.Role)) continue;
+                if (PublicHidden(p, request.Role, request.Room)) continue;
                 cells[p.Name] = WarHidden(p) || ContextHidden(p,query,request.Role) ? "-" :
                     p.Name == "Rank" ? (skip + i + 1).ToString(CultureInfo.InvariantCulture) : DisplayCell(definition, row, p);
                 if (p.Name == "Name")
@@ -235,7 +238,7 @@ public sealed partial class RecordService
         var leagueOverview = request.Room == "team"
             ? await BuildLeagueOverviewAsync(request, query, token).ConfigureAwait(false)
             : null;
-        return new(Columns(definition, sort, request.Descending),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion,leagueOverview);
+        return new(Columns(definition, sort, request.Descending, request.Room),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion,leagueOverview);
     }
 
     private static string DisplayCell(ViewDefinition definition, object row, PropertyInfo property)
