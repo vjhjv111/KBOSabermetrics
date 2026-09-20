@@ -81,7 +81,10 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
         using var cancelList=ct.Register(cmd.Cancel);
         var rows=new List<object>();
         await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct))
-            rows.Add(new{GameId=reader.GetString(0),Stadium=reader.IsDBNull(1)?null:reader.GetString(1),AwayTeamCode=reader.GetString(2),HomeTeamCode=reader.GetString(3),GameDateTime=reader.IsDBNull(4)?null:reader.GetString(4)});
+            // 익명 타입 속성은 ASP.NET Core 기본 JSON 옵션(camelCase 네이밍 정책)의 영향을 받으므로,
+            // 프런트가 읽는 필드명과 맞추기 위해 소문자로 시작하는 camelCase로 씁니다(Dictionary 키를
+            // 쓰는 LatestResults와 달리 이 메서드는 익명 타입을 쓰기 때문에 정책이 적용됩니다).
+            rows.Add(new{gameId=reader.GetString(0),stadium=reader.IsDBNull(1)?null:reader.GetString(1),awayTeamCode=reader.GetString(2),homeTeamCode=reader.GetString(3),gameDateTime=reader.IsDBNull(4)?null:reader.GetString(4)});
         return (date,rows.ToArray());
     }
     readonly Dictionary<string,object> cache=new();

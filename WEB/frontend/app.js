@@ -638,7 +638,7 @@ function renderHomeTeams(year,codes=state.catalog?.teams??[]){
 }
 function initHome(){
   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
-  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-results" class="player-card"><h2>최근 경기 결과</h2></section><section id="home-upcoming" class="player-card"><h2>다음 경기 일정</h2></section></div><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details><div class="home-secondary-grid"><section id="home-monthly" class="player-card"><h2>월간 승률 순위</h2></section><section id="home-magic" class="player-card"><h2>매직넘버 · 트래직넘버</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p>';
+  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-results" class="player-card"><h2>최근 경기 결과</h2></section><section id="home-upcoming" class="player-card"><h2>다음 경기 일정</h2></section><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details><div class="home-secondary-grid"><section id="home-monthly" class="player-card"><h2>월간 승률 순위</h2></section><section id="home-magic" class="player-card"><h2>매직넘버 · 트래직넘버</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p>';
   home.querySelector('.home-ad-reserve a').addEventListener('click',()=>{
     const body=JSON.stringify({adId:'sportsclassic'});
     fetch('/api/analytics/ad-click',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':state.session?.csrfToken??''},body,credentials:'same-origin',keepalive:true}).catch(()=>{});
@@ -752,13 +752,13 @@ function renderHomeUpcoming(d,year){
   const card=$('home-upcoming');card.replaceChildren(text('h2',d.upcomingDate?`${d.upcomingDate} 경기 일정`:'다음 경기 일정'));
   const list=text('div','','home-results-list home-upcoming-list');
   for(const g of d.upcomingGames??[]){
-    const game=text('article','','home-game home-upcoming-game');game.title=`${g.Stadium??'구장 정보 없음'} · 경기 예정`;
+    const game=text('article','','home-game home-upcoming-game');game.title=`${g.stadium??'구장 정보 없음'} · 경기 예정`;
     const row=text('div','','home-upcoming-row');
-    const away=homeTeamLink(g.AwayTeamCode,year);away.title='원정';
-    const home=homeTeamLink(g.HomeTeamCode,year);home.title='홈';
-    row.append(away,text('span',g.GameDateTime?.slice(11,16)||'—','home-upcoming-time'),home);
-    const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · 예정`));
-    const detail=text('a','경기 정보 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 정보`);meta.append(detail);
+    const away=homeTeamLink(g.awayTeamCode,year);away.title='원정';
+    const home=homeTeamLink(g.homeTeamCode,year);home.title='홈';
+    row.append(away,text('span',g.gameDateTime?.slice(11,16)||'—','home-upcoming-time'),home);
+    const meta=text('div','','home-game-meta');meta.append(text('span',`${g.stadium??'구장 정보 없음'} · 예정`));
+    const detail=text('a','경기 정보 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.gameId)}`;detail.setAttribute('aria-label',`${teamNames[g.awayTeamCode]??g.awayTeamCode} 대 ${teamNames[g.homeTeamCode]??g.homeTeamCode} 경기 정보`);meta.append(detail);
     game.append(row,meta);list.append(game);
   }
   card.append(list);if(!d.upcomingGames?.length)card.append(text('p','예정된 경기가 없습니다.','player-empty'));
