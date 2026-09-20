@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using KboRelayDownloader;
 
 namespace NaverRelayUI.Collection;
@@ -26,12 +28,31 @@ public static class FullGameCollector
         int delayMs = 300, Action<string>? log = null, CancellationToken ct = default)
     {
         JsonObject root;
+        var effectiveGameId = gameId;
         try
         {
-            var json = await http.GetStringAsync(GamePollingUrl(gameId, null), ct);
-            root = ReadValidatedRoot(json, gameId, requireRelay: false);
+            var json = await http.GetStringAsync(GamePollingUrl(effectiveGameId, null), ct);
+            root = ReadValidatedRoot(json, effectiveGameId, requireRelay: false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        // Older (archived) games are keyed by Naver under the original 13-character ID without the
+        // trailing season suffix that current-season game-polling requests use; a 404 on the first
+        // try is the signal to retry once under that alternate ID form before giving up.
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound && TryAlternateGameId(gameId, out var alternate))
+        {
+            log?.Invoke($"  네이버 {gameId}: 기본 응답 404, 연도 접미사 없는 옛 ID({alternate})로 재시도합니다.");
+            try
+            {
+                var json = await http.GetStringAsync(GamePollingUrl(alternate, null), ct);
+                root = ReadValidatedRoot(json, alternate, requireRelay: false);
+                effectiveGameId = alternate;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex2)
+            {
+                return new(null, false, null, null, 0, [], [$"기본 응답 수집 실패: {ex2.Message}"]);
+            }
+        }
         catch (Exception ex)
         {
             return new(null, false, null, null, 0, [], [$"기본 응답 수집 실패: {ex.Message}"]);
@@ -48,7 +69,7 @@ public static class FullGameCollector
         if (round != "kbo_r")
             return new(root.ToJsonString(), false, round, status, expected, collected,
                 [round is null ? "정규시즌 여부(roundCode)를 확인할 수 없습니다." : $"정규시즌 제외: {round}"]);
-        if (!IsEnded(status)) log?.Invoke($"  네이버 {gameId}: 진행 상태 {status ?? "?"}, 현재까지의 기록을 저장합니다.");
+        if (!IsEnded(status)) log?.Invoke($"  네이버 {effectiveGameId}: 진행 상태 {status ?? "?"}, 현재까지의 기록을 저장합니다.");
         if (relay is null || expected == 0)
         {
             errors.Add(relay is null ? "문자중계 데이터가 없습니다." : "실제로 진행된 이닝 수를 확인할 수 없습니다.");
@@ -61,8 +82,8 @@ public static class FullGameCollector
             ct.ThrowIfCancellationRequested();
             try
             {
-                var json = await http.GetStringAsync(GamePollingUrl(gameId, inning), ct);
-                var inningRoot = ReadValidatedRoot(json, gameId, requireRelay: true);
+                var json = await http.GetStringAsync(GamePollingUrl(effectiveGameId, inning), ct);
+                var inningRoot = ReadValidatedRoot(json, effectiveGameId, requireRelay: true);
                 if (String(inningRoot["result"]!["game"]!["roundCode"]) != round)
                     throw new InvalidDataException("이닝 응답의 시즌 구분이 기본 응답과 다릅니다.");
                 var plays = inningRoot["result"]!["textRelayData"]!["textRelays"] as JsonArray;
@@ -82,14 +103,14 @@ public static class FullGameCollector
                 }
                 foreach (var pair in accepted) mergedPlays.Add(pair.Key, pair.Value);
                 collected.Add(inning);
-                log?.Invoke($"  네이버 {gameId} {inning}회: {accepted.Count}개 기록");
+                log?.Invoke($"  네이버 {effectiveGameId} {inning}회: {accepted.Count}개 기록");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 var message = $"{inning}회 수집 실패: {ex.Message}";
                 errors.Add(message);
-                log?.Invoke($"  네이버 {gameId} {message}");
+                log?.Invoke($"  네이버 {effectiveGameId} {message}");
             }
             if (delayMs > 0 && inning < expected) await Task.Delay(delayMs, ct);
         }
@@ -173,6 +194,24 @@ public static class FullGameCollector
             if (current is > 0 and <= 99) played = Math.Max(played, current);
         }
         return played;
+    }
+
+    // Toggles between Naver's two known gameId forms for the same game: the plain 13-character
+    // KBO-style ID used by older/archived games, and that same ID with the 4-digit season
+    // repeated at the end, used by current-season game-polling requests. Returns false if the
+    // input doesn't match either shape.
+    private static readonly Regex GameIdShapeRegex = new(@"^(?<id>\d{8}[A-Za-z]{4}\d)(?<year>\d{4})?$");
+    internal static bool TryAlternateGameId(string gameId, out string alternate)
+    {
+        var match = GameIdShapeRegex.Match(gameId);
+        if (!match.Success)
+        {
+            alternate = "";
+            return false;
+        }
+        var id = match.Groups["id"].Value;
+        alternate = match.Groups["year"].Success ? id : id + id[..4];
+        return true;
     }
 
     private static void ValidateGameId(JsonNode? node, string expected)

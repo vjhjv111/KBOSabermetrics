@@ -19,6 +19,34 @@
 
 .home-top-grid{grid-template-columns:minmax(250px,.85fr) minmax(0,2fr) minmax(245px,.8fr);gap:16px}.home-top-grid>.player-card{padding:18px 14px}.home-top-grid>.player-card h2{margin:-18px -14px 14px}.home-top-grid .player-table-wrap td,.home-top-grid .player-table-wrap th{padding:10px 5px;font-size:11px}.home-scoreline{grid-template-columns:auto 18px 44px 18px auto auto;gap:5px}.game-play{border-bottom:1px solid #e3e8ef;padding:12px 8px}.game-play summary{cursor:pointer;line-height:1.7;color:#30465b}.game-play:focus{outline:2px solid #ec5c2b}.game-play-body{display:flex;gap:14px;align-items:flex-start;padding:8px 16px;background:#f6f8fb}.game-play-events{flex:1;min-width:0;padding:0;background:transparent;font-size:13px;line-height:1.6}.game-pitch-zone{flex:none;background:#fff;border:1px solid #e2e7ed;border-radius:6px;padding:6px}.game-pitch-zone svg{display:block}.game-highlights td:nth-child(4){white-space:normal;min-width:220px;line-height:1.6}.game-highlights table{width:100%}@media(max-width:600px){.game-play-body{flex-direction:column}.game-pitch-zone{align-self:center}}
 
+/* FANZAI_FIXED_STRIKE_ZONE_V1_BEGIN */
+/* SVG width/height and viewBox must stay 1:1. Only this viewport may scroll. */
+.game-play-body.game-play-body-fixed-zone{flex-wrap:wrap;min-width:0}
+.game-play-body-fixed-zone .game-play-events{flex:1 1 240px;min-width:0;max-width:100%;overflow-wrap:anywhere}
+.game-pitch-panel{flex:0 1 auto;min-width:0;max-width:100%}
+.game-pitch-zone{
+  box-sizing:border-box;min-width:0;max-width:100%;max-height:none;
+  overflow:auto;overscroll-behavior:contain;
+}
+.game-pitch-zone > svg.game-pitch-canvas{
+  display:block;flex:none;width:auto;height:auto;
+  max-width:none;max-height:none;
+}
+.game-pitch-point text{font-family:Arial,sans-serif;pointer-events:none}
+.game-pitch-point:focus{outline:none}
+.game-pitch-point:focus circle{stroke:#1f334b;stroke-width:2.5}
+.game-pitch-zone:focus-visible{outline:2px solid #ec5c2b;outline-offset:2px}
+.game-pitch-zone-note,.game-pitch-scroll-hint{
+  max-width:300px;margin:6px 0 0;
+  color:#596779;font-size:11px;line-height:1.5;overflow-wrap:anywhere;
+}
+@media(max-width:600px){
+  .game-pitch-panel{align-self:center;max-width:100%}
+  .game-pitch-zone{max-height:380px;}
+  .game-play-body-fixed-zone .game-play-events{flex:0 1 auto;width:100%}
+}
+/* FANZAI_FIXED_STRIKE_ZONE_V1_END */
+
 /* DIAMOND is one record-room tab, with its own responsive game canvas. */
 .diamond-page{background:#f5f7fa;min-height:calc(100vh - 109px);padding:0 0 29px}.diamond-page iframe{display:block;width:100%;height:1050px;border:0;background:#f5f7fa}.room-nav{min-width:0;gap:2px}.room{min-width:83px;padding:0 10px}@media(max-width:1150px){.site-header{gap:12px}.room{min-width:70px;padding:0 7px}.header-actions{gap:6px}.header-actions .button{padding:0 8px}}@media(max-width:950px){.site-header{flex-wrap:wrap;height:auto;min-height:106px;padding-top:12px}.room-nav{order:3;width:100%;height:40px;overflow-x:auto;justify-content:flex-start}.room{flex:1 0 78px}.header-actions{margin-left:auto}.diamond-page{min-height:calc(100vh - 135px)}}
 

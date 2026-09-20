@@ -24,11 +24,23 @@ public sealed class RenderCollectorOptions
     public string ReconciliationStatePath { get; set; } = "/var/data/kbo-render-reconciliation.json";
     public bool ScheduleSyncEnabled { get; set; } = true;
     public int ScheduleSyncIntervalMinutes { get; set; } = 180;
+
+    /// <summary>
+    /// 과거 데이터 소급 수집을 켤지 여부입니다. 기본은 꺼짐 — 켜면 매 주기마다 한 번씩
+    /// BackfillFromDate부터 시작해 BackfillChunkDays 크기로 과거 날짜를 잘라가며 자동으로
+    /// 수집·DB 반영을 진행하고, 최근 수집 구간(오늘-LookbackDays)에 닿으면 자동으로 멈춥니다.
+    /// </summary>
+    public bool BackfillEnabled { get; set; } = false;
+    public string BackfillFromDate { get; set; } = "2008-03-01";
+    public int BackfillChunkDays { get; set; } = 30;
+    public string BackfillStatePath { get; set; } = "/var/data/kbo-render-backfill.json";
 }
 
 public sealed record RenderReconciliationState(int Year, string DateKey, DateTimeOffset LastAttemptUtc,
     bool FullRbiAttempted, bool Completed, int CorrectionsPending, int RbiPending,
     int TeamPitchingPending, string[] PendingRbiPlayerCodes, string[] Messages, string DatabaseVersion);
+
+public sealed record RenderBackfillState(string NextFromDate, bool Completed);
 
 public static class RenderCollectionPolicy
 {
@@ -109,15 +121,22 @@ public sealed class RenderCollectorWorker : BackgroundService
             throw new InvalidOperationException("RenderCollector 주기 또는 조회 일수 설정이 올바르지 않습니다.");
         if (string.IsNullOrWhiteSpace(site.DatabasePath) || !Path.IsPathFullyQualified(site.DatabasePath))
             throw new InvalidOperationException("RenderCollector에는 절대 DB 경로가 필요합니다.");
+        if (options.BackfillChunkDays is < 1 or > 90)
+            throw new InvalidOperationException("RenderCollector 과거 수집 청크 일수(BackfillChunkDays) 설정이 올바르지 않습니다.");
+        if (options.BackfillEnabled && !DateTime.TryParseExact(options.BackfillFromDate, "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            throw new InvalidOperationException("RenderCollector 과거 수집 시작일(BackfillFromDate) 형식이 올바르지 않습니다 (yyyy-MM-dd).");
 
         options.JsonDirectory = Path.GetFullPath(options.JsonDirectory);
         options.HeartbeatPath = Path.GetFullPath(options.HeartbeatPath);
         options.ManualTriggerPath = Path.GetFullPath(options.ManualTriggerPath);
         options.ReconciliationStatePath = Path.GetFullPath(options.ReconciliationStatePath);
+        options.BackfillStatePath = Path.GetFullPath(options.BackfillStatePath);
         Directory.CreateDirectory(options.JsonDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(options.HeartbeatPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(options.ManualTriggerPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(options.ReconciliationStatePath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(options.BackfillStatePath)!);
         logger.LogInformation("Render 수집기 시작: interval={Interval}m json={Json} db={Database}",
             options.IntervalMinutes, options.JsonDirectory, site.DatabasePath);
 
@@ -163,6 +182,33 @@ public sealed class RenderCollectorWorker : BackgroundService
         var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, korea);
         var from = now.Date.AddDays(-options.LookbackDays).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var to = now.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        await CollectAndPublishAsync(from, to, token);
+
+        if (options.BackfillEnabled)
+        {
+            try { await RunBackfillChunkAsync(now, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception ex) { logger.LogWarning(ex, "[backfill] 과거 데이터 수집 보류; 다음 주기에 재시도합니다."); }
+        }
+
+        if (options.ScheduleSyncEnabled && (lastScheduleSyncUtc is null ||
+                DateTimeOffset.UtcNow - lastScheduleSyncUtc >= TimeSpan.FromMinutes(options.ScheduleSyncIntervalMinutes)))
+        {
+            try { await SyncUpcomingScheduleAsync(now, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception ex) { logger.LogWarning(ex, "예정 경기 일정 반영 보류; 다음 주기에 재시도합니다."); }
+            lastScheduleSyncUtc = DateTimeOffset.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// [from, to] 구간(양 끝 포함, yyyy-MM-dd)의 KBO 일정을 수집해 종료된 경기를 실사용 DB에
+    /// 반영합니다. 매일 돌아가는 최근 구간 수집과, 아래 과거 소급 수집(RunBackfillChunkAsync)이
+    /// 이 메서드 하나를 공유합니다 — 날짜 구간 외에는 동일한 경로(네이버+KBO 공식 대조,
+    /// roundCode 검증, 중복/부분 저장 방지)를 그대로 탑니다.
+    /// </summary>
+    private async Task CollectAndPublishAsync(string from, string to, CancellationToken token)
+    {
         void Log(string message) => logger.LogInformation("[collector] {Message}", message);
 
         var games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token);
@@ -174,8 +220,8 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         var summary = await RelayCollector.CollectAllAsync(http, games, options.JsonDirectory,
             delayMs: 500, log: Log, ct: token);
-        logger.LogInformation("Render JSON 수집: 완료={Complete} 부분={Partial} 기존/취소={Skipped} 제외={Excluded} 실패={Failed}",
-            summary.Complete, summary.Partial, summary.Skipped, summary.Excluded, summary.Failed);
+        logger.LogInformation("Render JSON 수집 {From}~{To}: 완료={Complete} 부분={Partial} 기존/취소={Skipped} 제외={Excluded} 실패={Failed}",
+            from, to, summary.Complete, summary.Partial, summary.Skipped, summary.Excluded, summary.Failed);
 
         var excluded = summary.ExcludedGameIds.ToHashSet(StringComparer.Ordinal);
         (int Year, string DateKey)? readyForReconciliation = null;
@@ -229,15 +275,73 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         if (options.ReconcileOfficialRecords && readyForReconciliation is { } target)
             await ReconcileOfficialRecordsAsync(target.Year, target.DateKey, token);
+    }
 
-        if (options.ScheduleSyncEnabled && (lastScheduleSyncUtc is null ||
-                DateTimeOffset.UtcNow - lastScheduleSyncUtc >= TimeSpan.FromMinutes(options.ScheduleSyncIntervalMinutes)))
+    /// <summary>
+    /// 과거 소급 수집을 한 주기당 한 청크(BackfillChunkDays)씩 진행합니다. 진행 상태는
+    /// BackfillStatePath에 저장해 Render 재시작/재배포 후에도 이어서 진행되며, 다음 시작일이
+    /// 매일 수집 구간(오늘-LookbackDays)에 닿으면 자동으로 완료 처리하고 더 이상 아무 일도
+    /// 하지 않습니다.
+    /// </summary>
+    private async Task RunBackfillChunkAsync(DateTimeOffset now, CancellationToken token)
+    {
+        var state = await LoadBackfillStateAsync(token);
+        if (state is { Completed: true }) return;
+
+        var lookbackStart = now.Date.AddDays(-options.LookbackDays);
+        var nextFrom = DateTime.ParseExact(state?.NextFromDate ?? options.BackfillFromDate,
+            "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        if (nextFrom >= lookbackStart)
         {
-            try { await SyncUpcomingScheduleAsync(now, token); }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-            catch (Exception ex) { logger.LogWarning(ex, "예정 경기 일정 반영 보류; 다음 주기에 재시도합니다."); }
-            lastScheduleSyncUtc = DateTimeOffset.UtcNow;
+            await SaveBackfillStateAsync(new RenderBackfillState(
+                nextFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), true), token);
+            logger.LogInformation("[backfill] {From}부터의 과거 수집이 최근 수집 구간에 도달해 완료 처리합니다.", options.BackfillFromDate);
+            return;
         }
+
+        var chunkEnd = nextFrom.AddDays(options.BackfillChunkDays - 1);
+        if (chunkEnd >= lookbackStart) chunkEnd = lookbackStart.AddDays(-1);
+
+        var from = nextFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var to = chunkEnd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        logger.LogInformation("[backfill] {From} ~ {To} 과거 데이터 수집 시작", from, to);
+
+        await CollectAndPublishAsync(from, to, token);
+
+        var nextStart = chunkEnd.AddDays(1);
+        var completed = nextStart >= lookbackStart;
+        var nextStartText = nextStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        await SaveBackfillStateAsync(new RenderBackfillState(nextStartText, completed), token);
+        logger.LogInformation("[backfill] {From} ~ {To} 처리 완료. 다음 시작일={Next} 완료여부={Completed}",
+            from, to, nextStartText, completed);
+    }
+
+    private async Task<RenderBackfillState?> LoadBackfillStateAsync(CancellationToken token)
+    {
+        if (!File.Exists(options.BackfillStatePath)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<RenderBackfillState>(
+                await File.ReadAllTextAsync(options.BackfillStatePath, token));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            logger.LogWarning(ex, "Render 과거 수집 진행 상태 파일을 읽지 못했습니다. 처음(BackfillFromDate)부터 다시 시작합니다.");
+            return null;
+        }
+    }
+
+    private async Task SaveBackfillStateAsync(RenderBackfillState state, CancellationToken token)
+    {
+        var temp = options.BackfillStatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(temp, json, new UTF8Encoding(false), token);
+            File.Move(temp, options.BackfillStatePath, true);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 
     /// <summary>

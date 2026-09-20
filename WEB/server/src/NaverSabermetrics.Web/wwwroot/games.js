@@ -46,27 +46,150 @@ function gameHighlights(d){
 const PITCH_ZONE_HALF_WIDTH = 0.7083;
 const pitchCategoryColors = { ball: '#3ba866', strike: '#df3131', foul: '#e0a72b', inplay: '#3989dc', other: '#8a97a8' };
 const pitchCategoryLabels = { ball: '볼', strike: '스트라이크', foul: '파울', inplay: '타격', other: '결과 미상' };
-function renderPitchZone(pitches){
-  const valid=(pitches??[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z));
+// FANZAI_FIXED_STRIKE_ZONE_V1_BEGIN
+// Fixed CSS-pixel scale: expand the canvas, never rescale the strike zone.
+// x retains the API's feet unit. z is relative to each pitch's zone (bottom 0, top 1).
+// This is a normalized display, not a physical-height comparison between batters.
+const PITCH_ZONE_DRAWING = Object.freeze({
+  zoneWidth: 60,
+  zoneHeight: 80,
+  minWidth: 160,
+  minHeight: 160,
+  maxWidth: 480,
+  maxHeight: 480,
+  radius: 9,
+  padding: 12
+});
+
+function pitchZoneGeometry(pitches){
+  const cfg=PITCH_ZONE_DRAWING;
+  const valid=(Array.isArray(pitches)?pitches:[])
+    .filter(p=>p && Number.isFinite(p.x) && Number.isFinite(p.z));
   if(!valid.length)return null;
-  const size=104,pad=12;
-  const extent=Math.max(1.3,...valid.map(p=>Math.abs(p.x)))+0.3;
-  const minZ=Math.min(-0.35,...valid.map(p=>p.z)),maxZ=Math.max(1.35,...valid.map(p=>p.z));
-  const x=v=>pad+(v+extent)/(extent*2)*(size-pad*2),y=v=>size-pad-(v-minZ)/(maxZ-minZ)*(size-pad*2);
-  const svg=svgNode('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,role:'img','aria-label':'타석 투구 위치'});
-  svg.append(svgNode('rect',{x:x(-PITCH_ZONE_HALF_WIDTH),y:y(1),width:x(PITCH_ZONE_HALF_WIDTH)-x(-PITCH_ZONE_HALF_WIDTH),height:y(0)-y(1),fill:'#f0f2f4',stroke:'#b7bfc8'}));
+
+  const scaleX=cfg.zoneWidth/(2*PITCH_ZONE_HALF_WIDTH);
+  const scaleY=cfg.zoneHeight;
+  const inset=cfg.radius+cfg.padding;
+  let halfWidth=cfg.minWidth/2,halfHeight=cfg.minHeight/2;
   for(const p of valid){
-    const color=pitchCategoryColors[p.category]||pitchCategoryColors.other;
-    const dot=svgNode('circle',{cx:x(p.x),cy:y(p.z),r:9,fill:color});
-    const label=svgNode('text',{x:x(p.x),y:y(p.z)+3.5,'text-anchor':'middle','font-size':9,'font-weight':700,fill:'#fff'},p.num??'');
-    const title=svgNode('title');
-    const parts=[p.num!=null?`${p.num}구`:null,pitchCategoryLabels[p.category]||null,p.speed!=null?`${Math.round(p.speed)}km/h`:null,p.type||null,p.balls!=null&&p.strikes!=null?`${p.balls}-${p.strikes}`:null];
-    title.textContent=parts.filter(Boolean).join(' ');
-    dot.append(title);
-    svg.append(dot,label);
+    // Bound BEFORE multiplication so even corrupt finite coordinates cannot overflow.
+    const dx=Math.min(Math.abs(p.x),(cfg.maxWidth/2-inset)/scaleX)*scaleX;
+    const dy=Math.min(Math.abs(p.z-0.5),(cfg.maxHeight/2-inset)/scaleY)*scaleY;
+    halfWidth=Math.max(halfWidth,dx+inset);
+    halfHeight=Math.max(halfHeight,dy+inset);
+  }
+  const width=Math.min(cfg.maxWidth,2*Math.ceil(halfWidth));
+  const height=Math.min(cfg.maxHeight,2*Math.ceil(halfHeight));
+  const centerX=width/2,centerY=height/2;
+  const xLimit=(centerX-inset)/scaleX;
+  const zLimit=(centerY-inset)/scaleY;
+  const points=valid.map(p=>{
+    // Beyond the safety limit, show a distinctly marked boundary indicator.
+    // Project onto the boundary along the original direction; never pretend it is
+    // an actual pitch at the boundary, and retain the original coordinates in the tooltip.
+    const factor=Math.max(1,Math.abs(p.x)/xLimit,Math.abs(p.z-0.5)/zLimit);
+    const dx=(p.x/factor)*scaleX;
+    const dy=((0.5-p.z)/factor)*scaleY;
+    const distance=Math.hypot(dx,dy);
+    return {pitch:p,cx:centerX+dx,cy:centerY+dy,outside:factor>1,
+      ux:distance>0?dx/distance:0,uy:distance>0?dy/distance:0};
+  });
+  return {width,height,centerX,centerY,
+    zone:{x:centerX-cfg.zoneWidth/2,y:centerY-cfg.zoneHeight/2,
+      width:cfg.zoneWidth,height:cfg.zoneHeight},
+    points,outsideCount:points.filter(p=>p.outside).length};
+}
+
+function renderPitchZone(pitches){
+  const geometry=pitchZoneGeometry(pitches);
+  if(!geometry)return null;
+  const cfg=PITCH_ZONE_DRAWING;
+  const svg=svgNode('svg',{
+    viewBox:`0 0 ${geometry.width} ${geometry.height}`,
+    width:geometry.width,height:geometry.height,
+    class:'game-pitch-canvas',role:'img',
+    'aria-label':`타석 투구 위치 ${geometry.points.length}구 · 고정 스트라이크존${geometry.outsideCount?` · 표시 범위 밖 ${geometry.outsideCount}구`:''}`,
+    'data-outside-count':geometry.outsideCount
+  });
+  const description=svgNode('desc');
+  description.textContent='스트라이크존은 항상 60×80 CSS 픽셀입니다. 투구가 벗어난 만큼 그림 영역만 확대합니다. 점선 원과 화살표는 표시 한계 밖의 투구이며 원래 좌표는 각 투구 설명에 있습니다.';
+  svg.append(description);
+  svg.append(svgNode('rect',{
+    ...geometry.zone,class:'game-strike-zone',fill:'#f0f2f4',
+    stroke:'#b7bfc8','stroke-width':1
+  }));
+  for(const point of geometry.points){
+    const p=point.pitch;
+    const color=(['ball','strike','foul','inplay'].includes(p.category)
+      ?pitchCategoryColors[p.category]:pitchCategoryColors.other);
+    const parts=[p.num!=null?`${p.num}구`:null,
+      pitchCategoryLabels[p.category]||pitchCategoryLabels.other,
+      Number.isFinite(p.speed)?`${Math.round(p.speed)}km/h`:null,p.type||null,
+      p.balls!=null&&p.strikes!=null?`${p.balls}-${p.strikes}`:null,
+      `x=${p.x.toFixed(3)} ft`,
+      `z=${p.z.toFixed(3)} (존 하단 0 · 상단 1)`];
+    if(point.outside)parts.push('표시 범위 밖 — 점선 원은 경계 방향 표시이며 실제 투구 위치가 아닙니다.');
+    const tip=parts.filter(Boolean).join(' · ');
+    const group=svgNode('g',{
+      class:point.outside?'game-pitch-point is-outside':'game-pitch-point',
+      tabindex:0,role:'img','aria-label':tip,
+      'data-outside':String(point.outside)
+    });
+    const title=svgNode('title');title.textContent=tip;group.append(title);
+    if(point.outside){
+      const start=cfg.radius+1,end=cfg.radius+7,wing=3;
+      const ax=point.cx+point.ux*end,ay=point.cy+point.uy*end;
+      const bx=point.cx+point.ux*(end-4),by=point.cy+point.uy*(end-4);
+      group.append(svgNode('path',{
+        d:`M ${point.cx+point.ux*start} ${point.cy+point.uy*start} L ${ax} ${ay} M ${bx-point.uy*wing} ${by+point.ux*wing} L ${ax} ${ay} L ${bx+point.uy*wing} ${by-point.ux*wing}`,
+        fill:'none',stroke:color,'stroke-width':1.5,'pointer-events':'none'
+      }));
+    }
+    const attributes={cx:point.cx,cy:point.cy,r:cfg.radius,fill:color};
+    if(point.outside)Object.assign(attributes,{fill:'#fff',stroke:color,'stroke-width':1.5,'stroke-dasharray':'3 2'});
+    const dot=svgNode('circle',attributes);
+    const label=svgNode('text',{
+      x:point.cx,y:point.cy+3.5,'text-anchor':'middle','font-size':9,
+      'font-weight':700,fill:point.outside?color:'#fff','pointer-events':'none'
+    });
+    label.textContent=p.num??'';
+    group.append(dot,label);svg.append(group);
   }
   return svg;
 }
+
+function wrapPitchZone(svg){
+  const panel=text('div','','game-pitch-panel');
+  const viewport=text('div','','game-pitch-zone');
+  viewport.tabIndex=0;
+  viewport.setAttribute('role','region');
+  viewport.setAttribute('aria-label','투구 위치 그림. 화면보다 큰 경우 좌우·위아래로 스크롤할 수 있습니다.');
+  viewport.append(svg);panel.append(viewport);
+  const scrollHint=text('p','', 'game-pitch-scroll-hint');
+  scrollHint.hidden=true;panel.append(scrollHint);
+  const outsideCount=Number(svg.getAttribute('data-outside-count'));
+  if(outsideCount>0){
+    panel.append(text('p',`점선 원·화살표: 표시 범위 밖 ${outsideCount}구. 실제 좌표는 투구에 마우스를 올려 확인하세요.`,
+      'game-pitch-zone-note'));
+  }
+  return panel;
+}
+function centerPitchZoneViewport(panel){
+  const viewport=panel.querySelector('.game-pitch-zone');
+  if(!viewport || viewport.clientWidth<=0 || viewport.clientHeight<=0)return;
+  // Called when the containing <details> is opened, after it has a layout size.
+  // The zone is immediately visible even on a small screen; manual pan is then preserved.
+  const extraX=Math.max(0,viewport.scrollWidth-viewport.clientWidth);
+  const extraY=Math.max(0,viewport.scrollHeight-viewport.clientHeight);
+  viewport.scrollLeft=extraX/2;
+  viewport.scrollTop=extraY/2;
+  const hint=panel.querySelector('.game-pitch-scroll-hint');
+  if(hint){
+    hint.hidden=extraX<1 && extraY<1;
+    hint.textContent=`${extraX>=1?'↔ ':''}${extraY>=1?'↕ ':''}그림을 스크롤해 모든 투구 위치를 확인하세요.`;
+  }
+}
+// FANZAI_FIXED_STRIKE_ZONE_V1_END
 function gamePlayLog(d){
   const card=playerCard('플레이로그');card.append(text('p','경기 진행 순서 · 각 중계를 펼치면 투구 위치·주루·교체 등 수집된 상세 내용을 볼 수 있습니다.','player-note'));
   for(const p of d.plays??[]){
@@ -75,7 +198,7 @@ function gamePlayLog(d){
     const body=text('div','','game-play-body');
     const lines=text('div','','game-play-events');for(const line of p.events??[])lines.append(text('p',line));if(!p.events?.length)lines.append(text('p','상세 중계 내용이 없습니다.'));
     const zone=renderPitchZone(p.pitches);
-    if(zone){const zoneWrap=text('div','','game-pitch-zone');zoneWrap.append(zone);body.append(zoneWrap,lines);}
+    if(zone){body.classList.add('game-play-body-fixed-zone');const panel=wrapPitchZone(zone);body.append(panel,lines);item.addEventListener('toggle',()=>{if(item.open)centerPitchZoneViewport(panel);});}
     else body.append(lines);
     item.append(summary,body);card.append(item);
   }
