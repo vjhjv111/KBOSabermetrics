@@ -1,19 +1,19 @@
 function gameTeamScore(g,tag='span'){const line=text(tag,'');line.append(teamNameNode(g.Away),document.createTextNode(` ${g.AScore??'—'} : ${g.HS??'—'} `),teamNameNode(g.Home));return line;}
 const gameState={seq:0,controller:null,month:null};
 const gameRoot=text('main','','game-page');gameRoot.id='game-page';gameRoot.hidden=true;$('workspace').before(gameRoot);
-const gameNav=text('button','경기기록','room');gameNav.dataset.route='games';gameNav.onclick=()=>{location.hash='games';};document.querySelector('.room-nav').append(gameNav);
+const gameNav=text('button','경기일정','room');gameNav.dataset.route='games';gameNav.onclick=()=>{location.hash='games';};document.querySelector('.room-nav').append(gameNav);
 window.addEventListener('hashchange',gameRoute);
 async function gameRoute(){
   if(!state.catalog)return;const params=new URLSearchParams(location.hash.slice(1));const active=location.hash==='#games'||params.has('game');gameState.controller?.abort();const seq=++gameState.seq;gameRoot.hidden=!active;if(!active)return;
   for(const id of ['workspace','home-page','player-page','team-page'])$(id).hidden=true;abortQuery();
   gameState.controller=new AbortController();const signal=gameState.controller.signal;
-  gameRoot.replaceChildren(text('h1',params.has('game')?'경기 상세':'경기기록'),text('p','불러오는 중…'));
+  gameRoot.replaceChildren(text('h1',params.has('game')?'경기 상세':'경기일정'),text('p','불러오는 중…'));
   try{if(params.has('game')){const d=await api('/api/games',{section:'detail',id:params.get('game')},signal);if(seq===gameState.seq)renderGame(d);}else{
     gameState.month??=state.catalog.maxDate?.slice(0,7)??`${Math.max(...state.catalog.years)}-01`;const [year,month]=gameState.month.split('-').map(Number);const d=await api('/api/games',{section:'calendar',year,month},signal);if(seq===gameState.seq)renderCalendar(d,year,month);
-  }}catch(e){if(e.name!=='AbortError'&&seq===gameState.seq)gameRoot.replaceChildren(text('h1','경기기록'),text('p',e.message));}
+  }}catch(e){if(e.name!=='AbortError'&&seq===gameState.seq)gameRoot.replaceChildren(text('h1','경기일정'),text('p',e.message));}
 }
 function renderCalendar(d,year,month){
-  document.title='경기기록 · FANZAI';gameRoot.replaceChildren(text('h1','경기기록'));
+  document.title='경기일정 · FANZAI';gameRoot.replaceChildren(text('h1','경기일정'));
   const controls=text('div','','game-month-controls');const prev=text('button','← 이전 달','button outline'),next=text('button','다음 달 →','button outline'),input=document.createElement('input');input.type='month';input.value=gameState.month;input.min='1900-01';input.max='2200-12';input.setAttribute('aria-label','조회 월');
   input.onchange=()=>{if(input.validity.valid&&input.value){gameState.month=input.value;gameRoute();}};
   function shift(delta){const date=new Date(year,month-1+delta,1);if(date.getFullYear()<1900||date.getFullYear()>2200)return;gameState.month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;gameRoute();}prev.onclick=()=>shift(-1);next.onclick=()=>shift(1);controls.append(prev,input,next);gameRoot.append(controls,text('p','수집된 경기만 표시합니다. 날짜별 점수를 누르면 상세 기록을 볼 수 있습니다.','player-note'));
