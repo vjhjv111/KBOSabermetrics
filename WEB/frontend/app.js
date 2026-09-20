@@ -680,6 +680,42 @@ function renderHomeStandings(d,year){
   card.append(text('p','↔ 좌우로 밀어 승률·득실점·시즌 전망을 확인하세요.','scroll-hint'),homeTable(['순위','팀','경기','승','무','패','승차','승률','득점','실점','피타고리안','실제−예상 승','PS 진출 추정'],rows));if(!d.rows.length)card.append(text('p','해당 시즌의 정규시즌 기록이 없습니다.','player-empty'));
   card.append(text('p',`기준일 ${d.asOf?.slice(0,10)??'—'} · ${d.forecastAvailable?(d.forecastModel?'상대 수준·평균 회귀 보정 · 10,000회 · 자체 추정':'남은 상대별 대진 10,000회 시뮬레이션 · 공식 확률 아님'):d.reason}`,'player-note'));renderForecastMethod($('home-model-note'),d);
   const explain=text('button','계산식 보기','home-formula-button');explain.type='button';explain.setAttribute('aria-controls','home-method');explain.onclick=()=>{const panel=$('home-method');panel.open=true;panel.querySelector('summary').focus({preventScroll:true});panel.scrollIntoView({behavior:'auto',block:'start'});};card.querySelector('.player-note').append(document.createTextNode(' · '),explain);
+  renderMagicMatrix(d,year);
+}
+function magicCellText(cell){
+  if(cell.state==='secured')return '확보';
+  if(cell.state==='eliminated')return '불가';
+  if(cell.state==='none')return '—';
+  if(cell.state==='needsHelp')return `${cell.ownRemaining}/${cell.value}`;
+  return String(cell.value);
+}
+function renderMagicMatrix(d,year){
+  const card=$('home-standings');
+  const old=card.querySelector('.magic-matrix-wrap');if(old)old.remove();
+  if(!d.magicMatrix?.length||!d.magicRanks?.length)return;
+  const wrap=text('div','','magic-matrix-wrap');
+  wrap.append(text('h3','매직넘버 · 트래직넘버'));
+  const byTeam=new Map(d.magicMatrix.map(x=>[x.team,x]));
+  const table=document.createElement('table');table.className='magic-grid';
+  const thead=document.createElement('thead'),headRow=document.createElement('tr');
+  headRow.append(text('th','구단'));for(const rank of d.magicRanks)headRow.append(text('th',rank+'위'));
+  thead.append(headRow);table.append(thead);
+  const tbody=document.createElement('tbody');
+  for(const row of d.rows){
+    const entry=byTeam.get(row.team);if(!entry)continue;
+    const tr=document.createElement('tr');
+    const th=document.createElement('th');th.scope='row';th.append(homeTeamLink(row.team,year));tr.append(th);
+    for(const cell of entry.cells){
+      const td=document.createElement('td');td.className='magic-cell magic-'+cell.state;td.textContent=magicCellText(cell);
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  const scroll=scrollableTable();scroll.append(table);wrap.append(text('p','↔ 좌우로 밀어 순위별 매직·트래직 넘버를 확인하세요.','scroll-hint'),scroll);
+  wrap.append(text('p','확보(파랑) · 매직넘버(초록) · 자력 확정 불가 · 잔여경기/매직넘버(노랑) · 트래직넘버(분홍) · 불가(회색)','player-note'));
+  if(d.magicNote)wrap.append(text('p',d.magicNote,'player-note'));
+  card.append(wrap);
 }
 function renderHomeResults(d,year){
   const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
