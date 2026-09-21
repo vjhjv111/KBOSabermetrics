@@ -20,7 +20,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
     private const string ParserCacheVersion = "sabermetrics-v2-combined-official-v8";
-    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-rpw-v3";
+    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-woba-re24-v2";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -213,9 +213,18 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
             string.IsNullOrWhiteSpace(game.HomeTeam.TeamCode) || string.IsNullOrWhiteSpace(game.AwayTeam.TeamCode) ||
             game.Diagnostics.Any(d => d.Code == "MISSING_TEXT_RELAY_DATA"))
             throw new InvalidDataException("경기 식별 정보나 중계 데이터가 없는 JSON은 저장할 수 없습니다.");
-        var cached = await LoadPlayLogAsync(game.GameId, cancellationToken);
-        if (game.ImportedOfficialSource is { } embedded) cached = KboPlayLog.SelectPreferred(cached, embedded);
-        official = official is null ? cached : KboPlayLog.SelectPreferred(cached, official);
+        // Only the current season's KBO official data is still being actively corrected on
+        // koreabaseball.com, so only it is worth cross-checking/merging at all. A past season is
+        // settled: apply Naver's own text relay only, so a malformed/ambiguous historical box score
+        // (identity conflicts, name collisions, stat-sum mismatches — all common the further back a
+        // game is) can never block that game, or corrupt it with a bad identity match, from being
+        // saved. This overrides both a freshly-collected official source and anything already cached
+        // for this GameId from an earlier import.
+        var requiresKboOfficial = game.GameId is { Length: >= 4 } &&
+            int.TryParse(game.GameId.AsSpan(0, 4), out var gameSeasonYear) && gameSeasonYear >= DateTime.UtcNow.Year;
+        var cached = requiresKboOfficial ? await LoadPlayLogAsync(game.GameId, cancellationToken) : null;
+        if (requiresKboOfficial && game.ImportedOfficialSource is { } embedded) cached = KboPlayLog.SelectPreferred(cached, embedded);
+        official = !requiresKboOfficial ? null : official is null ? cached : KboPlayLog.SelectPreferred(cached, official);
         if (official != null) KboPlayLog.Apply(game, official);
         await ApplyKboCorrectionsAsync(game, cancellationToken).ConfigureAwait(false);
         if (official != null) KboPlayLog.ReconcileLines(game);

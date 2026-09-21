@@ -115,7 +115,12 @@ public sealed class RenderCollectorWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Enabled) return;
-        if (options.IntervalMinutes is < 1 or > 60 || options.LookbackDays is < 0 or > 7 ||
+        // IntervalMinutes=0 is allowed on purpose: it means "no artificial gap between cycles" —
+        // useful for a local backfill run, where the real throttling already happens per-request
+        // inside GameIdCollector/RelayCollector (delayMs), not at the cycle level. WaitForNextCycleAsync
+        // computes deadline = now + 0 minutes, which resolves to "return immediately" with no change
+        // needed there.
+        if (options.IntervalMinutes is < 0 or > 60 || options.LookbackDays is < 0 or > 7 ||
             options.ReconciliationRetryMinutes is < 1 or > 1440 ||
             options.ScheduleSyncIntervalMinutes is < 10 or > 1440)
             throw new InvalidOperationException("RenderCollector 주기 또는 조회 일수 설정이 올바르지 않습니다.");
@@ -230,7 +235,15 @@ public sealed class RenderCollectorWorker : BackgroundService
         {
             var dayGames = RenderCollectionPolicy.EligibleGames(games, dateKey!);
             if (dayGames.Count == 0) continue;
-            if (!RenderCollectionPolicy.AllGamesFinal(dayGames))
+            // A past-season day's schedule-list status can get stuck the same way an individual
+            // game's own detail status can (see FullGameCollector.CollectResultAsync's stuck-game
+            // override) — both come from Naver, and both can go permanently stale for the same old
+            // archived games. For a past season, don't let this schedule-level snapshot block the
+            // day forever; fall through to the authoritative per-game file check below, which
+            // reflects any stuck-game correction already applied when the file was written. A
+            // current-season day (which could genuinely still be mid-game) keeps the original gate.
+            var isPastSeason = int.TryParse(dateKey!.AsSpan(0, 4), out var dateYear) && dateYear < DateTime.UtcNow.Year;
+            if (!isPastSeason && !RenderCollectionPolicy.AllGamesFinal(dayGames))
             {
                 var waiting = dayGames.Where(x => !RenderCollectionPolicy.IsFinalStatus(x.StatusCode))
                     .Select(x => $"{x.GameId}:{x.StatusCode ?? "?"}");
@@ -429,9 +442,19 @@ public sealed class RenderCollectorWorker : BackgroundService
         var changed = documents.Where(x => !unchanged.Contains(x.Id)).ToArray();
         if (changed.Length == 0)
         {
-            await VerifyPublishedGamesAsync(expectedGameIds, token);
-            logger.LogInformation("{Date} DB는 이미 최신입니다.", dateKey);
-            return;
+            var found = await CountPublishedGamesAsync(expectedGameIds, token);
+            if (found == expectedGameIds.Count)
+            {
+                logger.LogInformation("{Date} DB는 이미 최신입니다.", dateKey);
+                return;
+            }
+            // ParsedSources says this source JSON hasn't changed since it was last imported, but the
+            // Games table disagrees (e.g. a stale/partial fingerprint left over from an older import
+            // attempt or a different database). Don't get stuck retrying this date forever — force a
+            // full reprocess of the whole day instead of trusting the "unchanged" cache.
+            logger.LogWarning("{Date} 소스 지문은 일치하지만 DB에는 {Found}/{Expected}건만 있어 전체를 다시 반영합니다.",
+                dateKey, found, expectedGameIds.Count);
+            changed = documents.ToArray();
         }
 
         var inputs = new List<(NormalizedGame Game, InputDocument Document)>(changed.Length);
@@ -450,7 +473,7 @@ public sealed class RenderCollectorWorker : BackgroundService
             dateKey, inputs.Count);
     }
 
-    private async Task VerifyPublishedGamesAsync(IReadOnlyList<string> gameIds, CancellationToken token)
+    private async Task<int> CountPublishedGamesAsync(IReadOnlyList<string> gameIds, CancellationToken token)
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         { DataSource=site.DatabasePath, Mode=SqliteOpenMode.ReadOnly, Pooling=false, DefaultTimeout=10 }.ToString());
@@ -462,7 +485,12 @@ public sealed class RenderCollectorWorker : BackgroundService
             var name = "$id" + i; parameters.Add(name); command.Parameters.AddWithValue(name, gameIds[i]);
         }
         command.CommandText = $"SELECT COUNT(*) FROM Games WHERE GameId IN ({string.Join(',', parameters)}) AND UPPER(StatusCode) IN ('RESULT','ENDED')";
-        var found = Convert.ToInt32(await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+    }
+
+    private async Task VerifyPublishedGamesAsync(IReadOnlyList<string> gameIds, CancellationToken token)
+    {
+        var found = await CountPublishedGamesAsync(gameIds, token);
         if (found != gameIds.Count) throw new InvalidDataException($"DB 반영 확인 실패: expected={gameIds.Count}, found={found}");
     }
 

@@ -20,6 +20,15 @@ public sealed record CachedSources(NaverCollectionResult? Naver, RelayDocument? 
 
 public static class UnifiedDocumentStore
 {
+    // The current season is still being actively corrected on KBO's official site (RBI/error
+    // corrections, box score fixes), so a current-season game must be cross-checked against it
+    // before being treated as complete. A past season is settled: once Naver's own text relay is
+    // fully collected, KBO official data is still fetched and used to enrich/correct it when
+    // available, but its absence no longer blocks that game from entering the database — otherwise
+    // older seasons that koreabaseball.com no longer serves cleanly could never be backfilled.
+    public static bool RequiresKboOfficial(GameRequest expected) =>
+        int.TryParse(expected.Year, out var year) && year >= DateTime.UtcNow.Year;
+
     public static bool IsFinalKbo(RelayDocument? document, GameRequest expected)
     {
         if (document is null || document.GameId != expected.GameId || document.LeagueId != "1" ||
@@ -39,9 +48,16 @@ public static class UnifiedDocumentStore
     public static CachedSources ReadCache(string json, GameRequest expected, string naverGameId)
     {
         var root = JsonNode.Parse(json) as JsonObject ?? throw new InvalidDataException("저장된 JSON 객체가 없습니다.");
-        // Legacy Naver-only file: validate internal game IDs and all inning coverage first.
+        // Legacy Naver-only file (e.g. from the original collector, before KBO official
+        // cross-checking existed): validate internal game IDs and inning coverage, then apply the
+        // same past-season relaxation as the wrapped format below — it never had kboOfficial data
+        // to begin with, so for a past season a fully-collected Naver payload is enough on its own.
         if (root["result"] is JsonObject)
-            return new(FullGameCollector.InspectSaved(json, naverGameId), null, false);
+        {
+            var legacyNaver = FullGameCollector.InspectSaved(json, naverGameId);
+            var legacyComplete = legacyNaver.IsComplete && !RequiresKboOfficial(expected);
+            return new(legacyNaver, null, legacyComplete);
+        }
         if (FullGameCollector.String(root["gameId"]) != expected.GameId ||
             FullGameCollector.String(root["naverGameId"]) != naverGameId ||
             FullGameCollector.String(root["canonicalSource"]) != "kboOfficial")
@@ -60,9 +76,10 @@ public static class UnifiedDocumentStore
         RelayDocument? kbo = root["kboOfficial"]?.Deserialize<RelayDocument>(RelayClient.JsonOptions);
         if (kbo is not null && (kbo.GameId != expected.GameId || kbo.LeagueId != "1" || kbo.SeriesId != "0"))
             throw new InvalidDataException("기존 KBO 데이터의 경기/시리즈가 다릅니다. 기존 파일을 유지합니다.");
+        var requireKbo = RequiresKboOfficial(expected);
+        bool kboOk = !requireKbo || (IsFinalKbo(kbo, expected) && kbo!.IdentityMapping is not null);
         bool complete = FullGameCollector.String(root["collectionStatus"]) == "complete" &&
-            naver is { IsComplete: true } && IsFinalKbo(kbo, expected) && kbo!.IdentityMapping is not null &&
-            root["errors"] is JsonArray { Count: 0 };
+            naver is { IsComplete: true } && kboOk && !HasBlockingErrors(root["errors"], requireKbo);
         return new(naver, kbo, complete);
     }
 
@@ -84,23 +101,47 @@ public static class UnifiedDocumentStore
         if (kbo is not null && naver?.Json is { } source)
         {
             try { kbo = IdentityMapper.Enrich(kbo, source, naverGameId + ".json"); }
-            catch (Exception ex) when (ex is InvalidDataException or JsonException or InvalidOperationException)
+            catch (Exception ex) when (ex is InvalidDataException or JsonException or InvalidOperationException
+                or NullReferenceException or ArgumentException or FormatException or IndexOutOfRangeException
+                or KeyNotFoundException)
             {
-                // Remove stale assignments if a previous partial source had different identity data.
+                // Old/malformed KBO box scores can have missing or oddly-shaped fields that
+                // IdentityMapper doesn't defensively null-check for every case. Any failure here
+                // must not discard the whole game (including its already-collected Naver data) —
+                // fall back to KBO data without identity mapping and record it as a soft error.
                 kbo = WithoutIdentities(kbo);
                 errors.Add(new("identityMapping", ex.Message));
             }
         }
         bool naverComplete = naver is { IsComplete: true, Json: not null };
         bool kboComplete = IsFinalKbo(kbo, expected);
+        var requireKbo = RequiresKboOfficial(expected);
         if (!naverComplete && !errors.Any(e => e.Source == "naver")) errors.Add(new("naver", "네이버 전체 중계 수집이 완료되지 않았습니다."));
         if (!kboComplete && !errors.Any(e => e.Source == "kboOfficial")) errors.Add(new("kboOfficial", "KBO 공식 종료 기록과 박스스코어 수집이 완료되지 않았습니다."));
-        bool complete = naverComplete && kboComplete && errors.Count == 0;
+        // A missing/incomplete kboOfficial entry only blocks completeness for the current season —
+        // see RequiresKboOfficial. Any other error (naver, identityMapping, ...) still blocks.
+        bool hasBlockingErrors = errors.Any(e => e.Source != "kboOfficial" || requireKbo);
+        bool complete = naverComplete && (kboComplete || !requireKbo) && !hasBlockingErrors;
         return new(expected.GameId, naverGameId, "kboOfficial", complete ? "complete" : "partial",
             DateTimeOffset.UtcNow, errors, kbo, naver?.Json is { } json ? JsonNode.Parse(json) : null,
             new(naverComplete ? "complete" : naver?.Json is null ? "missing" : "partial",
                 kboComplete ? "complete" : kbo is null ? "missing" : "partial"),
             naver is null ? null : new(naver.ExpectedInnings, naver.CollectedInnings, naverComplete));
+    }
+
+    // Mirrors the "kboOfficial errors don't block a past-season game" rule applied in Create,
+    // but reading back from the saved JSON's "errors" array instead of an in-memory list.
+    private static bool HasBlockingErrors(JsonNode? errorsNode, bool requireKbo)
+    {
+        if (errorsNode is not JsonArray errors) return false;
+        foreach (var error in errors)
+        {
+            if (error is not JsonObject eo) return true;
+            var source = FullGameCollector.String(eo["source"]);
+            if (source == "kboOfficial" && !requireKbo) continue;
+            return true;
+        }
+        return false;
     }
 
     private static RelayDocument WithoutIdentities(RelayDocument document)

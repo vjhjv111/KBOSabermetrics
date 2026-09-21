@@ -89,6 +89,16 @@ public sealed class RelayClient : IDisposable
         return (document with { BoxScore = boxScore }, html, scoreboard);
     }
 
+    // Fetches and parses ONLY the play-by-play text page — never the scoreboard/box-score page —
+    // so this path never touches BoxScoreParser or identity mapping at all. Used by
+    // KboDecisionLookup to read just the 승리/패전/세이브투수 lines as a best-effort patch for a
+    // Naver game whose own status metadata is stuck (see FullGameCollector.CollectResultAsync).
+    public async Task<RelayDocument> DownloadLogsOnlyAsync(GameRequest game, CancellationToken ct = default)
+    {
+        var html = await FetchHtmlAsync(game, "LiveTextView2.aspx", ct);
+        return ParseHtml(game, html);
+    }
+
     private async Task<string> FetchHtmlAsync(GameRequest game, string endpoint, CancellationToken ct)
     {
         for (var attempt = 0; attempt < 3; attempt++)

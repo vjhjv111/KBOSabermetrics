@@ -103,7 +103,13 @@ public static class KboBoxScore
             foreach(var item in identities.EnumerateArray())
             {
                 var no=item.GetProperty("rowNumber").GetInt32(); var code=Text(item,"naverPcode"); var status=Text(item,"matchStatus");
-                var unresolved = status == "ambiguous_kbo_rows" && string.IsNullOrWhiteSpace(code);
+                // IdentityMapper.Enrich (collection side) can leave a row unresolved for two distinct
+                // reasons, both deferred to lineup-order/stat-based resolution below rather than a hard
+                // failure: "ambiguous_kbo_rows" (this exact name appears twice in the KBO box itself) and
+                // "ambiguous" (the name is unique within the box, but multiple distinct Naver player codes
+                // share it league-wide). Only "identity_conflict"/"unmatched" have no usable candidate at
+                // all and must still fail here.
+                var unresolved = (status == "ambiguous_kbo_rows" || status == "ambiguous") && string.IsNullOrWhiteSpace(code);
                 if(no<1||no>rows.Length||(!unresolved&&(string.IsNullOrWhiteSpace(code)||!Regex.IsMatch(code,@"^\d+$")||status?.StartsWith("matched",StringComparison.Ordinal)!=true||!codes.Add(code))))
                     throw new InvalidDataException("공식 선수 ID 연결이 미해결/중복 상태입니다.");
                 var candidates=item.TryGetProperty("candidatePcodes",out var candidateArray)

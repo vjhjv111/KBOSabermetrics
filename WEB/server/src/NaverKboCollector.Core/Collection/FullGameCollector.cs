@@ -117,6 +117,48 @@ public static class FullGameCollector
 
         // Preserve every other Naver field, including statistics, without using it to alter KBO.
         relay["textRelays"] = new JsonArray(mergedPlays.OrderByDescending(p => p.Key).Select(p => p.Value).ToArray());
+
+        // Naver's own live-game metadata can get permanently stuck on a non-final statusCode for
+        // some old archived games — its backend never flips "game" to RESULT/ENDED even though the
+        // relay data underneath is otherwise structurally complete (every inning collected, no
+        // errors). This only ever applies to a PAST SEASON (never a game that could genuinely
+        // still be live) and only once everything else already checks out; in that case, check
+        // KBO's own independent, box-score-free 승리/패전/세이브투수 text for a real game-over
+        // confirmation and patch the stuck fields instead of leaving the game blocked forever.
+        // This never touches IdentityMapper or the box score, so it carries none of the fragility
+        // UnifiedDocumentStore.RequiresKboOfficial ("past season = Naver-only") exists to avoid —
+        // a failed lookup here just leaves the game exactly as unresolved as before.
+        if (!IsEnded(status) && collected.Count == expected && errors.Count == 0 &&
+            effectiveGameId is { Length: >= 4 } &&
+            int.TryParse(effectiveGameId.AsSpan(0, 4), out var effectiveYear) && effectiveYear < DateTime.UtcNow.Year)
+        {
+            try
+            {
+                using var kboClient = new RelayClient();
+                var decision = await KboDecisionLookup.TryFetchAsync(kboClient, GameRequest.Parse(effectiveGameId), ct);
+                if (decision is { GameOverConfirmed: true, WinPitcherName: { } winPitcher })
+                {
+                    int SumRuns(JsonNode? scores) => scores is JsonArray arr ? arr.Sum(v =>
+                        int.TryParse(String(v)?.TrimEnd('X', 'x'), NumberStyles.Integer, CultureInfo.InvariantCulture, out var r) ? r : 0) : 0;
+                    var homeRuns = SumRuns(game["homeTeamScoreByInning"]);
+                    var awayRuns = SumRuns(game["awayTeamScoreByInning"]);
+                    var winner = homeRuns > awayRuns ? "HOME" : awayRuns > homeRuns ? "AWAY" : "DRAW";
+                    game["statusCode"] = "RESULT";
+                    game["winner"] = winner;
+                    if (string.IsNullOrWhiteSpace(String(game["winPitcherName"]))) game["winPitcherName"] = winPitcher;
+                    if (string.IsNullOrWhiteSpace(String(game["losePitcherName"])) && decision.LosePitcherName is { } losePitcher)
+                        game["losePitcherName"] = losePitcher;
+                    if (string.IsNullOrWhiteSpace(String(game["savePitcherName"])) && decision.SavePitcherName is { } savePitcher)
+                        game["savePitcherName"] = savePitcher;
+                    status = "RESULT";
+                    log?.Invoke($"  네이버 {effectiveGameId}: 상태값이 고정된 오래된 경기로 확인, KBO 공식 문자중계로 종료 확정" +
+                        $" (winner={winner}, 승={winPitcher}, 패={decision.LosePitcherName ?? "미상"})");
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception) { /* best-effort: leave the game exactly as unresolved as before */ }
+        }
+
         bool complete = IsEnded(status) && collected.Count == expected && errors.Count == 0;
         return new(root.ToJsonString(), complete, round, status, expected, collected, errors);
     }
