@@ -124,11 +124,12 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText="SELECT HomeTeamCode,AwayTeamCode FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
                     await using var remReader=await remCmd.ExecuteReaderAsync(ct);while(await remReader.ReadAsync(ct)){var ra=remReader.GetString(0);var rb=remReader.GetString(1);remainingMatches[(ra,rb)]=remainingMatches.GetValueOrDefault((ra,rb))+1;}
                 }
-                var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>(Team:x.team,Wins:x.w,Remaining:x.remaining,Rank:x.rank)).ToArray(),magicRanks,(x,y)=>remainingMatches.GetValueOrDefault((x,y))+remainingMatches.GetValueOrDefault((y,x))):null;
+                var remainingBetween=(Func<string,string,int>)((x,y)=>remainingMatches.GetValueOrDefault((x,y))+remainingMatches.GetValueOrDefault((y,x)));
+                var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>(Team:x.team,Wins:x.w,Remaining:x.remaining,Rank:x.rank)).ToArray(),magicRanks,remainingBetween):null;
                 var latestGames=await LatestResults(c,r.Year,last,ct);
                 var (upcomingDate,upcomingGames)=await UpcomingSchedule(c,r.Year,last,ct);
                 var monthlyRows=teams.Keys.Select(code=>monthly.GetValueOrDefault(code)??new ForecastTeam(code,0,0,0,0,0)).Select(t=>new{team=t.Code,w=t.W,d=t.D,l=t.L,pct=t.Pct,rank=t.Pct is null?(int?)null:1+monthly.Values.Count(x=>(x.Pct??-1)>t.Pct.Value)}).OrderBy(x=>x.rank??int.MaxValue).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
-                result=new{rows,latestGames,upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="매직넘버는 (경쟁팀 최대승수-내승수+1), 트래직넘버는 (내최대승수-기준팀승수+1)에서 두 팀 사이 남은 직접 맞대결 경기수×2를 뺀 값입니다(맞대결 승리 1회는 내 승수 +1과 상대 최대승수 -1을 동시에 만족시키는 이중 효과가 있어 반영). 잔여 맞대결 경기수는 DB에 저장된 실제 예정 경기 일정을 그대로 집계한 값입니다. 10개 팀이 모두 있을 때만 제공합니다. 동률 순위·타이브레이커, 그리고 여러 경쟁팀을 동시에 고려하는 완전한 조합(최대유량 기반 탈락 계산)까지는 반영하지 않은 근사치입니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                result=new{rows,latestGames,upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="확보/불가 여부는 9개 팀 전체의 잔여 일정을 동시에 고려하는 최대유량 기반 완전 탈락·확정 계산(Baseball Elimination Problem)으로 정확히 판정합니다. 매직넘버·트래직넘버 숫자 자체는 (경쟁팀 최대승수-내승수+1) 또는 (내최대승수-기준팀승수+1)에서 두 팀 사이 남은 직접 맞대결 경기수×2를 뺀 값으로, 가장 위협적인 경쟁팀 하나를 기준으로 한 근사치입니다(맞대결 승리 1회는 내 승수 +1과 상대 최대승수 -1을 동시에 만족시키는 이중 효과가 있어 반영). 잔여 맞대결 경기수는 DB에 저장된 실제 예정 경기 일정을 그대로 집계한 값입니다. 10개 팀이 모두 있을 때만 제공합니다. 동률 순위·타이브레이커는 아직 반영하지 않았습니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}
@@ -141,36 +142,146 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
     // 팀간 잔여 맞대결(head-to-head)은 반영합니다: 남은 일정에서 두 팀이 직접 맞붙는 경기는,
     // 그 경기를 이기면 "내 승수 +1"과 "상대가 도달 가능한 최대승수 -1"을 동시에 만족시키는
     // 이중 효과가 있으므로(그 경기를 상대가 이길 수 없어졌으므로), 두 팀 사이 잔여 맞대결
-    // 경기수 remainingHeadToHead(a,b) × 2 를 원래 매직/트래직 넘버에서 뺍니다. 이는 실제
-    // 매직넘버 관례에서도 통용되는 보정입니다(맞대결이 남아있으면 표기상 매직넘버보다 실제로는
-    // 더 빨리 확정될 수 있다는 것).
+    // 경기수 remainingHeadToHead(a,b) × 2 를 원래 매직/트래직 넘버에서 뺍니다.
     //
-    // 순위 확정(매직) 쪽은 경쟁팀이 여럿일 수 있으므로, 후보 경쟁팀 각각에 대해 위 맞대결 보정을
-    // 적용한 값을 구한 뒤 그 중 가장 큰(=가장 늦게 확정되는) 값을 채택합니다 — 모든 경쟁팀을
-    // 동시에 따돌려야 순위가 확정되기 때문입니다. 동률 타이브레이커, 그리고 여러 팀의 잔여
-    // 일정을 전부 동시에 고려하는 완전한 조합(최대유량 기반 탈락 계산, Baseball Elimination
-    // Problem)까지는 반영하지 않은 단순화된(간이) 계산입니다.
+    // 화면에 찍히는 숫자(magic/tragic 값) 자체는 위 방식대로 "가장 위협적인 경쟁팀 하나"만 보는
+    // 근사치입니다(정확히 K팀 이내 확정에는 K-1개 팀을 동시에 따돌려야 하는데, 그 조합까지 정확히
+    // 반영한 "숫자"는 일반적으로 잘 정의되지 않습니다 — 실제 매직넘버 관례도 대개 이 수준입니다).
+    //
+    // 다만 "확보(secured)"/"불가(eliminated)" 여부, 즉 이미 수학적으로 결론이 난 칸인지는 근사가
+    // 아니라 정확히 계산합니다. 9개 팀 전체의 잔여 일정을 동시에 고려하는 최대유량 기반 완전
+    // 탈락/확정 판정(이른바 Baseball Elimination Problem을 상위 K위 확정까지 일반화한 버전)을
+    // CanReachRank/CanBeCaught로 구현해 각 칸의 state를 이걸로 덮어씁니다. 근사치 숫자만으로는
+    // "이미 확정됐는데 아직 매직넘버가 남은 것처럼" 보이거나 반대로 "아직 안 끝났는데 확보로"
+    // 잘못 표시되는 경우가 있었는데(단일 경쟁팀만 보다 보니, 약한 여러 팀이 동시에 따라붙는
+    // 경우를 놓침), 이 부분을 정확한 계산으로 대체한 것입니다. 동률 타이브레이커까지는 아직
+    // 반영하지 않았습니다.
     private static object[] BuildMagicMatrix(IReadOnlyList<(string Team,int Wins,int Remaining,int Rank)> standings,int[] ranks,Func<string,string,int> remainingHeadToHead)
     {
         var byPosition=standings.OrderBy(x=>x.Rank).ThenByDescending(x=>x.Wins).ThenBy(x=>x.Team,StringComparer.Ordinal).ToArray();
+        var winsByTeam=standings.ToDictionary(x=>x.Team,x=>x.Wins);
+        var allTeams=standings.Select(x=>x.Team).ToArray();
         return standings.Select(t=>new{
             team=t.Team,
             cells=ranks.Select(rank=>{
+                var others=allTeams.Where(x=>x!=t.Team).ToArray();
                 if(t.Rank<=rank)
                 {
                     var chasers=byPosition.Skip(rank).ToArray();
                     if(chasers.Length==0)return new{rank,state="secured",value=(int?)null,ownRemaining=(int?)null};
                     var magic=chasers.Select(c=>c.Wins+c.Remaining-t.Wins+1-2*remainingHeadToHead(t.Team,c.Team)).Max();
-                    if(magic<=0)return new{rank,state="secured",value=(int?)null,ownRemaining=(int?)null};
+                    var effectiveWins=others.ToDictionary(o=>o,o=>winsByTeam[o]+remainingHeadToHead(t.Team,o));
+                    var secured=!CanBeCaught(t.Wins,rank,others,effectiveWins,remainingHeadToHead);
+                    if(secured)return new{rank,state="secured",value=(int?)null,ownRemaining=(int?)null};
+                    magic=Math.Max(magic,1);
                     if(magic>t.Remaining)return new{rank,state="needsHelp",value=(int?)magic,ownRemaining=(int?)t.Remaining};
                     return new{rank,state="magic",value=(int?)magic,ownRemaining=(int?)null};
                 }
                 if(rank-1>=byPosition.Length)return new{rank,state="none",value=(int?)null,ownRemaining=(int?)null};
                 var target=byPosition[rank-1];
                 var tragic=t.Wins+t.Remaining-target.Wins+1-2*remainingHeadToHead(t.Team,target.Team);
-                if(tragic<=0)return new{rank,state="eliminated",value=(int?)null,ownRemaining=(int?)null};
+                var ceiling=t.Wins+t.Remaining;
+                var eliminated=!CanReachRank(ceiling,rank,others,winsByTeam,remainingHeadToHead);
+                if(eliminated)return new{rank,state="eliminated",value=(int?)null,ownRemaining=(int?)null};
+                tragic=Math.Max(tragic,1);
                 return new{rank,state="tragic",value=(int?)tragic,ownRemaining=(int?)null};
             }).ToArray()
         }).Cast<object>().ToArray();
+    }
+
+    // ---- 일반화된 Baseball Elimination Problem (최대유량 기반) ----
+    //
+    // CanReachRank: 어떤 팀이 자기 잔여경기를 전부 이긴다고 가정했을 때(최대 승수=ceiling),
+    // 나머지 팀들끼리의 잔여경기 결과를 어떻게 조합하더라도 그 중 (targetRank-1)팀 이하만
+    // ceiling을 넘어서게 만들 수 있는지(=목표 순위 이내 도달이 가능한지)를 검사합니다.
+    // 불가능하면(false) 그 팀은 targetRank 이내 진입이 수학적으로 불가능(탈락)합니다.
+    //
+    // CanBeCaught: 반대로 어떤 팀이 잔여경기를 전부 진다고 가정했을 때(최소 승수=floor),
+    // 나머지 팀 중 targetRank팀 이상이 동시에 floor를 넘어서는 조합이 존재할 수 있는지를
+    // 검사합니다. 불가능하면(false) 그 팀은 이미 targetRank 이내를 확정(secured)한 것입니다.
+    //
+    // 두 함수 모두 "어느 팀들을 무제한으로 둘지"를 완전탐색(팀 수가 9개뿐이라 최악의 경우도
+    // 최대 C(9,4)=126가지)하면서, 각 경우에 대해 잔여경기를 실제로 배분 가능한지를 최대유량으로
+    // 확인하는 방식입니다(고전적인 단일 1위 탈락 판정 알고리즘을 상위 K위 확정까지 확장한 것).
+    private static bool CanReachRank(int ceiling,int targetRank,IReadOnlyList<string> others,IReadOnlyDictionary<string,int> otherWins,Func<string,string,int> remainingBetween)
+    {
+        var caps=new Dictionary<string,int>();var contestable=new List<string>();var alreadyExceed=0;
+        foreach(var o in others){var c=ceiling-otherWins[o];if(c<0)alreadyExceed++;else{caps[o]=c;contestable.Add(o);}}
+        var leeway=(targetRank-1)-alreadyExceed;
+        if(leeway<0)return false;
+        if(leeway>=contestable.Count)return true;
+        var pairs=new List<(string A,string B,int Games)>();var total=0;
+        for(var i=0;i<others.Count;i++)for(var j=i+1;j<others.Count;j++){var g=remainingBetween(others[i],others[j]);if(g>0){pairs.Add((others[i],others[j],g));total+=g;}}
+        if(total==0)return true;
+        var idxOf=new Dictionary<string,int>();for(var i=0;i<others.Count;i++)idxOf[others[i]]=i;
+        const int Big=1_000_000;
+        foreach(var combo in Combinations(contestable.Count,leeway))
+        {
+            var unlimited=new HashSet<string>(combo.Select(i=>contestable[i]));
+            var n=1+pairs.Count+others.Count+1;var sink=n-1;var cap=new int[n,n];
+            for(var i=0;i<pairs.Count;i++){var node=1+i;cap[0,node]=pairs[i].Games;cap[node,1+pairs.Count+idxOf[pairs[i].A]]+=Big;cap[node,1+pairs.Count+idxOf[pairs[i].B]]+=Big;}
+            foreach(var o in others){var ti=1+pairs.Count+idxOf[o];cap[ti,sink]=unlimited.Contains(o)?Big:caps.GetValueOrDefault(o,Big);}
+            if(MaxFlow(n,cap,0,sink)==total)return true;
+        }
+        return false;
+    }
+
+    private static bool CanBeCaught(int floor,int targetRank,IReadOnlyList<string> others,IReadOnlyDictionary<string,int> effectiveWins,Func<string,string,int> remainingBetween)
+    {
+        var alreadyExceed=others.Count(o=>effectiveWins[o]>floor);
+        if(alreadyExceed>=targetRank)return true;
+        var need=targetRank-alreadyExceed;
+        var contestable=others.Where(o=>effectiveWins[o]<=floor).ToList();
+        if(need>contestable.Count)return false;
+        var idxOf=new Dictionary<string,int>();for(var i=0;i<others.Count;i++)idxOf[others[i]]=i;
+        var pairs=new List<(string A,string B,int Games)>();var total=0;
+        for(var i=0;i<others.Count;i++)for(var j=i+1;j<others.Count;j++){var g=remainingBetween(others[i],others[j]);if(g>0){pairs.Add((others[i],others[j],g));total+=g;}}
+        if(total==0)return false;
+        const int Big=1_000_000;
+        foreach(var combo in Combinations(contestable.Count,need))
+        {
+            var chosen=combo.Select(i=>contestable[i]).ToList();
+            var demand=chosen.ToDictionary(o=>o,o=>floor-effectiveWins[o]+1);
+            var team=1+pairs.Count;var origSink=team+others.Count;var ss=origSink+1;var tt=ss+1;var n=tt+1;
+            var cap=new int[n,n];var excess=new int[n];
+            void AddEdge(int u,int v,int lo,int hi){cap[u,v]+=hi-lo;excess[v]+=lo;excess[u]-=lo;}
+            for(var i=0;i<pairs.Count;i++){var node=1+i;var g=pairs[i].Games;AddEdge(0,node,g,g);AddEdge(node,team+idxOf[pairs[i].A],0,g);AddEdge(node,team+idxOf[pairs[i].B],0,g);}
+            foreach(var o in others){var ti=team+idxOf[o];var lo=demand.GetValueOrDefault(o,0);AddEdge(ti,origSink,lo,Big);}
+            AddEdge(origSink,0,0,Big);
+            var totalLower=0;
+            for(var v=0;v<n;v++){if(excess[v]>0){cap[ss,v]+=excess[v];totalLower+=excess[v];}else if(excess[v]<0)cap[v,tt]+=-excess[v];}
+            if(MaxFlow(n,cap,ss,tt)==totalLower)return true;
+        }
+        return false;
+    }
+
+    private static int MaxFlow(int n,int[,] cap,int s,int t)
+    {
+        var flow=new int[n,n];var total=0;
+        while(true)
+        {
+            var parent=new int[n];Array.Fill(parent,-1);parent[s]=s;
+            var queue=new Queue<int>();queue.Enqueue(s);
+            while(queue.Count>0){var u=queue.Dequeue();for(var v=0;v<n;v++)if(parent[v]==-1&&cap[u,v]-flow[u,v]>0){parent[v]=u;queue.Enqueue(v);}}
+            if(parent[t]==-1)break;
+            var aug=int.MaxValue;for(var v=t;v!=s;v=parent[v])aug=Math.Min(aug,cap[parent[v],v]-flow[parent[v],v]);
+            for(var v=t;v!=s;v=parent[v]){flow[parent[v],v]+=aug;flow[v,parent[v]]-=aug;}
+            total+=aug;
+        }
+        return total;
+    }
+
+    // n개 중 k개를 고르는 조합을 사전순으로 나열합니다(n<=9라 최악의 경우도 최대 126가지).
+    private static IEnumerable<int[]> Combinations(int n,int k)
+    {
+        if(k<0||k>n)yield break;
+        var idx=new int[k];for(var i=0;i<k;i++)idx[i]=i;
+        while(true)
+        {
+            yield return (int[])idx.Clone();
+            var pos=k-1;while(pos>=0&&idx[pos]==n-k+pos)pos--;
+            if(pos<0)yield break;
+            idx[pos]++;for(var j=pos+1;j<k;j++)idx[j]=idx[pos]+(j-pos);
+        }
     }
 }
