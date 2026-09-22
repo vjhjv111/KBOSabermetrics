@@ -2,7 +2,8 @@ namespace NaverSabermetrics.Web;
 
 public sealed record ForecastDetail(string Team, int G, double RF, double RA, double Pyth,
     double RawLogOdds, double RegressionWeight, double Rating);
-public sealed record PlayoffForecastResult(double[] Odds, ForecastDetail[] Teams);
+public sealed record PlayoffForecastResult(double[] Odds, ForecastDetail[] Teams,
+    double[] Rank1, double[] Rank2, double[] Rank3, double[] Rank4);
 
 public static partial class PlayoffModel
 {
@@ -34,6 +35,9 @@ public static partial class PlayoffModel
         }
         var random=new Random(20260912);
         var qualified=new double[10];var wins=new int[10];var values=new double[10];var ordered=new double[10];
+        // 1~4위 확률(코시/플옵/준플옵 직행, 와카 홈 어드밴티지)을 위한 순위별 누적치.
+        // 동순위 처리: 해당 시뮬레이션 회차에서 값이 같은 팀들끼리 그 순위 구간을 균등하게 나눠 갖는다고 가정.
+        var rank1=new double[10];var rank2=new double[10];var rank3=new double[10];var rank4=new double[10];
         for(int trial=0;trial<Trials;trial++)
         {
             if(trial%100==0)ct.ThrowIfCancellationRequested();
@@ -44,6 +48,15 @@ public static partial class PlayoffModel
             var cutoff=ordered[5];int above=0,tied=0;
             foreach(var value in values){if(value>cutoff+1e-12)above++;else if(Math.Abs(value-cutoff)<1e-12)tied++;}
             for(int i=0;i<10;i++)qualified[i]+=values[i]>cutoff+1e-12?1:Math.Abs(values[i]-cutoff)<1e-12?(5.0-above)/tied:0;
+            for(int i=0;i<10;i++)
+            {
+                var v=values[i];int aboveCount=0,tiedCount=0;
+                for(int j=0;j<10;j++){if(values[j]>v+1e-12)aboveCount++;else if(Math.Abs(values[j]-v)<1e-12)tiedCount++;}
+                if(aboveCount<1&&1<=aboveCount+tiedCount)rank1[i]+=1.0/tiedCount;
+                if(aboveCount<2&&2<=aboveCount+tiedCount)rank2[i]+=1.0/tiedCount;
+                if(aboveCount<3&&3<=aboveCount+tiedCount)rank3[i]+=1.0/tiedCount;
+                if(aboveCount<4&&4<=aboveCount+tiedCount)rank4[i]+=1.0/tiedCount;
+            }
         }
         // The explanation receives the exact strengths used by this simulation.
         var details=teams.Select((team,i)=>{
@@ -56,6 +69,8 @@ public static partial class PlayoffModel
             return new ForecastDetail(team.Code,team.G,team.RF,team.RA,pyth,
                 Math.Log(bounded/(1-bounded)),weight,strength[i]);
         }).ToArray();
-        return new(qualified.Select(x=>x/Trials).ToArray(),details);
+        return new(qualified.Select(x=>x/Trials).ToArray(),details,
+            rank1.Select(x=>x/Trials).ToArray(),rank2.Select(x=>x/Trials).ToArray(),
+            rank3.Select(x=>x/Trials).ToArray(),rank4.Select(x=>x/Trials).ToArray());
     }
 }
