@@ -89,7 +89,6 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
     }
     readonly Dictionary<string,object> cache=new();
     readonly SemaphoreSlim mutex=new(1,1);
-    const int PairSeriesGames=16; // KBO 10구단 체제: 팀당 상대별 16경기(9개 팀 × 16 = 144경기)로 고정 배정됨
     public async Task<object> QueryAsync(HomeRequest r,CancellationToken ct)
     {
         r.Validate();var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{r.Year}|{r.Section}";
@@ -117,11 +116,19 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 var leader=list.OrderByDescending(x=>x.Pct??-1).ThenByDescending(x=>x.W).FirstOrDefault();
                 var rows=list.Select((t,i)=>new{team=t.Code,g=t.G,w=t.W,d=t.D,l=t.L,pct=t.Pct,rf=t.RF,ra=t.RA,rank=1+list.Count(x=>(x.Pct??-1)>(t.Pct??-1)),gb=leader is null?0:((leader.W-t.W)+(t.L-leader.L))/2.0,pyth=t.Pyth,pythWins=t.Pyth*(t.W+t.L),winDifference=t.W-t.Pyth*(t.W+t.L),remaining=Math.Max(0,144-t.G),playoff=odds?[i]}).OrderBy(x=>x.rank).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
                 var magicRanks=Enumerable.Range(1,9).Reverse().ToArray();
-                var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>(Team:x.team,Wins:x.w,Remaining:x.remaining,Rank:x.rank)).ToArray(),magicRanks,(x,y)=>Math.Max(0,PairSeriesGames-(homeMatches.GetValueOrDefault((x,y))+homeMatches.GetValueOrDefault((y,x))))):null;
+                // 잔여 맞대결 경기수는 "16경기-이미 치른 경기수" 같은 추정이 아니라, RenderCollectorWorker가
+                // 채워 넣는 예정 경기 자리표시자 행(RoundCode='kbo_scheduled', StatusCode='BEFORE')을 그대로
+                // 세어 구합니다. DB에 실제로 저장된 잔여 일정이라 우천취소·순연 반영분까지 정확합니다.
+                // 이미 종료된 과거 시즌은 이런 행이 없으므로 자연히 0(맞대결 보정 없음)이 됩니다.
+                var remainingMatches=new Dictionary<(string,string),int>();
+                await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText="SELECT HomeTeamCode,AwayTeamCode FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
+                    await using var remReader=await remCmd.ExecuteReaderAsync(ct);while(await remReader.ReadAsync(ct)){var ra=remReader.GetString(0);var rb=remReader.GetString(1);remainingMatches[(ra,rb)]=remainingMatches.GetValueOrDefault((ra,rb))+1;}
+                }
+                var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>(Team:x.team,Wins:x.w,Remaining:x.remaining,Rank:x.rank)).ToArray(),magicRanks,(x,y)=>remainingMatches.GetValueOrDefault((x,y))+remainingMatches.GetValueOrDefault((y,x))):null;
                 var latestGames=await LatestResults(c,r.Year,last,ct);
                 var (upcomingDate,upcomingGames)=await UpcomingSchedule(c,r.Year,last,ct);
                 var monthlyRows=teams.Keys.Select(code=>monthly.GetValueOrDefault(code)??new ForecastTeam(code,0,0,0,0,0)).Select(t=>new{team=t.Code,w=t.W,d=t.D,l=t.L,pct=t.Pct,rank=t.Pct is null?(int?)null:1+monthly.Values.Count(x=>(x.Pct??-1)>t.Pct.Value)}).OrderBy(x=>x.rank??int.MaxValue).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
-                result=new{rows,latestGames,upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="매직넘버는 (경쟁팀 최대승수-내승수+1), 트래직넘버는 (내최대승수-기준팀승수+1)에서 두 팀 사이 남은 직접 맞대결 경기수×2를 뺀 값입니다(맞대결 승리 1회는 내 승수 +1과 상대 최대승수 -1을 동시에 만족시키는 이중 효과가 있어 반영). 10개 팀이 모두 있을 때만 제공합니다. 동률 순위·타이브레이커, 그리고 여러 경쟁팀을 동시에 고려하는 완전한 조합(최대유량 기반 탈락 계산)까지는 반영하지 않은 근사치입니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                result=new{rows,latestGames,upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="매직넘버는 (경쟁팀 최대승수-내승수+1), 트래직넘버는 (내최대승수-기준팀승수+1)에서 두 팀 사이 남은 직접 맞대결 경기수×2를 뺀 값입니다(맞대결 승리 1회는 내 승수 +1과 상대 최대승수 -1을 동시에 만족시키는 이중 효과가 있어 반영). 잔여 맞대결 경기수는 DB에 저장된 실제 예정 경기 일정을 그대로 집계한 값입니다. 10개 팀이 모두 있을 때만 제공합니다. 동률 순위·타이브레이커, 그리고 여러 경쟁팀을 동시에 고려하는 완전한 조합(최대유량 기반 탈락 계산)까지는 반영하지 않은 근사치입니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}
