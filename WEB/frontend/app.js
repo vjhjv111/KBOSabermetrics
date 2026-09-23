@@ -482,7 +482,7 @@ async function loadPlayerSection(){
   playerState.year=Number($('pp-year').value)||null;playerState.view=$('pp-view').value;
   const s=playerState.section;$('player-content').replaceChildren();$('player-status').textContent='기록을 불러오는 중…';$('player-content').setAttribute('aria-busy','true');$('player-pagination').hidden=true;
   if(!playerState.year){$('player-status').textContent='선택한 경기 구분에 수집된 기록이 없습니다.';$('player-content').setAttribute('aria-busy','false');return;}
-  const req={code:playerState.code,role:playerState.role,section:s,year:playerState.year,view:playerState.view,competition:$('pp-competition').value,page:playerState.page,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25),sort:playerState.sort,descending:playerState.descending};
+  const req={code:playerState.code,role:playerState.role,section:s,year:playerState.year,view:playerState.view,competition:$('pp-competition').value,page:playerState.page,pageSize:s==='years'?Math.min(50,state.catalog?.limits.maxPageSize??50):Math.min(25,state.catalog?.limits.maxPageSize??25),sort:playerState.sort,descending:playerState.descending};
   if(['games','plays','opponents','situations','pitches','direction'].includes(s)){req.opponent=$('pp-opponent').value||null;req.start=$('pp-start').value||null;req.end=$('pp-end').value||null;}
   try{
     const result=await api('/api/player',req,controller.signal);if(seq!==playerState.sequence)return;
@@ -689,6 +689,7 @@ function magicCellText(cell){
   if(cell.state==='eliminated')return '불가';
   if(cell.state==='none')return '—';
   if(cell.state==='needsHelp')return `${cell.ownRemaining}/${cell.value}`;
+  if(cell.state==='split')return `${cell.value} / ${cell.tragic}`;
   return String(cell.value);
 }
 function renderMagicMatrix(d,year){
@@ -712,7 +713,7 @@ function renderMagicMatrix(d,year){
   }
   table.append(tbody);
   const scroll=scrollableTable();scroll.append(table);card.append(text('p','↔ 좌우로 밀어 순위별 매직·트래직 넘버를 확인하세요.','scroll-hint'),scroll);
-  card.append(text('p','확보(파랑) · 매직넘버(초록) · 자력 확정 불가 · 잔여경기/매직넘버(노랑) · 트래직넘버(분홍) · 불가(회색)','player-note'));
+  card.append(text('p','확보(파랑) · 매직넘버(초록) · 매직넘버 / 트래직넘버(초록·분홍) · 자력 확정 불가 · 잔여경기/매직넘버(노랑) · 트래직넘버(분홍) · 불가(회색)','player-note'));
   if(d.magicNote)card.append(text('p',d.magicNote,'player-note'));
 }
 function renderHomeResults(d,year){

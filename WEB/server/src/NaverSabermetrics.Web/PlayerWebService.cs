@@ -142,13 +142,13 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
             var source=r.Role=="batter"?"BatterGameStats":"PitcherGameStats";
             var years=await Sql($"SELECT DISTINCT g.SeasonYear Year FROM {source} s JOIN Games g ON g.GameId=s.GameId WHERE s.Pcode=$code AND {Round(r.Competition)} AND g.SeasonYear IS NOT NULL ORDER BY Year DESC LIMIT 51",r with{Year=null},ct);
             var rows=new List<Dictionary<string,object?>>();
-            foreach(var year in years.Skip((r.Page-1)*5).Take(5))
+            foreach(var year in years.Skip((r.Page-1)*r.PageSize).Take(r.PageSize))
             {
                 var y=Convert.ToInt32(year["Year"]);var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,y,r.Competition,r.View,false,ct);
                 if(metrics.Count==0)continue;
                 var row=new Dictionary<string,object?>{{"Year",y}};foreach(var m in metrics)row[m.Label]=m.Display;rows.Add(row);
             }
-            return new PlayerTable(rows.FirstOrDefault()?.Keys.ToArray()??new[]{"Year"},rows,r.Page,years.Count>r.Page*5,"연도별 5시즌씩 표시합니다. 이적한 시즌은 선수 전체 기록으로 합산합니다. WAR는 사이트 자체 계산값입니다.");
+            return new PlayerTable(rows.FirstOrDefault()?.Keys.ToArray()??new[]{"Year"},rows,r.Page,years.Count>r.Page*r.PageSize,$"DB에 적재된 전체 시즌을 한 번에 표시합니다(페이지당 최대 {r.PageSize}시즌). 이적한 시즌은 선수 전체 기록으로 합산합니다. WAR는 사이트 자체 계산값입니다.");
         }
         if(r.Section is "games" or "trend")return await Games(r,ct);
         return await Events(r,ct);
