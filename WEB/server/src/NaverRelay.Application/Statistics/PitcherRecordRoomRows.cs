@@ -390,6 +390,7 @@ public static class PitcherRecordRoomRowFactory
     public static IReadOnlyList<PitcherBasicRecordRow> BuildBasic(
         AnalyticsSnapshot snapshot,
         bool situational = false,
+        IReadOnlyDictionary<string, PitcherValueGridRow>? seasonValues = null,
         IReadOnlySet<string>? eligibleKeys = null)
     {
         var saber = snapshot.PitcherSabermetrics.ToDictionary(row => Key(row.Pcode, row.TeamCode), StringComparer.Ordinal);
@@ -404,15 +405,19 @@ public static class PitcherRecordRoomRowFactory
                 // 반영하지 못하므로(시즌 전체 값), 타석 단위 근사치(saberRow)를 대신 씁니다.
                 // ERA는 자책·비자책 구분이 타석 단위 데이터에 없어 정확히 계산할 수 없고,
                 // 대신 시즌 전체 자책점/실점 비율을 상황별 RA9*에 곱한 추정치를 보여줍니다.
+                // snapshot.PitcherValues는 상황 필터 조회에서는 항상 비어 있으므로(공식 최종
+                // 기록을 상황별로 쪼갤 수 없음), 상황 조건만 뺀 별도 쿼리로 구한 seasonValues를
+                // 대신 씁니다.
                 var innings = situational ? saberRow?.InningsPitched : valueRow?.InningsPitched;
+                var seasonValueRow = situational ? seasonValues?.GetValueOrDefault(Key(row.Pcode, row.TeamCode)) : null;
                 double? era, ra9;
                 if (situational)
                 {
                     ra9 = innings.HasValue && innings.Value > 0 && saberRow is not null
                         ? saberRow.SituationalRunsAllowed * 9.0 / innings.Value
                         : null;
-                    era = ra9.HasValue && valueRow is not null && valueRow.RunsAllowed > 0
-                        ? ra9.Value * valueRow.EarnedRuns / valueRow.RunsAllowed
+                    era = ra9.HasValue && seasonValueRow is not null && seasonValueRow.RunsAllowed > 0
+                        ? ra9.Value * seasonValueRow.EarnedRuns / seasonValueRow.RunsAllowed
                         : null;
                 }
                 else
@@ -479,6 +484,7 @@ public static class PitcherRecordRoomRowFactory
     public static IReadOnlyList<PitcherAdvancedRecordRow> BuildAdvanced(
         AnalyticsSnapshot snapshot,
         bool situational = false,
+        IReadOnlyDictionary<string, PitcherValueGridRow>? seasonValues = null,
         IReadOnlySet<string>? eligibleKeys = null)
     {
         var classic = snapshot.PitcherClassic.ToDictionary(row => Key(row.Pcode, row.TeamCode), StringComparer.Ordinal);
@@ -493,15 +499,19 @@ public static class PitcherRecordRoomRowFactory
                 // 반영하지 못하므로(시즌 전체 값), 타석 단위 근사치(row.InningsPitched)를 씁니다.
                 // ERA는 자책·비자책 구분이 타석 단위 데이터에 없어 정확히 계산할 수 없고,
                 // 대신 시즌 전체 자책점/실점 비율을 상황별 RA9*에 곱한 추정치를 보여줍니다.
+                // snapshot.PitcherValues는 상황 필터 조회에서는 항상 비어 있으므로(공식 최종
+                // 기록을 상황별로 쪼갤 수 없음), 상황 조건만 뺀 별도 쿼리로 구한 seasonValues를
+                // 대신 씁니다.
                 var innings = situational ? row.InningsPitched : (valueRow?.InningsPitched ?? row.InningsPitched);
+                var seasonValueRow = situational ? seasonValues?.GetValueOrDefault(Key(row.Pcode, row.TeamCode)) : null;
                 double? era, ra9;
                 if (situational)
                 {
                     ra9 = innings.HasValue && innings.Value > 0
                         ? row.SituationalRunsAllowed * 9.0 / innings.Value
                         : null;
-                    era = ra9.HasValue && valueRow is not null && valueRow.RunsAllowed > 0
-                        ? ra9.Value * valueRow.EarnedRuns / valueRow.RunsAllowed
+                    era = ra9.HasValue && seasonValueRow is not null && seasonValueRow.RunsAllowed > 0
+                        ? ra9.Value * seasonValueRow.EarnedRuns / seasonValueRow.RunsAllowed
                         : null;
                 }
                 else

@@ -332,6 +332,21 @@ public sealed partial class RecordService
             ? await _analytics.GetWebRoleSnapshotAsync(q,league,r.Role=="pitcher",
                 includeTeamBattingContext: r.Role=="batter" && r.View=="team-batting", cancellationToken:token).ConfigureAwait(false)
             : new AnalyticsSnapshot();
+        // ERA*(추정치)는 상황 조건을 뺀 시즌 전체 자책점/실점 비율이 필요합니다. 상황 필터가
+        // 걸린 snapshot.PitcherValues는 항상 비어 있으므로(공식 최종 기록은 상황별로 쪼갤 수
+        // 없어 FinalGames=0으로 집계됨), 상황 조건만 제거한 별도 쿼리로 따로 가져옵니다.
+        IReadOnlyDictionary<string,PitcherValueGridRow>? seasonPitcherValues = null;
+        if (r.Role == "pitcher" && q.HasSituationFilters && new[] { "basic","advanced" }.Contains(r.View))
+        {
+            var seasonQuery = q with
+            {
+                InningFilter = null, OutsBefore = null, RunnerState = null,
+                ScoreSituation = null, BallsBefore = null, StrikesBefore = null, BatOrder = null,
+            };
+            var seasonSnapshot = await _analytics.GetWebRoleSnapshotAsync(seasonQuery, league, true, cancellationToken: token).ConfigureAwait(false);
+            seasonPitcherValues = seasonSnapshot.PitcherValues.ToDictionary(
+                v => PitcherRecordRoomRowFactory.Key(v.Pcode, v.TeamCode), StringComparer.Ordinal);
+        }
         object result;
         if (r.Role == "batter")
         {
@@ -357,8 +372,8 @@ public sealed partial class RecordService
         {
             switch(r.View)
             {
-                case "basic": result=PitcherRecordRoomRowFactory.BuildBasic(snapshot,q.HasSituationFilters); break;
-                case "advanced": result=PitcherRecordRoomRowFactory.BuildAdvanced(snapshot,q.HasSituationFilters); break;
+                case "basic": result=PitcherRecordRoomRowFactory.BuildBasic(snapshot,q.HasSituationFilters,seasonPitcherValues); break;
+                case "advanced": result=PitcherRecordRoomRowFactory.BuildAdvanced(snapshot,q.HasSituationFilters,seasonPitcherValues); break;
                 case "value": result=PitcherRecordRoomRowFactory.BuildValue(snapshot,league); break;
                 case "extended": result=await _pitchers.GetExtendedAsync(q,token).ConfigureAwait(false); break;
                 case "wp": result=await _pitchers.GetWinProbabilityAsync(q,league,token).ConfigureAwait(false); break;
