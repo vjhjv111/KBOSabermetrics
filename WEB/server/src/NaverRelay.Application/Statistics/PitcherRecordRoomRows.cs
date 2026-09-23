@@ -389,6 +389,7 @@ public static class PitcherRecordRoomRowFactory
 {
     public static IReadOnlyList<PitcherBasicRecordRow> BuildBasic(
         AnalyticsSnapshot snapshot,
+        bool situational = false,
         IReadOnlySet<string>? eligibleKeys = null)
     {
         var saber = snapshot.PitcherSabermetrics.ToDictionary(row => Key(row.Pcode, row.TeamCode), StringComparer.Ordinal);
@@ -399,9 +400,26 @@ public static class PitcherRecordRoomRowFactory
             {
                 saber.TryGetValue(Key(row.Pcode, row.TeamCode), out var saberRow);
                 values.TryGetValue(Key(row.Pcode, row.TeamCode), out var valueRow);
-                var innings = valueRow?.InningsPitched;
-                double? era = innings.HasValue && innings.Value > 0 ? valueRow!.EarnedRuns * 9.0 / innings.Value : null;
-                double? ra9 = innings.HasValue && innings.Value > 0 ? valueRow!.RunsAllowed * 9.0 / innings.Value : null;
+                // 상황 조건(situational) 필터가 걸리면 공식 이닝·자책점·실점은 상황별 부분집합을
+                // 반영하지 못하므로(시즌 전체 값), 타석 단위 근사치(saberRow)를 대신 씁니다.
+                // ERA는 자책·비자책 구분이 타석 단위 데이터에 없어 정확히 계산할 수 없고,
+                // 대신 시즌 전체 자책점/실점 비율을 상황별 RA9*에 곱한 추정치를 보여줍니다.
+                var innings = situational ? saberRow?.InningsPitched : valueRow?.InningsPitched;
+                double? era, ra9;
+                if (situational)
+                {
+                    ra9 = innings.HasValue && innings.Value > 0 && saberRow is not null
+                        ? saberRow.SituationalRunsAllowed * 9.0 / innings.Value
+                        : null;
+                    era = ra9.HasValue && valueRow is not null && valueRow.RunsAllowed > 0
+                        ? ra9.Value * valueRow.EarnedRuns / valueRow.RunsAllowed
+                        : null;
+                }
+                else
+                {
+                    era = innings.HasValue && innings.Value > 0 ? valueRow!.EarnedRuns * 9.0 / innings.Value : null;
+                    ra9 = innings.HasValue && innings.Value > 0 ? valueRow!.RunsAllowed * 9.0 / innings.Value : null;
+                }
                 double? whip = innings.HasValue && innings.Value > 0
                     ? (row.Hits + row.Walks) / innings.Value
                     : null;
@@ -427,7 +445,7 @@ public static class PitcherRecordRoomRowFactory
                     Shutouts = valueRow?.Shutouts ?? 0,
                     InningsPitched = innings,
                     EarnedRuns = valueRow?.EarnedRuns ?? 0,
-                    RunsAllowed = valueRow?.RunsAllowed ?? 0,
+                    RunsAllowed = situational ? (saberRow?.SituationalRunsAllowed ?? 0) : (valueRow?.RunsAllowed ?? 0),
                     BattersFaced = row.BattersFaced,
                     HitsAllowed = row.Hits,
                     HomeRunsAllowed = valueRow?.HomeRuns ?? row.HomeRuns,
@@ -460,6 +478,7 @@ public static class PitcherRecordRoomRowFactory
 
     public static IReadOnlyList<PitcherAdvancedRecordRow> BuildAdvanced(
         AnalyticsSnapshot snapshot,
+        bool situational = false,
         IReadOnlySet<string>? eligibleKeys = null)
     {
         var classic = snapshot.PitcherClassic.ToDictionary(row => Key(row.Pcode, row.TeamCode), StringComparer.Ordinal);
@@ -470,13 +489,30 @@ public static class PitcherRecordRoomRowFactory
             {
                 classic.TryGetValue(Key(row.Pcode, row.TeamCode), out var classicRow);
                 values.TryGetValue(Key(row.Pcode, row.TeamCode), out var valueRow);
-                var innings = valueRow?.InningsPitched ?? row.InningsPitched;
-                double? era = valueRow is not null && innings.HasValue && innings.Value > 0
-                    ? valueRow.EarnedRuns * 9.0 / innings.Value
-                    : null;
-                double? ra9 = valueRow is not null && innings.HasValue && innings.Value > 0
-                    ? valueRow.RunsAllowed * 9.0 / innings.Value
-                    : null;
+                // 상황 조건(situational) 필터에서는 공식 이닝·자책점·실점이 상황별 부분집합을
+                // 반영하지 못하므로(시즌 전체 값), 타석 단위 근사치(row.InningsPitched)를 씁니다.
+                // ERA는 자책·비자책 구분이 타석 단위 데이터에 없어 정확히 계산할 수 없고,
+                // 대신 시즌 전체 자책점/실점 비율을 상황별 RA9*에 곱한 추정치를 보여줍니다.
+                var innings = situational ? row.InningsPitched : (valueRow?.InningsPitched ?? row.InningsPitched);
+                double? era, ra9;
+                if (situational)
+                {
+                    ra9 = innings.HasValue && innings.Value > 0
+                        ? row.SituationalRunsAllowed * 9.0 / innings.Value
+                        : null;
+                    era = ra9.HasValue && valueRow is not null && valueRow.RunsAllowed > 0
+                        ? ra9.Value * valueRow.EarnedRuns / valueRow.RunsAllowed
+                        : null;
+                }
+                else
+                {
+                    era = valueRow is not null && innings.HasValue && innings.Value > 0
+                        ? valueRow.EarnedRuns * 9.0 / innings.Value
+                        : null;
+                    ra9 = valueRow is not null && innings.HasValue && innings.Value > 0
+                        ? valueRow.RunsAllowed * 9.0 / innings.Value
+                        : null;
+                }
                 var opponentAb = Math.Max(0, row.BattersFaced - (classicRow?.Walks ?? 0) - (classicRow?.HitBatters ?? 0));
                 double? opponentAvg = opponentAb > 0 ? (classicRow?.Hits ?? 0) / (double)opponentAb : null;
                 double? opponentObp = row.BattersFaced > 0

@@ -22,7 +22,7 @@ public sealed partial class DatabaseAnalyticsService
         if (!pitcher && includeTeamBattingContext)
             await AttachTeamBattingContextAsync(query, data, cancellationToken).ConfigureAwait(false);
         var allocation = await GetWarAllocationCalibrationAsync(query, league, cancellationToken).ConfigureAwait(false);
-        var result = Build(data, league, query.SeasonYear, allocation);
+        var result = Build(data, league, query.SeasonYear, allocation, query.HasSituationFilters);
         await _database.SaveComputedAsync(key, result, cancellationToken).ConfigureAwait(false);
         return result;
     }

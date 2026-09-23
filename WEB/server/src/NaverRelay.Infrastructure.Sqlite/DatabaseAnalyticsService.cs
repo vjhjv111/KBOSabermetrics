@@ -33,7 +33,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         var data = await _database.GetAggregateDataAsync(query, progress, cancellationToken).ConfigureAwait(false);
         await AttachTeamBattingContextAsync(query, data, cancellationToken).ConfigureAwait(false);
         var allocation = await GetWarAllocationCalibrationAsync(query, league, cancellationToken).ConfigureAwait(false);
-        var result = Build(data, league, query.SeasonYear, allocation);
+        var result = Build(data, league, query.SeasonYear, allocation, query.HasSituationFilters);
         await _database.SaveComputedAsync(cacheKey, result, cancellationToken).ConfigureAwait(false);
         return result;
     }
@@ -75,7 +75,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         _ => $"{pcode}\u001f{teamCode}",
     };
 
-    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear, WarAllocationCalibration allocation)
+    private static AnalyticsSnapshot Build(WarehouseAnalyticsData data, LeagueReference league, int? seasonYear, WarAllocationCalibration allocation, bool situational = false)
     {
         var batterClassic = data.Batters.Select(BuildBatterClassic)
             .OrderByDescending(row => row.PA)
@@ -89,7 +89,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             .OrderByDescending(row => row.BattersFaced)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
-        var pitcherSaber = data.Pitchers.Select(row => BuildPitcherSaber(row, league))
+        var pitcherSaber = data.Pitchers.Select(row => BuildPitcherSaber(row, league, situational))
             .OrderByDescending(row => row.BattersFaced)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -273,11 +273,13 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
         WhiffRate = Divide(row.Whiffs, row.Swings), CswRate = Divide(row.Csw, row.Pitches),
     };
 
-    private static PitcherSabermetricGridRow BuildPitcherSaber(PitcherAggregateRecord row, LeagueReference league)
+    private static PitcherSabermetricGridRow BuildPitcherSaber(PitcherAggregateRecord row, LeagueReference league, bool situational = false)
     {
         var innings = row.PlateAppearanceOuts / 3.0;
         // Official outs include non-PA outs; all per-nine rates use the matching official counts.
-        var hasFinalLine = row.FinalGames > 0;
+        // 단, 상황 조건(situational) 필터가 걸린 조회에서는 공식 시즌 전체 기록으로 새면 안 되므로
+        // (상황과 무관한 시즌 전체 숫자가 상황별인 것처럼 보이게 됨) 항상 타석 단위 근사치를 씁니다.
+        var hasFinalLine = !situational && row.FinalGames > 0;
         var perNineInnings = hasFinalLine ? row.InningsOuts / 3.0 : innings;
         var fip = innings > 0
             ? (13.0 * row.HomeRunsFromPlateAppearances +
@@ -318,6 +320,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             FipMinus = fip.HasValue && league.Ra9 > 0 ? 100.0 * fip.Value / league.Ra9 : null,
             Xfip = xfip,
             XfipMinus = xfip.HasValue && league.Ra9 > 0 ? 100.0 * xfip.Value / league.Ra9 : null,
+            SituationalRunsAllowed = row.RunsFromPlateAppearances,
         };
     }
 

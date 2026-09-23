@@ -372,7 +372,8 @@ public sealed partial class DatabaseCacheService
         var filter = BuildFilteredGamesCte(query);
         var identity = GetPitcherRecordRoomIdentity(query.Grouping, "pg.Pcode", "pg.Name", "pg.TeamCode", "g");
         var rows = new List<PitcherRelieverRecordRow>();
-        var dateLookup = await QueryReliefDatesAsync(query, cancellationToken).ConfigureAwait(false);
+        var byPitcher = await QueryReliefDatesByPitcherAsync(query, cancellationToken).ConfigureAwait(false);
+        var streakTotals = BuildReliefStreakTotals(byPitcher, query.Grouping);
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
@@ -410,8 +411,13 @@ public sealed partial class DatabaseCacheService
             var entryAbs = ReadDouble(reader, 9);
             var entryCount = ReadInt32(reader, 10);
             var innings = outs / 3.0;
-            dateLookup.TryGetValue(PitcherRecordRoomKey(pcode, team), out var dates);
-            var streaks = CountReliefStreaks(dates ?? Array.Empty<DateTime>());
+            var streakKey = query.Grouping switch
+            {
+                AnalyticsGrouping.Team => team,
+                AnalyticsGrouping.PlayerCareer => pcode,
+                _ => PitcherRecordRoomKey(pcode, team),
+            };
+            streakTotals.TryGetValue(streakKey, out var streaks);
             rows.Add(new PitcherRelieverRecordRow
             {
                 Pcode = pcode,
@@ -544,56 +550,79 @@ public sealed partial class DatabaseCacheService
         return result;
     }
 
-    private async Task<Dictionary<string, IReadOnlyList<DateTime>>> QueryReliefDatesAsync(
+    // "연투"는 반드시 같은 투수가 하루도 쉬지 않고 연속 등판했을 때만 성립합니다.
+    // 팀 단위(AnalyticsGrouping.Team) 집계에서 예전에는 pg.Pcode를 빼고 팀 코드로만
+    // 묶어서 날짜열을 만들었기 때문에, 서로 다른 불펜 투수가 각각 하루씩만 등판해도
+    // "팀 전체로 보면 이틀 연속 누군가 던졌다"는 이유로 연투로 잘못 집계됐습니다
+    // (팀은 시즌 내내 거의 매일 구원 등판이 있으므로 연투 수가 크게 부풀려짐).
+    // 항상 투수별(Pcode)로 날짜를 모아 스트릭을 계산한 뒤, 화면에 맞는 단위
+    // (팀/선수 통산/개인·팀별)로 합산합니다.
+    private async Task<Dictionary<string, List<(DateTime Date, string Team)>>> QueryReliefDatesByPitcherAsync(
         GameQuery query,
         CancellationToken cancellationToken)
     {
         var filter = BuildFilteredGamesCte(query);
-        var identity = GetPitcherRecordRoomIdentity(query.Grouping, "pg.Pcode", "pg.Name", "pg.TeamCode", "g");
-        var result = new Dictionary<string, List<DateTime>>(StringComparer.Ordinal);
+        var result = new Dictionary<string, List<(DateTime Date, string Team)>>(StringComparer.Ordinal);
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             {filter.Cte}
-            SELECT {identity.SelectColumns}, g.GameDate
+            SELECT pg.Pcode, pg.TeamCode, g.GameDate
             FROM PitcherGameStats pg
             INNER JOIN FilteredGames g ON g.GameId=pg.GameId
-            {identity.JoinClause}
             WHERE pg.IsReliever=1
               AND ($resultTeam='' OR pg.TeamCode=$resultTeam)
               AND g.GameDate IS NOT NULL
-            GROUP BY {identity.GroupBy}, g.GameDate
-            ORDER BY g.GameDate;
+            GROUP BY pg.Pcode, pg.TeamCode, g.GameDate
+            ORDER BY pg.Pcode, g.GameDate;
             """;
         AddParameters(command, filter.Parameters);
         command.Parameters.AddWithValue("$resultTeam", query.TeamCode ?? string.Empty);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            var key = PitcherRecordRoomKey(reader.GetString(0), reader.GetString(2));
-            if (!DateTime.TryParse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) continue;
-            if (!result.TryGetValue(key, out var dates)) result[key] = dates = new List<DateTime>();
-            dates.Add(date.Date);
+            var pcode = reader.GetString(0);
+            var team = reader.GetString(1);
+            if (!DateTime.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) continue;
+            if (!result.TryGetValue(pcode, out var list)) result[pcode] = list = new List<(DateTime, string)>();
+            list.Add((date.Date, team));
         }
-        return result.ToDictionary(item => item.Key, item => (IReadOnlyList<DateTime>)item.Value, StringComparer.Ordinal);
+        return result;
     }
 
-    private static (int Two, int Three, int Four) CountReliefStreaks(IReadOnlyList<DateTime> source)
+    // 투수별 등판일로 스트릭을 센 뒤, 화면 단위(팀/선수 통산/개인+팀)에 맞는 키로 합산합니다.
+    private static Dictionary<string, (int Two, int Three, int Four)> BuildReliefStreakTotals(
+        Dictionary<string, List<(DateTime Date, string Team)>> byPitcher,
+        AnalyticsGrouping grouping)
     {
-        var dates = source.Distinct().OrderBy(value => value).ToList();
-        var two = 0;
-        var three = 0;
-        var four = 0;
-        for (var index = 1; index < dates.Count; index++)
+        var totals = new Dictionary<string, (int Two, int Three, int Four)>(StringComparer.Ordinal);
+        void Add(string key, bool three, bool four)
         {
-            if ((dates[index] - dates[index - 1]).TotalDays != 1) continue;
-            two++;
-            if (index >= 2 && (dates[index - 1] - dates[index - 2]).TotalDays == 1) three++;
-            if (index >= 3 &&
-                (dates[index - 1] - dates[index - 2]).TotalDays == 1 &&
-                (dates[index - 2] - dates[index - 3]).TotalDays == 1) four++;
+            totals.TryGetValue(key, out var current);
+            totals[key] = (current.Two + 1, current.Three + (three ? 1 : 0), current.Four + (four ? 1 : 0));
         }
-        return (two, three, four);
+        foreach (var (pcode, appearances) in byPitcher)
+        {
+            var dates = appearances
+                .GroupBy(x => x.Date)
+                .Select(g => (Date: g.Key, Team: g.First().Team))
+                .OrderBy(x => x.Date)
+                .ToList();
+            for (var index = 1; index < dates.Count; index++)
+            {
+                if ((dates[index].Date - dates[index - 1].Date).TotalDays != 1) continue;
+                var isThree = index >= 2 && (dates[index - 1].Date - dates[index - 2].Date).TotalDays == 1;
+                var isFour = isThree && index >= 3 && (dates[index - 2].Date - dates[index - 3].Date).TotalDays == 1;
+                var key = grouping switch
+                {
+                    AnalyticsGrouping.Team => dates[index].Team,
+                    AnalyticsGrouping.PlayerCareer => pcode,
+                    _ => PitcherRecordRoomKey(pcode, dates[index].Team),
+                };
+                Add(key, isThree, isFour);
+            }
+        }
+        return totals;
     }
 
     private static RecordRoomIdentitySql GetPitcherRecordRoomIdentity(

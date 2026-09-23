@@ -43,6 +43,10 @@ public sealed class PitcherSabermetricGridRow
     [DisplayName("FIP-*")] public double? FipMinus { get; init; }
     [DisplayName("xFIP*")] public double? Xfip { get; init; }
     [DisplayName("xFIP-*")] public double? XfipMinus { get; init; }
+
+    // 화면에 직접 노출되는 컬럼이 아니라, 상황 조건(HasSituationFilters) 필터가 걸렸을 때
+    // RA9*·WHIP*·ERA*를 계산하기 위한 내부용 필드입니다(타석 단위 실점, 공식 실점과 구분).
+    public int SituationalRunsAllowed { get; init; }
 }
 
 public sealed class PlateDisciplineGridRow

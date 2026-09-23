@@ -211,8 +211,14 @@ public sealed partial class RecordService
             foreach (var p in properties)
             {
                 if (PublicHidden(p, request.Role, request.Room)) continue;
-                cells[p.Name] = WarHidden(p) || ContextHidden(p,query,request.Role) ? "-" :
-                    p.Name == "Rank" ? (skip + i + 1).ToString(CultureInfo.InvariantCulture) : DisplayCell(definition, row, p);
+                if (WarHidden(p) || ContextHidden(p,query,request.Role)) cells[p.Name] = "-";
+                else if (p.Name == "Rank") cells[p.Name] = (skip + i + 1).ToString(CultureInfo.InvariantCulture);
+                else
+                {
+                    var cell = DisplayCell(definition, row, p);
+                    cells[p.Name] = query.HasSituationFilters && request.Role == "pitcher" &&
+                        cell != "-" && SituationalApproxPitcherStats.Contains(p.Name) ? cell + "*" : cell;
+                }
                 if (p.Name == "Name")
                 {
                     cells["Applied"] = sort is null
@@ -232,7 +238,7 @@ public sealed partial class RecordService
             warnings.Add(request.Room == "team"
                 ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃입니다. 희생번트 실패는 주자가 있는 2아웃 미만의 번트 관련 타석 중 안타·희생타 성공·실책 출루·볼넷류·야수선택이 아닌 타자 아웃입니다. 번트 아웃은 바로 포함하고, 그 밖의 아웃은 첫 2스트라이크를 번트 파울·번트 헛스윙·루킹 스트라이크로만 만든 타석에 한해 포함합니다."
                 : "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 선수 잔루는 타자가 아웃된 플레이 후 남은 주자 수입니다. 희생번트 실패는 주자가 있는 2아웃 미만의 번트 관련 타석 중 안타·희생타 성공·실책 출루·볼넷류·야수선택이 아닌 타자 아웃입니다. 번트 아웃은 바로 포함하고, 그 밖의 아웃은 첫 2스트라이크를 번트 파울·번트 헛스윙·루킹 스트라이크로만 만든 타석에 한해 포함합니다.");
-        if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점이며 ER·공식 IP·WAR·득점/주루 일부는 표시하지 않습니다.");
+        if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점입니다. * 표시된 IP·ERA·RA9·WHIP·FIP·xFIP·K/9·BB/9·HR/9 등 이닝 기반 스탯은 상황 조건에 해당하는 타석만으로 다시 계산한 근사치입니다. 그중 ERA*는 진짜 자책점이 아니라(타석 단위 데이터에는 자책·비자책 구분이 없음) 그 투수의 시즌 전체 자책점/실점 비율을 상황별 실점(RA9*)에 곱한 추정치입니다. WAR·득점/주루 관련 지표는 표시하지 않습니다.");
         if (total > accessible) warnings.Add($"대량 수집 제한으로 정렬 결과 상위 {accessible}행까지만 열람할 수 있습니다.");
         if (_options.Demo) warnings.Insert(0,"샘플 DB입니다. 전체 시즌 기록이 아닙니다.");
         var leagueOverview = request.Room == "team"
@@ -351,8 +357,8 @@ public sealed partial class RecordService
         {
             switch(r.View)
             {
-                case "basic": result=PitcherRecordRoomRowFactory.BuildBasic(snapshot); break;
-                case "advanced": result=PitcherRecordRoomRowFactory.BuildAdvanced(snapshot); break;
+                case "basic": result=PitcherRecordRoomRowFactory.BuildBasic(snapshot,q.HasSituationFilters); break;
+                case "advanced": result=PitcherRecordRoomRowFactory.BuildAdvanced(snapshot,q.HasSituationFilters); break;
                 case "value": result=PitcherRecordRoomRowFactory.BuildValue(snapshot,league); break;
                 case "extended": result=await _pitchers.GetExtendedAsync(q,token).ConfigureAwait(false); break;
                 case "wp": result=await _pitchers.GetWinProbabilityAsync(q,league,token).ConfigureAwait(false); break;
@@ -500,12 +506,20 @@ public sealed partial class RecordService
         ];
     }
 
+    // 상황 조건(이닝·아웃·주자·카운트) 필터가 걸리면 공식 최종 기록 단위로만 정확한 항목은
+    // 계속 숨깁니다. IP·ERA·RA9·WHIP·FIP·xFIP·K9·BB9·HR9 등은 타석 단위 근사치(*)로
+    // PitcherRecordRoomRowFactory에서 다시 계산되므로 더 이상 숨기지 않습니다.
+    internal static readonly HashSet<string> SituationalApproxPitcherStats = new(StringComparer.Ordinal)
+    {
+        "InningsPitched","ERA","RA9","WHIP","Fip","Xfip","FipMinus","XfipMinus","EraMinusFip",
+        "LobRate","RunsAllowed","StrikeoutsPerNine","WalksPerNine","HomeRunsPerNine","PitchesPerInning",
+    };
     private static bool ContextHidden(PropertyInfo p, GameQuery q, string role)
     {
         if(!q.HasSituationFilters) return false;
         var n=p.Name;
         if(n.Contains("War",StringComparison.OrdinalIgnoreCase)) return true;
-        if(role=="pitcher") return n is "InningsPitched" or "EarnedRuns" or "ERA" or "RA9" or "WHIP" or "CompleteGames" or "Shutouts" or "Fip" or "Xfip" or "FipMinus" or "XfipMinus" or "EraMinusFip" or "LobRate" or "RunsAllowed" or "WildPitches" or "StrikeoutsPerNine" or "WalksPerNine" or "HomeRunsPerNine" or "PitchesPerInning";
+        if(role=="pitcher") return n is "EarnedRuns" or "CompleteGames" or "Shutouts" or "WildPitches";
         return n is "PrimaryPosition" or "Runs" or "RunsBattedIn" or "StolenBases" or "CaughtStealing" or "RunningRuns" or "PositionRuns" or "RunsAboveReplacement" or "DoublePlays";
     }
     private static bool Compare(object? x, double y, string op)
