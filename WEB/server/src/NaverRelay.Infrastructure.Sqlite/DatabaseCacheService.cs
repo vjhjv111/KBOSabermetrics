@@ -20,7 +20,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
 {
     private const string WarehouseSchemaVersion = "3";
     private const string ParserCacheVersion = "sabermetrics-v2-combined-official-v8";
-    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-woba-re24-v2";
+    private const string LeagueReferenceCacheVersion = "sabermetrics-v2-league-reference-woba-re24-local-pitcher294-v1";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -1194,5 +1194,70 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
             SourceVersion TEXT NOT NULL,
             UpdatedUtc TEXT NOT NULL
         );
+
+        -- 그날 경기가 있는 구단의 선발 라인업/선발투수. Role='pitcher'는 BatOrder=0 한 행만
+        -- 가집니다(선발투수 1명). Role='batter'는 BatOrder 1~9. KBO가 공식 라인업을 아직
+        -- 발표하지 않았으면 IsOfficial=0, Source='estimated_previous_game'인 추정치 행을
+        -- 먼저 넣어 두고, 공식 라인업이 뜨면 같은 (GameDate, TeamCode)를 통째로 교체해
+        -- IsOfficial=1로 덮어씁니다. 하루/팀당 한 세트만 유지합니다(그날 재경기는 지원 안 함).
+        CREATE TABLE IF NOT EXISTS DailyLineupEntries (
+            GameDate TEXT NOT NULL,
+            TeamCode TEXT NOT NULL,
+            OpponentTeamCode TEXT NULL,
+            GameId TEXT NULL,
+            Role TEXT NOT NULL,
+            BatOrder INTEGER NOT NULL,
+            Pcode TEXT NULL,
+            PlayerName TEXT NOT NULL,
+            Position TEXT NULL,
+            IsOfficial INTEGER NOT NULL,
+            Source TEXT NOT NULL,
+            UpdatedUtc TEXT NOT NULL,
+            PRIMARY KEY(GameDate, TeamCode, Role, BatOrder)
+        );
+        CREATE INDEX IF NOT EXISTS IX_DailyLineupEntries_Date ON DailyLineupEntries(GameDate);
+
+        -- 그날 구단의 전체 등록 엔트리(후보 포함) — DailyLineupEntries(그중 실제 선발로 나가는
+        -- 9명+선발투수)와는 별개입니다. IsOfficial=1이면 네이버 game-polling의
+        -- homeEntry/awayEntry(경기 시작 전에 호출해 확정된 그날 엔트리)에서 온 것이고,
+        -- IsOfficial=0이면 그 엔트리가 아직 안 뜬 경우 최근 N일 실제 출전 기록으로 추정한
+        -- 것입니다(Source에 며칠치인지 남김). 공식 엔트리가 한 번 반영되면 다시 추정치로
+        -- 되돌리지 않습니다.
+        CREATE TABLE IF NOT EXISTS DailyEntryRosters (
+            GameDate TEXT NOT NULL,
+            TeamCode TEXT NOT NULL,
+            Role TEXT NOT NULL,
+            Pcode TEXT NOT NULL,
+            PlayerName TEXT NOT NULL,
+            Position TEXT NULL,
+            IsOfficial INTEGER NOT NULL,
+            Source TEXT NOT NULL,
+            UpdatedUtc TEXT NOT NULL,
+            PRIMARY KEY(GameDate, TeamCode, Role, Pcode)
+        );
+        CREATE INDEX IF NOT EXISTS IX_DailyEntryRosters_Date ON DailyEntryRosters(GameDate);
+
+        -- 라인업 최적화(페이즈2) 전수조사 결과를 영구 저장합니다. CacheKey는 LineupOptimizerService의
+        -- 인메모리 캐시와 동일한 구성(날짜|팀|정렬된 타자 pcode 목록|상대 선발투수 손)이라, 라인업이나
+        -- 상대 선발이 바뀌면 자연스럽게 새 키(새 행)가 됩니다. 앱이 재시작돼도(Render는 배포마다
+        -- 재시작) 이미 계산한 조합은 다시 9!(362,880가지) 전수조사를 돌리지 않고 이 표에서 즉시
+        -- 읽어옵니다.
+        CREATE TABLE IF NOT EXISTS LineupOptimizerResults (
+            CacheKey TEXT PRIMARY KEY,
+            GameDate TEXT NOT NULL,
+            TeamCode TEXT NOT NULL,
+            OpponentCode TEXT NULL,
+            OpponentPitcherHand TEXT NULL,
+            BatterPoolPcodesJson TEXT NOT NULL,
+            Algorithm1OrderJson TEXT NULL,
+            Algorithm1ExpectedRuns REAL NULL,
+            Algorithm1EstimatedRuns REAL NULL,
+            Algorithm2OrderJson TEXT NULL,
+            Algorithm2ExpectedRuns REAL NULL,
+            Algorithm2EstimatedRuns REAL NULL,
+            CalibrationFactor REAL NULL,
+            ComputedUtc TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS IX_LineupOptimizerResults_Date ON LineupOptimizerResults(GameDate);
         """;
 }

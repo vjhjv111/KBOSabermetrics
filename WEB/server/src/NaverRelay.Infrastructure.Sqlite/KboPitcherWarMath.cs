@@ -3,6 +3,8 @@ namespace NaverRelay.Infrastructure.Sqlite;
 internal static class KboPitcherWarMath
 {
     public const double DefaultReplacementWinningPercentage = 0.294;
+    // Pitcher and batter replacement winning percentages both use the original .294.
+    public const double PitcherReplacementWinningPercentage = DefaultReplacementWinningPercentage;
     public const double DefaultPitcherWarShare = 0.43;
     public const double DefaultBlendFipWeight = 0.70;
     public const double DefaultBlendRa9Weight = 0.30;
@@ -65,7 +67,7 @@ internal static class KboPitcherWarMath
 
     public static double ComputeTargetPitcherWar(
         int leagueGameCount,
-        double replacementWinningPercentage = DefaultReplacementWinningPercentage,
+        double replacementWinningPercentage = PitcherReplacementWinningPercentage,
         double pitcherShare = DefaultPitcherWarShare) =>
         ComputeTotalReplacementWar(leagueGameCount, replacementWinningPercentage) * pitcherShare;
 

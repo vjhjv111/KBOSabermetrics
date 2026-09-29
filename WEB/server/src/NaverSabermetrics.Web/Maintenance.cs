@@ -7,7 +7,7 @@ namespace NaverSabermetrics.Web;
 public static class Maintenance
 {
     public static PasswordHasher<WebUser> Hasher() => new(Options.Create(new PasswordHasherOptions { IterationCount=210000 }));
-    public static bool IsCommand(string x) => new[]{"--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--help"}.Contains(x);
+    public static bool IsCommand(string x) => new[]{"--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--migrate-schema","--help"}.Contains(x);
     public static async Task<bool> ExecuteAsync(string[] args)
     {
         if(args.Length==0 || !IsCommand(args[0]))return false;
@@ -45,13 +45,30 @@ public static class Maintenance
             case "--http-check": case "--http-check-rate":
                 Need(args,2,"--http-check <http://127.0.0.1:port>");
                 await Verification.HttpCheckAsync(args[1],args[0]=="--http-check-rate");break;
+            case "--migrate-schema":
+                Need(args,2,"--migrate-schema <db-to-update-in-place>");
+                await MigrateSchemaAsync(args[1]);break;
             default:
-                Console.WriteLine("CLI: --hash | --prepare SOURCE NEW_DEST | --sample-db ZIP NEW_DB | --check-db DB | --compare DB | --self-test SAMPLE_DB | --http-check LOOPBACK_URL | --http-check-rate LOOPBACK_URL");break;
+                Console.WriteLine("CLI: --hash | --prepare SOURCE NEW_DEST | --sample-db ZIP NEW_DB | --check-db DB | --compare DB | --self-test SAMPLE_DB | --http-check LOOPBACK_URL | --http-check-rate LOOPBACK_URL | --migrate-schema DB");break;
         }
         return true;
     }
     private static void Need(string[] args,int count,string usage)
     { if(args.Length!=count)throw new ArgumentException("Usage: "+usage); }
+
+    // 기존 DB(데스크톱 sabermetrics_v2.db든, 이미 만들어 둔 web 스냅샷이든)를 그 자리에서
+    // 최신 스키마로 맞춥니다. DatabaseCacheService.InitializeAsync는 CREATE TABLE/INDEX IF NOT
+    // EXISTS + 누락 컬럼 추가만 하므로, 기존 데이터는 전혀 건드리지 않고 새로 생긴 테이블
+    // (예: DailyLineupEntries)만 추가됩니다. --prepare가 소스를 webReadOnly로 먼저 검증하기
+    // 때문에, 스키마가 뒤처진 데스크톱 DB에는 --prepare 전에 이 명령을 먼저 돌려야 합니다.
+    public static async Task MigrateSchemaAsync(string path)
+    {
+        path=Path.GetFullPath(path);
+        if(!File.Exists(path))throw new FileNotFoundException("DB가 없습니다.",path);
+        var db=new DatabaseCacheService(path);
+        await db.InitializeAsync();
+        Console.WriteLine("MIGRATED_DB="+path);
+    }
 
     public static async Task PrepareAsync(string source,string destination)
     {

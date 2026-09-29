@@ -35,7 +35,7 @@ public sealed partial class DatabaseAnalyticsService
             EndDate = query.EndDate,
             RecentGameCount = query.RecentGameCount,
         };
-        var cacheKey = $"common-war-allocation-v1:{scope.CacheKey}";
+        var cacheKey = $"common-war-allocation-local-pitcher294-v1:{scope.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<WarAllocationCalibration>(cacheKey, cancellationToken)
             .ConfigureAwait(false);
         if (cached is not null) return cached;
@@ -45,12 +45,12 @@ public sealed partial class DatabaseAnalyticsService
 
         // Each game is present once for each participating team.
         var gameCount = (int)Math.Round(leagueData.TeamGames.Values.Sum() / 2.0, MidpointRounding.AwayFromZero);
-        var totalWarTarget = KboPitcherWarMath.ComputeTotalReplacementWar(gameCount);
-        var batterTargetWar = totalWarTarget * BatterWarShare;
-        var pitcherTargetWar = totalWarTarget * KboPitcherWarMath.DefaultPitcherWarShare;
+        var batterTargetWar = KboPitcherWarMath.ComputeTotalReplacementWar(gameCount) * BatterWarShare;
+        var pitcherTargetWar = KboPitcherWarMath.ComputeTargetPitcherWar(gameCount);
+        var totalWarTarget = batterTargetWar + pitcherTargetWar;
 
         // Batter allocation: preserve batting/running/position components and solve only replacement Runs/PA
-        // so league batter WAR equals 57% of the common replacement-WAR pool.
+        // so league batter WAR keeps its existing .294 replacement / 57% allocation.
         var batterSaber = leagueData.Batters.Select(row => BuildBatterSaber(row, league, query.SeasonYear)).ToList();
         var saberByKey = batterSaber.ToDictionary(
             row => PlayerKey(row.Pcode, row.TeamCode), StringComparer.Ordinal);
@@ -72,7 +72,7 @@ public sealed partial class DatabaseAnalyticsService
         batterReplacementRunsPerPa = Math.Clamp(batterReplacementRunsPerPa, 0.0, 0.10);
 
         // Pitcher allocation: SP120/RP115 and PF v2 determine Pre-fWAR, then WARIP performs only
-        // the final league-wide calibration to the 43% pitcher target for this exact time scope.
+        // the final league-wide calibration to the local .294 / 43% pitcher target.
         var pitcherIp = 0.0;
         var pitcherPreWar = 0.0;
         var pitcherFgPreWar = 0.0;
@@ -87,7 +87,7 @@ public sealed partial class DatabaseAnalyticsService
             ? (pitcherTargetWar - pitcherPreWar) / pitcherIp
             : 0.0;
 
-        // 비교용 WAR ①(팬그래프 공식 그대로): 목표 WAR은 지금 "War"와 같은 0.294 기준을 쓰되,
+        // 비교용 WAR ①(팬그래프 공식 그대로): 목표 WAR은 지금 "War"와 같은 로컬 .294 기준을 쓰되,
         // 원천 합계는 팬그래프 고정 대체수준으로 계산한 pitcherFgPreWar를 씁니다.
         var fanGraphsPitcherWarPerInning = pitcherIp > 0
             ? (pitcherTargetWar - pitcherFgPreWar) / pitcherIp

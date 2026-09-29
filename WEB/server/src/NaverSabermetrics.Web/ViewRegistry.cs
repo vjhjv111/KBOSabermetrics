@@ -36,6 +36,9 @@ public static class ViewRegistry
         new("pitcher", "basic", "기본", typeof(PitcherBasicRecordRow)),
         new("pitcher", "advanced", "심화", typeof(PitcherAdvancedRecordRow)),
         new("pitcher", "value", "가치", typeof(PitcherDetailedValueRecordRow)),
+        new("pitcher", "war-70-30", "WAR 7:3 (로컬)", typeof(PitcherBlendTestRow)),
+        new("pitcher", "war-50-50", "WAR 5:5 (로컬)", typeof(PitcherBlendTestRow)),
+        new("pitcher", "war-30-70", "WAR 3:7 (로컬)", typeof(PitcherBlendTestRow)),
         new("pitcher", "extended", "확장", typeof(PitcherExtendedRecordRow)),
         new("pitcher", "wp", "WP", typeof(PitcherWinProbabilityRecordRow)),
         new("pitcher", "runner", "주자", typeof(PitcherRunnerRecordRow)),
@@ -75,6 +78,7 @@ public static class ViewRegistry
     public static string Kind(PropertyInfo p)
     {
         if (!IsNumber(p)) return "text";
+        if (p.Name == "ReplacementWinningPercentage") return "decimal3";
         var label = Label(p).Replace("*", "");
         if (p.Name.Contains("WarPerInning", StringComparison.OrdinalIgnoreCase)) return "decimal6";
         if (label.Contains('%') || p.Name.EndsWith("Usage", StringComparison.Ordinal) || label.Contains("사용률") || label.Contains("구사율") || label.Contains("성공률")) return "percent";

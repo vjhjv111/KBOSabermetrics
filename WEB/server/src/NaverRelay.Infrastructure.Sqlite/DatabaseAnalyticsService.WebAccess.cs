@@ -10,7 +10,7 @@ public sealed partial class DatabaseAnalyticsService
         bool includeTeamBattingContext = false,
         CancellationToken cancellationToken = default)
     {
-        var key = $"web-role-common-war-v1:{pitcher}:{JsonSerializer.Serialize(query)}";
+        var key = $"web-role-common-war-local-pitcher294-v1:{pitcher}:{JsonSerializer.Serialize(query)}";
         var cached = await _database.TryLoadComputedAsync<AnalyticsSnapshot>(key, cancellationToken).ConfigureAwait(false);
         if (cached is not null)
         {

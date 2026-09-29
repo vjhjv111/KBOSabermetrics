@@ -101,3 +101,33 @@ td.formula-text{white-space:pre-line;vertical-align:top;height:auto;line-height:
 td.formula-text:nth-child(3){min-width:360px;max-width:520px}
 td.formula-text:nth-child(4){min-width:300px;max-width:430px}
 td.formula-text:nth-child(5){min-width:260px;max-width:380px}
+
+/* 라인업 최적화: 경기일정 달력 카드(.calendar-day/.calendar-game)와 같은 시각 언어로,
+   팀 드롭다운 대신 경기별 카드를 세로로 나열하고 그 안에 두 팀을 나란한 서브컬럼으로 둡니다. */
+.lineup-games{display:flex;flex-direction:column;gap:18px}
+.lineup-game-card{padding:0;overflow:hidden}
+.lineup-game-card>h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:16px 20px;background:#f3f5f8;font-size:15px}
+.lineup-game-meta{margin-left:auto;font-size:11px;font-weight:400;color:#758499}
+.lineup-game-body{display:grid;grid-template-columns:1fr 1fr}
+.lineup-team-col{padding:16px 20px;min-width:0}
+.lineup-team-col+.lineup-team-col{border-left:1px solid #e5e9ef}
+.lineup-team-col h3{margin:0 0 8px;font-size:14px;color:#273c50}
+.lineup-subhead{margin:14px 0 4px;font-size:11px;font-weight:700;color:#596779;letter-spacing:.3px}
+/* 알고리즘1/2를 나란히 두 좁은 열로 배치 — 열이 좁아지는 만큼 이름-포지션-wOBA 사이 빈 공백도
+   자연히 줄어듭니다(예전엔 팀 열 전체 너비를 혼자 다 썼음). */
+.lineup-algo-row{display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
+.lineup-algo-col{min-width:0}
+/* 타순 목록: 반드시 한 줄에 한 타순만 오도록 li 하나하나를 독립된 grid row로 강제합니다(가로
+   wrap되는 flex 대신 grid-template-columns로 각 칸 너비를 고정 — display:block인 li가 섞여도
+   한 줄씩 쌓이는 게 보장됩니다). */
+.lineup-order-list{display:block;padding:0;margin:2px 0 6px;list-style:none;width:100%}
+.lineup-order-list li{display:grid;grid-template-columns:22px 1fr auto;align-items:baseline;column-gap:6px;background:#f3f5f8;border-radius:4px;padding:4px 6px;font-size:11.5px;color:#334a60;width:100%;box-sizing:border-box}
+.lineup-order-list li+li{margin-top:3px}
+.lineup-order-list li .lineup-order-num{color:#b94017;font-weight:700}
+.lineup-order-list li .lineup-order-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lineup-order-list li .lineup-order-pos{grid-column:2;grid-row:2;font-size:10px;color:#758499;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lineup-order-list li .lineup-order-woba{font-size:11px;font-weight:600;color:#1f6f4a;white-space:nowrap;text-align:right}
+.lineup-algo2 .loading{font-size:12px;color:#596779}
+@media(max-width:600px){.lineup-algo-row{grid-template-columns:1fr;row-gap:10px}}
+@media(max-width:480px){.lineup-order-list li{grid-template-columns:20px 1fr auto;padding:4px 5px}.lineup-order-list li .lineup-order-pos{font-size:9.5px}}
+@media(max-width:850px){.lineup-game-body{grid-template-columns:1fr}.lineup-team-col+.lineup-team-col{border-left:0;border-top:1px solid #e5e9ef}.lineup-game-card>h2{padding:14px 16px}.lineup-team-col{padding:14px 16px}}

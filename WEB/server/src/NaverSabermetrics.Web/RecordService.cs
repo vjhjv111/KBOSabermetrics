@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.12";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.12-local-pitcher294-blend-v1";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -63,6 +63,7 @@ public sealed partial class RecordService
         // 값이라 "주 포지션"이 개인 의미를 갖지 않으므로 그리드에서 숨깁니다.
         if (string.Equals(room, "team", StringComparison.OrdinalIgnoreCase) && p.Name == "PrimaryPosition") return true;
         if (!string.Equals(role, "pitcher", StringComparison.OrdinalIgnoreCase)) return false;
+        if (p.DeclaringType == typeof(PitcherBlendTestRow)) return false;
         var name = p.Name;
         return name.Contains("Ra9War", StringComparison.OrdinalIgnoreCase)
             || name.Contains("BlendWar", StringComparison.OrdinalIgnoreCase)
@@ -86,7 +87,7 @@ public sealed partial class RecordService
             if (bounds.Max.HasValue) query = query with { EndDate=bounds.Max, StartDate=bounds.Max.Value.AddDays(1-request.RecentDays.Value) };
         }
         // Do not silently show whole-game ER/WAR on event-only queries.
-        if (query.HasSituationFilters && (request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever"))
+        if (query.HasSituationFilters && (request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever" or "war-70-30" or "war-50-50" or "war-30-70"))
             throw new RequestError("이 탭은 경기 최종 기록이 필요합니다. 이닝·아웃·주자·카운트 조건을 해제하세요.");
         if (query.HasSituationFilters && request.Role == "batter" && !string.IsNullOrEmpty(request.Position))
             throw new RequestError("상황별 타석에는 정확한 수비 포지션 이닝이 없습니다. 포지션을 전체로 바꾸세요.");
@@ -231,9 +232,15 @@ public sealed partial class RecordService
         var warnings = new List<string>();
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
         else warnings.Add(request.Role == "pitcher"
-            ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
+            ? "로컬 테스트: 투수 대체선수 승률 .294. WAR 7:3/5:5/3:7 탭은 기존 KBO FIP WAR와 RA9 WAR의 가중합입니다. 기본 WAR는 FIP 단독이며 사이트 자체 추정치입니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
+        if (request.Role == "pitcher" && request.View is "war-70-30" or "war-50-50" or "war-30-70")
+            warnings.Add(request.View == "war-30-70"
+                ? "혼합 WAR = KBO FIP WAR × 0.30 + KBO RA9 WAR × 0.70 (반올림 전 값으로 계산). 대체선수 승률 .294."
+                : request.View == "war-50-50"
+                ? "혼합 WAR = KBO FIP WAR × 0.50 + KBO RA9 WAR × 0.50 (반올림 전 값으로 계산). 타자 대체수준은 기존 .294를 유지합니다."
+                : "혼합 WAR = KBO FIP WAR × 0.70 + KBO RA9 WAR × 0.30 (기존 혼합식). 타자 대체수준은 기존 .294를 유지합니다.");
         if (request.Role == "batter" && request.View == "team-batting")
             warnings.Add(request.Room == "team"
                 ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃입니다. 희생번트 실패는 주자가 있는 2아웃 미만의 번트 관련 타석 중 안타·희생타 성공·실책 출루·볼넷류·야수선택이 아닌 타자 아웃입니다. 번트 아웃은 바로 포함하고, 그 밖의 아웃은 첫 2스트라이크를 번트 파울·번트 헛스윙·루킹 스트라이크로만 만든 타석에 한해 포함합니다."
@@ -324,7 +331,7 @@ public sealed partial class RecordService
         }
         var core = r.Role == "batter"
             ? new[] { "basic","advanced","value","extended","power","team-batting","steal","baserunning","discipline" }.Contains(r.View)
-            : new[] { "basic","advanced","value","starter","reliever" }.Contains(r.View);
+            : new[] { "basic","advanced","value","starter","reliever","war-70-30","war-50-50","war-30-70" }.Contains(r.View);
         var needsSnapshot = core || r.QualificationPercent > 0 || !string.IsNullOrEmpty(r.Position);
         var needsLeague = needsSnapshot || r.View is "clutch" or "wp" or "reliever";
         var league = needsLeague ? await _db.GetLeagueReferenceAsync(cancellationToken:token).ConfigureAwait(false) : new LeagueReference();
@@ -375,6 +382,11 @@ public sealed partial class RecordService
                 case "basic": result=PitcherRecordRoomRowFactory.BuildBasic(snapshot,q.HasSituationFilters,seasonPitcherValues); break;
                 case "advanced": result=PitcherRecordRoomRowFactory.BuildAdvanced(snapshot,q.HasSituationFilters,seasonPitcherValues); break;
                 case "value": result=PitcherRecordRoomRowFactory.BuildValue(snapshot,league); break;
+                case "war-70-30":
+                case "war-50-50":
+                case "war-30-70":
+                    result=snapshot.PitcherValues.Select(row=>PitcherBlendTestRow.From(row,r.View switch { "war-50-50" => 0.5, "war-30-70" => 0.3, _ => 0.7 }))
+                        .OrderByDescending(row=>row.BlendWar).ThenBy(row=>row.Name).ToList(); break;
                 case "extended": result=await _pitchers.GetExtendedAsync(q,token).ConfigureAwait(false); break;
                 case "wp": result=await _pitchers.GetWinProbabilityAsync(q,league,token).ConfigureAwait(false); break;
                 case "runner": result=await _pitchers.GetRunnerAsync(q,token).ConfigureAwait(false); break;

@@ -99,6 +99,16 @@ public sealed class RelayClient : IDisposable
         return ParseHtml(game, html);
     }
 
+    // Pre-game lineup lookup: fetches ONLY the play-by-play page's raw HTML, with no requirement
+    // that any play-by-play rows exist yet (unlike DownloadAsync/DownloadLogsOnlyAsync, which both
+    // call ParseHtml and throw InvalidDataException on an empty game). Safe to call any time before
+    // first pitch — KBO's lineup panel (#scrollLineup1_content/#scrollLineup2_content) is typically
+    // populated 1-2 hours before game time, well before the play log itself has any rows. Callers
+    // parse the returned HTML with LineupPreviewParser.TryParse, which tolerates an empty/unannounced
+    // lineup by returning null.
+    public Task<string> FetchLiveTextHtmlAsync(GameRequest game, CancellationToken ct = default)
+        => FetchHtmlAsync(game, "LiveTextView2.aspx", ct);
+
     private async Task<string> FetchHtmlAsync(GameRequest game, string endpoint, CancellationToken ct)
     {
         for (var attempt = 0; attempt < 3; attempt++)

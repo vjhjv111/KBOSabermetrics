@@ -9,7 +9,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
 {
-    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v5-re24";
+    private const string AnalyticsCacheVersion = "relational-analytics-official-per-nine-v5-re24-local-pitcher294-v1";
 
     private readonly DatabaseCacheService _database;
 

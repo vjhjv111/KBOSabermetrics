@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Data.Sqlite;
 using NaverRelay.Infrastructure.Sqlite;
 using NaverSabermetrics.Web;
@@ -23,7 +24,7 @@ catch (Exception ex) when (args.Length > 0 && args[0].StartsWith("--", StringCom
 var webRoot=Path.Combine(AppContext.BaseDirectory,"wwwroot");
 if (!Directory.Exists(webRoot))
     throw new DirectoryNotFoundException($"웹 정적 파일 폴더가 없습니다: {webRoot}. 솔루션을 다시 빌드하세요.");
-foreach (var asset in new[] { "index.html", "app.css", "home.css", "forecast-method.css", "forecast-method.js", "player-profile.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "comparison.js", "comparison.css", "diamond/index.html" })
+foreach (var asset in new[] { "index.html", "app.css", "home.css", "forecast-method.css", "forecast-method.js", "player-profile.css", "app.js", "games.js", "diamond.js", "analysis.js", "analysis.css", "comparison.js", "comparison.css", "diamond/index.html", "lineup-optimizer.js" })
 {
     var assetPath = Path.Combine(webRoot, asset);
     if (!File.Exists(assetPath) || new FileInfo(assetPath).Length == 0)
@@ -31,6 +32,13 @@ foreach (var asset in new[] { "index.html", "app.css", "home.css", "forecast-met
 }
 var isRender=string.Equals(Environment.GetEnvironmentVariable("RENDER"),"true",StringComparison.OrdinalIgnoreCase);
 var builder=WebApplication.CreateBuilder(new WebApplicationOptions{Args=args,ContentRootPath=AppContext.BaseDirectory,WebRootPath=webRoot});
+// .NET은 Windows에서 기본적으로 Windows 이벤트 로그(EventLog) 로깅 공급자를 자동으로 추가하는데,
+// 콘솔로 그냥 dotnet run/실행파일로 띄운 상태에서 종료(Ctrl+C, 창 닫기 등)될 때 백그라운드 서비스가
+// 마침 오류를 로깅하려는 타이밍과 겹치면 "Cannot access a disposed object: EventLogInternal" 예외가
+// 나면서 원래 로깅하려던 진짜 예외 메시지를 가려버립니다. Render(Linux) 배포에는 애초에 안 붙는
+// 공급자라 지워도 배포 환경엔 영향이 없고, 로컬 콘솔 실행 때의 이 노이즈/마스킹만 없어집니다.
+builder.Logging.Services.RemoveAll(typeof(ILoggerProvider));
+builder.Logging.AddConsole().AddDebug();
 var localConfig=Environment.GetEnvironmentVariable("SABER_LOCAL_CONFIG");
 if (!string.IsNullOrWhiteSpace(localConfig)) builder.Configuration.AddJsonFile(Path.GetFullPath(localConfig),optional:false,reloadOnChange:false);
 else builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false);
@@ -38,6 +46,7 @@ builder.Configuration.AddEnvironmentVariables(); // Deployment secrets override 
 builder.Configuration.AddCommandLine(args);
 var settings=builder.Configuration.GetSection("Site").Get<SiteOptions>()??new SiteOptions();
 var renderCollector=builder.Configuration.GetSection("RenderCollector").Get<RenderCollectorOptions>()??new RenderCollectorOptions();
+var dailyLineup=builder.Configuration.GetSection("DailyLineup").Get<DailyLineupOptions>()??new DailyLineupOptions();
 settings.DatabasePath=Environment.GetEnvironmentVariable("NAVER_SABERMETRICS_DB")??settings.DatabasePath;
 if(isRender)
 {
@@ -64,6 +73,8 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton(renderCollector);
 if(isRender && renderCollector.Enabled)builder.Services.AddHostedService<RenderCollectorWorker>();
+builder.Services.AddSingleton(dailyLineup);
+if(isRender && dailyLineup.Enabled)builder.Services.AddHostedService<DailyLineupWorker>();
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<OfficialPlayerProfileService>();
@@ -71,6 +82,9 @@ builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
 builder.Services.AddSingleton<AnalysisWebService>();
 builder.Services.AddSingleton<ComparisonWebService>();
+// 라인업 최적화(알고리즘1/2)는 알고리즘2(전수조사) 결과를 인메모리로 캐시하므로 반드시 싱글턴이어야
+// 합니다(요청마다 새로 만들면 그 캐시가 매번 비어서, 백그라운드 계산 공유/중복 방지가 무의미해짐).
+builder.Services.AddSingleton<LineupOptimizerService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
 builder.Services.AddSingleton(services => new DiamondGameService(settings.StateDirectory, Path.Combine(AppContext.BaseDirectory,"diamond-data"),
     roster: services.GetRequiredService<DiamondRosterService>()));
@@ -205,7 +219,7 @@ app.UseStaticFiles(new StaticFileOptions
         // 응답해주므로, "no-cache"만 쓰면 브라우저가 매번 서버에 확인은 하되(그래서
         // 배포마다 최신 파일로 즉시 갱신됨) 내용이 그대로면 304만 받고 본문은 다시
         // 안 받습니다 — 신선도 보장은 그대로 유지하면서 대역폭만 절약됩니다.
-        if (context.File.Name is "index.html" or "app.js" or "forecast-method.js" or "forecast-method.css" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css")
+        if (context.File.Name is "index.html" or "app.js" or "forecast-method.js" or "forecast-method.css" or "games.js" or "diamond.js" or "analysis.js" or "analysis.css" or "comparison.js" or "comparison.css" or "lineup-optimizer.js")
         {
             context.Context.Response.Headers.CacheControl = "no-cache";
         }
@@ -481,11 +495,75 @@ app.MapGet("/api/bot/schedule", async (string team, int? year, int? month, HttpC
     },c.RequestAborted);
     return Results.Ok(new{year=y,month=m,team=teamCode,teamName=botTeamNames[teamCode],games});
 });
+// 하루치 선발 라인업/선발투수. DailyLineupWorker가 꾸준히 채우는 읽기 전용 엔드포인트입니다.
+app.MapGet("/api/lineup/today", async (string? date, HttpContext c, QueryGate gate, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    quotas.Consume(Ip(c),0);
+    // DailyLineupWorker가 GameDate를 한국시간 기준으로 쓰므로, date를 생략했을 때의 기본값도
+    // 같은 기준(UTC 아님)으로 맞춥니다 — 그렇지 않으면 자정~오전9시(UTC) 구간에 날짜가 하루 어긋납니다.
+    var gameDate = string.IsNullOrWhiteSpace(date)
+        ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, KoreaTimeZone()).ToString("yyyy-MM-dd")
+        : date.Trim();
+    if (!System.Text.RegularExpressions.Regex.IsMatch(gameDate, @"^\d{4}-\d{2}-\d{2}$"))
+        throw new RequestError("date는 yyyy-MM-dd 형식이어야 합니다.");
+    var entries = await gate.RunAsync(t => db.GetDailyLineupEntriesAsync(gameDate, t), c.RequestAborted);
+    var rosterRows = await gate.RunAsync(t => db.GetDailyEntryRosterAsync(gameDate, t), c.RequestAborted);
+    var rosterByTeam = rosterRows.GroupBy(r => r.TeamCode).ToDictionary(g => g.Key, g => g.ToArray());
+    var teams = entries.GroupBy(e => e.TeamCode).Select(g =>
+    {
+        var startingPcodes = g.Where(e => !string.IsNullOrEmpty(e.Pcode)).Select(e => e.Pcode!).ToHashSet();
+        rosterByTeam.TryGetValue(g.Key, out var roster);
+        roster ??= Array.Empty<NaverRelay.Infrastructure.Sqlite.DailyEntryRosterRow>();
+        return new
+        {
+            team = g.Key,
+            opponent = g.Select(e => e.OpponentTeamCode).FirstOrDefault(v => v is not null),
+            gameId = g.Select(e => e.GameId).FirstOrDefault(v => v is not null),
+            isOfficial = g.All(e => e.IsOfficial),
+            source = g.Select(e => e.Source).FirstOrDefault(),
+            updatedUtc = g.Select(e => e.UpdatedUtc).Max(),
+            startingPitcher = g.Where(e => e.Role=="pitcher").Select(e => new { e.Pcode, name=e.PlayerName }).FirstOrDefault(),
+            batters = g.Where(e => e.Role=="batter").OrderBy(e => e.BatOrder)
+                .Select(e => new { order=e.BatOrder, e.Pcode, name=e.PlayerName, e.Position }).ToArray(),
+            roster = new
+            {
+                isOfficial = roster.Length>0 && roster.All(r=>r.IsOfficial),
+                source = roster.Select(r=>r.Source).FirstOrDefault(),
+                batters = roster.Where(r=>r.Role=="batter").Select(r=>new{r.Pcode,name=r.PlayerName,r.Position}).ToArray(),
+                pitchers = roster.Where(r=>r.Role=="pitcher").Select(r=>new{r.Pcode,name=r.PlayerName,r.Position}).ToArray(),
+            },
+            bench = roster.Where(r => !startingPcodes.Contains(r.Pcode))
+                .Select(r => new { r.Role, r.Pcode, name=r.PlayerName, r.Position }).ToArray(),
+        };
+    });
+    return Results.Ok(new { gameDate, teams });
+});
+// 라인업 최적화: 상대 선발투수 손에 맞춘 wOBA 기반 알고리즘1(휴리스틱, 즉시)과 알고리즘2(9!
+// 전수조사, 배경 계산+DB 영구 캐시)을 함께 돌려줍니다. LineupOptimizerService.cs 참고.
+app.MapGet("/api/lineup/optimal", async (string team, string? date, HttpContext c, LineupOptimizerService optimizer, QuotaStore quotas) =>
+{
+    if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    if (string.IsNullOrWhiteSpace(team)) throw new RequestError("team 파라미터가 필요합니다.");
+    quotas.Consume(Ip(c),0);
+    var gameDate = string.IsNullOrWhiteSpace(date)
+        ? TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, KoreaTimeZone()).ToString("yyyy-MM-dd")
+        : date.Trim();
+    if (!System.Text.RegularExpressions.Regex.IsMatch(gameDate, @"^\d{4}-\d{2}-\d{2}$"))
+        throw new RequestError("date는 yyyy-MM-dd 형식이어야 합니다.");
+    var result = await optimizer.GetOptimalLineupAsync(team.Trim(), gameDate, c.RequestAborted);
+    return Results.Ok(result);
+});
 // Player logs expose only a bounded display projection; no raw JSON, DB download or export.
 app.MapFallback((HttpContext c)=>{c.Response.StatusCode=404;return c.Response.WriteAsJsonAsync(new{code="NOT_FOUND"});});
 app.Run();
 
 static string Ip(HttpContext c)=>c.Connection.RemoteIpAddress?.ToString()??"unknown";
+static TimeZoneInfo KoreaTimeZone()
+{
+    try { return TimeZoneInfo.FindSystemTimeZoneById("Asia/Seoul"); }
+    catch (TimeZoneNotFoundException) { return TimeZoneInfo.FindSystemTimeZoneById("Korea Standard Time"); }
+}
 static string Device(string userAgent)
 {
     if(userAgent.Contains("iPad",StringComparison.OrdinalIgnoreCase) || userAgent.Contains("Tablet",StringComparison.OrdinalIgnoreCase)

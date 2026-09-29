@@ -105,7 +105,7 @@ public sealed partial class DatabaseCacheService
 
         return new PitcherWarCalibration
         {
-            ReplacementWinningPercentage = KboPitcherWarMath.DefaultReplacementWinningPercentage,
+            ReplacementWinningPercentage = KboPitcherWarMath.PitcherReplacementWinningPercentage,
             PitcherWarShare = KboPitcherWarMath.DefaultPitcherWarShare,
             TargetPitcherWar = targetWar,
             PreCorrectionFipWar = preFipWar,

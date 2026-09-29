@@ -15,5 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NaverRelay.Parser\NaverRelay.Parser.csproj" />
     <ProjectReference Include="..\NaverRelay.Application\NaverRelay.Application.csproj" />
+    <!-- DailyLineup 저장 메서드가 KboRelayDownloader.TeamLineupPreview를 그대로 받습니다. -->
+    <ProjectReference Include="..\NaverKboCollector.Core\NaverKboCollector.Core.csproj" />
   </ItemGroup>
 </Project>
