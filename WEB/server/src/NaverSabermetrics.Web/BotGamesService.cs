@@ -64,19 +64,16 @@ public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,
 
     public static string Format(string date,IReadOnlyList<BotGame> games,DateTimeOffset? updated)
     {
-        var lines=new List<string>{$"⚾ {date} KBO 경기"};
+        var lines=new List<string>();
         if(games.Count==0){lines.Add("해당 날짜에 수집된 경기·일정이 없습니다.");return string.Join('\n',lines);}
         foreach(var g in games)
         {
-            if(g.Status=="CANCEL")lines.Add($"{g.AwayName} vs {g.HomeName} | 취소");
-            else if(g.Status=="BEFORE")lines.Add($"{g.AwayName} vs {g.HomeName} | {(g.Time is {Length:>=16}?g.Time[11..16]:"시간 미정")} 예정");
-            else lines.Add($"{g.AwayName} {g.AwayScore?.ToString()??"—"} : {g.HomeScore?.ToString()??"—"} {g.HomeName} | {g.StatusText}");
-            if(g.Finished&&g.Decisions.Length>0)lines.Add("  "+string.Join(" · ",g.Decisions.Select(p=>$"{(p.Label.StartsWith("승리")?"승":p.Label.StartsWith("패")?"패":p.Label)} {p.Name}")));
-            else if(g.Status is not ("BEFORE" or "CANCEL")&&(!string.IsNullOrWhiteSpace(g.AwayPitcher)||!string.IsNullOrWhiteSpace(g.HomePitcher)))
-                lines.Add($"  투수 {g.AwayName} {g.AwayPitcher??"—"} / {g.HomeName} {g.HomePitcher??"—"}");
+            if(g.Status=="CANCEL")lines.Add($"{g.AwayName} vs {g.HomeName} 취소");
+            else if(g.Status=="BEFORE")lines.Add($"{g.AwayName} vs {g.HomeName} {(g.Time is {Length:>=16}?g.Time[11..16]:"시간 미정")} 예정");
+            else lines.Add($"{g.AwayName} {g.AwayScore?.ToString()??"—"} : {g.HomeScore?.ToString()??"—"} {g.HomeName} {g.StatusText.Replace("회 초","회초").Replace("회 말","회말")}");
         }
-        if(updated.HasValue){lines.Add($"수집 기준 {updated.Value.ToOffset(TimeSpan.FromHours(9)):MM-dd HH:mm} (한국시간)");
-            if(games.Any(g=>RenderCollectionPolicy.IsLiveStatus(g.Status))&&DateTimeOffset.UtcNow-updated.Value>TimeSpan.FromMinutes(3))lines.Add("수집 갱신이 지연되고 있습니다.");}
+        if(updated.HasValue && games.Any(g=>RenderCollectionPolicy.IsLiveStatus(g.Status)) && DateTimeOffset.UtcNow-updated.Value>TimeSpan.FromMinutes(3))
+            lines.Add("수집 갱신이 지연되고 있습니다.");
         return string.Join('\n',lines);
     }
 }

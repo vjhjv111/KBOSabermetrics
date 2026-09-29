@@ -41,23 +41,20 @@ public sealed class BotStartersService(SiteOptions options)
     {
         var rows = day?.Games ?? [];
         var stale = day is null || now - day.UpdatedAt > TimeSpan.FromMinutes(15) || rows.Any(x => x.FetchFailed);
-        var lines = new List<string> { $"⚾ {date} KBO 선발투수" };
+        var lines = new List<string>();
         if (day is null) lines.Add("선발 정보를 아직 수집하지 못했습니다. 잠시 후 다시 확인해 주세요.");
         else if (rows.Length == 0) lines.Add("예정된 경기가 없습니다.");
         foreach (var g in rows)
         {
-            var time = g.Time is { Length: >= 16 } ? g.Time[11..16] : "시간 미정";
-            lines.Add($"{g.Away} vs {g.Home} | {(g.Status == "CANCEL" ? "취소" : time)}");
+            if (g.Status == "CANCEL") lines.Add($"{g.Away} vs {g.Home} 취소");
             if (g.Status != "CANCEL")
             {
                 var missing = g.FetchFailed ? "조회 실패" : "미발표";
-                lines.Add($"  {g.Away} {g.AwayStarter ?? missing} / {g.Home} {g.HomeStarter ?? missing}");
-                if (g.FetchFailed && g.UpdatedAt.HasValue) lines.Add($"  이전 수집값 ({g.UpdatedAt.Value.ToOffset(TimeSpan.FromHours(9)):MM-dd HH:mm})");
+                lines.Add($"{g.Away} {g.AwayStarter ?? missing} vs {g.HomeStarter ?? missing} {g.Home}" +
+                    (g.FetchFailed && g.UpdatedAt.HasValue ? " (이전 수집값)" : ""));
             }
         }
-        if (day is not null) lines.Add($"수집 기준 {day.UpdatedAt.ToOffset(TimeSpan.FromHours(9)):MM-dd HH:mm} (한국시간)");
         if (stale && day is not null) lines.Add("일부 정보가 오래되었거나 수집이 지연되고 있습니다.");
-        lines.Add("예고 선발은 경기 전 변경될 수 있습니다.");
         return new(date, "Asia/Seoul", day?.UpdatedAt, day is not null, stale, 300, rows, string.Join('\n', lines));
     }
 }

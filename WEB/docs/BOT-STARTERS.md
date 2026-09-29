@@ -5,6 +5,7 @@
 - `GET /api/bot/starters?dayOffset=0` (기본 0), 내일은 1. 다른 값은 400.
 - 응답: date, timeZone, updatedAt, available, stale, refreshSeconds, games, text.
 - 봇은 text를 그대로 답장한다. 날짜 계산은 서버가 담당한다.
+- text는 `한화 박준영 vs 페덱 삼성`처럼 경기당 한 줄이다. 제목·경기 시각·수집 시각·상시 안내 문구는 생략하고 수집 지연/실패 안내만 필요할 때 표시한다. 구조화된 JSON 필드는 유지한다.
 
 `local/war-blend-lineup-20260929`의 ProbableStarterFetcher에서 선발 조회 부분만 분리했다. 전송/파싱 실패를 미발표로 처리하지 않도록 보완했다. WAR·라인업 최적화 변경은 포함하지 않는다.
 

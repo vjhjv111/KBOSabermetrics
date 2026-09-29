@@ -11,7 +11,7 @@
 - `games`: `id`, `date`, `time`, `stadium`, `status`, `statusText`, `away`, `awayName`, `home`, `homeName`, `awayScore`, `homeScore`, `awayPitcher`, `homePitcher`, `decisions`, `updatedAt`, `finished`.
 - `updatedAt`: 응답 경기 중 가장 최근 JSON 수집 시각. DB 기록만 있으면 null. 개별 경기 시각은 각 `games[].updatedAt` 참조.
 - `hasLiveGames`, `refreshSeconds`: 진행 경기 존재 여부와 수집 목표 간격(60초). 봇이 자동 메시지를 발송하라는 의미는 아닙니다.
-- `text`: 카톡 답장에 그대로 사용할 문자열. 점수·상태·현재 투수 또는 종료 투수 결정을 표시합니다.
+- `text`: 경기당 한 줄의 카톡 답장 문자열. 예: `한화 3 : 2 삼성 8회초`. 제목·수집 시각·추가 투수 정보는 생략하며, 해당 정보의 JSON 필드는 유지합니다. 수집 지연 안내는 필요한 경우 표시합니다.
 
 현재 수집 구간에서는 홈과 같은 JSON 투영을 사용하며, 종료된 DB 기록이 있으면 이를 우선합니다. 순위·WAR를 재계산하지 않고 봇 조회마다 외부 사이트를 요청하지 않습니다. 경기·일정이 없으면 해당 날짜에 수집된 자료가 없다고 알리고 이전 날짜 경기로 바꾸지 않습니다. 진행 상태에서 마지막 수집이 3분보다 오래됐으면 지연 안내를 붙입니다.
 

@@ -27,7 +27,7 @@ static class StarterChecks
         var date = BotGamesService.ParseDate(null).ToString("yyyy-MM-dd");
         var row = new StarterGame("20260929NCOB02026",date+"T18:30:00","NC","두산","BEFORE",null,"곽빈",now,false);
         var day = new StarterDay(date,now,[row]);
-        check(BotStartersService.Format(date,day,now).Text.Contains("NC 미발표 / 두산 곽빈"), "한쪽만 미발표");
+        check(BotStartersService.Format(date,day,now).Text == "NC 미발표 vs 곽빈 두산", "한 줄 선발·한쪽만 미발표");
         check(!BotStartersService.Format(date,null,now).Available, "미수집은 경기 없음과 구분");
         check(BotStartersService.Format(date,new(date,now,[]),now).Text.Contains("예정된 경기가 없습니다"), "확인된 빈 일정");
         check(BotStartersService.Format(date,day,now.AddMinutes(16)).Stale, "오래된 캐시 안내");
