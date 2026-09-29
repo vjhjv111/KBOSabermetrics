@@ -234,6 +234,8 @@ public sealed partial class RecordService
             ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
+        if (request.Role == "pitcher" && request.View == "pitch-types")
+            warnings.Add("구종별 평균·최저·최고 구속은 현재 조회 조건의 수집된 구속(km/h) 기준입니다. 누락·0·음수는 제외하며, 유효한 구속이 없으면 -로 표시합니다.");
         if (request.Role == "batter" && request.View == "team-batting")
             warnings.Add(request.Room == "team"
                 ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃입니다. 희생번트 실패는 주자가 있는 2아웃 미만의 번트 관련 타석 중 안타·희생타 성공·실책 출루·볼넷류·야수선택이 아닌 타자 아웃입니다. 번트 아웃은 바로 포함하고, 그 밖의 아웃은 첫 2스트라이크를 번트 파울·번트 헛스윙·루킹 스트라이크로만 만든 타석에 한해 포함합니다."

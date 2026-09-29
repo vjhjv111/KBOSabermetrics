@@ -66,7 +66,7 @@ public sealed class DatabasePitcherRecordRoomService : IPitcherRecordRoomQuerySe
     public Task<IReadOnlyList<PitcherPitchTypeRecordRow>> GetPitchTypesAsync(
         GameQuery query,
         CancellationToken cancellationToken = default) =>
-        GetCachedAsync($"{CacheVersion}:pitch-types:{query.CacheKey}",
+        GetCachedAsync($"{CacheVersion}:pitch-types-speed-range-v1:{query.CacheKey}",
             token => _database.QueryPitcherPitchTypesAsync(query, token), cancellationToken);
 
     private async Task<IReadOnlyList<T>> GetCachedAsync<T>(

@@ -439,8 +439,10 @@ public sealed partial class DatabaseCacheService
             SELECT {identity.SelectColumns},
                    {bucket} AS PitchBucket,
                    COUNT(*),
-                   SUM(CASE WHEN rp.SpeedKmh IS NOT NULL THEN rp.SpeedKmh ELSE 0 END),
-                   SUM(CASE WHEN rp.SpeedKmh IS NOT NULL THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN rp.SpeedKmh > 0 THEN rp.SpeedKmh ELSE 0 END),
+                   SUM(CASE WHEN rp.SpeedKmh > 0 THEN 1 ELSE 0 END),
+                   MIN(CASE WHEN rp.SpeedKmh > 0 THEN rp.SpeedKmh END),
+                   MAX(CASE WHEN rp.SpeedKmh > 0 THEN rp.SpeedKmh END),
                    SUM(CASE WHEN rp.reverse_rank=1 THEN -COALESCE(pa.WpaByPlate,0) ELSE 0 END),
                    SUM(CASE WHEN rp.reverse_rank=1 AND pa.CountsAsAtBat=1 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN rp.reverse_rank=1 AND pa.IsHit=1 THEN 1 ELSE 0 END),
@@ -469,6 +471,8 @@ public sealed partial class DatabaseCacheService
             var count = ReadInt32(reader, index++);
             var speedSum = ReadDouble(reader, index++);
             var speedCount = ReadInt32(reader, index++);
+            double? minSpeed = reader.IsDBNull(index) ? null : reader.GetDouble(index); index++;
+            double? maxSpeed = reader.IsDBNull(index) ? null : reader.GetDouble(index); index++;
             var value = ReadDouble(reader, index++);
             var atBats = ReadInt32(reader, index++);
             var hits = ReadInt32(reader, index++);
@@ -479,7 +483,7 @@ public sealed partial class DatabaseCacheService
                 accumulator = new PitcherPitchTypeAccumulator(pcode, name, team);
                 accumulators[key] = accumulator;
             }
-            accumulator.Buckets[pitchBucket] = new PitcherPitchBucketMetric(count, speedSum, speedCount, value, atBats, hits, totalBases);
+            accumulator.Buckets[pitchBucket] = new PitcherPitchBucketMetric(count, speedSum, speedCount, minSpeed, maxSpeed, value, atBats, hits, totalBases);
         }
 
         var rows = new List<PitcherPitchTypeRecordRow>();
@@ -525,15 +529,35 @@ public sealed partial class DatabaseCacheService
                 KnuckleballValuePer100 = knuckle.ValuePer100,
                 OtherValuePer100 = other.ValuePer100,
                 TwoSeamSpeed = twoSeam.AverageSpeed,
+                TwoSeamMinSpeed = twoSeam.MinSpeed,
+                TwoSeamMaxSpeed = twoSeam.MaxSpeed,
                 FourSeamSpeed = fourSeam.AverageSpeed,
+                FourSeamMinSpeed = fourSeam.MinSpeed,
+                FourSeamMaxSpeed = fourSeam.MaxSpeed,
                 CutterSpeed = cutter.AverageSpeed,
+                CutterMinSpeed = cutter.MinSpeed,
+                CutterMaxSpeed = cutter.MaxSpeed,
                 CurveSpeed = curve.AverageSpeed,
+                CurveMinSpeed = curve.MinSpeed,
+                CurveMaxSpeed = curve.MaxSpeed,
                 SliderSpeed = slider.AverageSpeed,
+                SliderMinSpeed = slider.MinSpeed,
+                SliderMaxSpeed = slider.MaxSpeed,
                 ChangeupSpeed = changeup.AverageSpeed,
+                ChangeupMinSpeed = changeup.MinSpeed,
+                ChangeupMaxSpeed = changeup.MaxSpeed,
                 SinkerSpeed = sinker.AverageSpeed,
+                SinkerMinSpeed = sinker.MinSpeed,
+                SinkerMaxSpeed = sinker.MaxSpeed,
                 ForkballSpeed = fork.AverageSpeed,
+                ForkballMinSpeed = fork.MinSpeed,
+                ForkballMaxSpeed = fork.MaxSpeed,
                 KnuckleballSpeed = knuckle.AverageSpeed,
+                KnuckleballMinSpeed = knuckle.MinSpeed,
+                KnuckleballMaxSpeed = knuckle.MaxSpeed,
                 OtherSpeed = other.AverageSpeed,
+                OtherMinSpeed = other.MinSpeed,
+                OtherMaxSpeed = other.MaxSpeed,
                 TwoSeamUsage = RecordRoomDivide(twoSeam.Count, totalPitches),
                 FourSeamUsage = RecordRoomDivide(fourSeam.Count, totalPitches),
                 CutterUsage = RecordRoomDivide(cutter.Count, totalPitches),
@@ -606,12 +630,14 @@ public sealed partial class DatabaseCacheService
         int Count,
         double SpeedSum,
         int SpeedCount,
+        double? MinSpeed,
+        double? MaxSpeed,
         double Value,
         int AtBats,
         int Hits,
         int TotalBases)
     {
-        public static PitcherPitchBucketMetric Empty { get; } = new(0, 0.0, 0, 0.0, 0, 0, 0);
+        public static PitcherPitchBucketMetric Empty { get; } = new(0, 0.0, 0, null, null, 0.0, 0, 0, 0);
         public double? AverageSpeed => RecordRoomDivide(SpeedSum, SpeedCount);
         public double? ValuePer100 => RecordRoomDivide(Value * 100.0, Count);
         public double? OpponentAverage => RecordRoomDivide(Hits, AtBats);

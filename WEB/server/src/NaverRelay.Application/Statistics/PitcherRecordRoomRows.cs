@@ -333,16 +333,36 @@ public sealed class PitcherPitchTypeRecordRow
     [DisplayName("가치/100* 포크")] public double? ForkballValuePer100 { get; init; }
     [DisplayName("가치/100* 너클")] public double? KnuckleballValuePer100 { get; init; }
     [DisplayName("가치/100* 기타")] public double? OtherValuePer100 { get; init; }
-    [DisplayName("구속 투심")] public double? TwoSeamSpeed { get; init; }
-    [DisplayName("구속 포심")] public double? FourSeamSpeed { get; init; }
-    [DisplayName("구속 커터")] public double? CutterSpeed { get; init; }
-    [DisplayName("구속 커브")] public double? CurveSpeed { get; init; }
-    [DisplayName("구속 슬라이더")] public double? SliderSpeed { get; init; }
-    [DisplayName("구속 체인지업")] public double? ChangeupSpeed { get; init; }
-    [DisplayName("구속 싱커")] public double? SinkerSpeed { get; init; }
-    [DisplayName("구속 포크")] public double? ForkballSpeed { get; init; }
-    [DisplayName("구속 너클")] public double? KnuckleballSpeed { get; init; }
-    [DisplayName("구속 기타")] public double? OtherSpeed { get; init; }
+    [DisplayName("평균구속 투심")] public double? TwoSeamSpeed { get; init; }
+    [DisplayName("최저구속 투심")] public double? TwoSeamMinSpeed { get; init; }
+    [DisplayName("최고구속 투심")] public double? TwoSeamMaxSpeed { get; init; }
+    [DisplayName("평균구속 포심")] public double? FourSeamSpeed { get; init; }
+    [DisplayName("최저구속 포심")] public double? FourSeamMinSpeed { get; init; }
+    [DisplayName("최고구속 포심")] public double? FourSeamMaxSpeed { get; init; }
+    [DisplayName("평균구속 커터")] public double? CutterSpeed { get; init; }
+    [DisplayName("최저구속 커터")] public double? CutterMinSpeed { get; init; }
+    [DisplayName("최고구속 커터")] public double? CutterMaxSpeed { get; init; }
+    [DisplayName("평균구속 커브")] public double? CurveSpeed { get; init; }
+    [DisplayName("최저구속 커브")] public double? CurveMinSpeed { get; init; }
+    [DisplayName("최고구속 커브")] public double? CurveMaxSpeed { get; init; }
+    [DisplayName("평균구속 슬라이더")] public double? SliderSpeed { get; init; }
+    [DisplayName("최저구속 슬라이더")] public double? SliderMinSpeed { get; init; }
+    [DisplayName("최고구속 슬라이더")] public double? SliderMaxSpeed { get; init; }
+    [DisplayName("평균구속 체인지업")] public double? ChangeupSpeed { get; init; }
+    [DisplayName("최저구속 체인지업")] public double? ChangeupMinSpeed { get; init; }
+    [DisplayName("최고구속 체인지업")] public double? ChangeupMaxSpeed { get; init; }
+    [DisplayName("평균구속 싱커")] public double? SinkerSpeed { get; init; }
+    [DisplayName("최저구속 싱커")] public double? SinkerMinSpeed { get; init; }
+    [DisplayName("최고구속 싱커")] public double? SinkerMaxSpeed { get; init; }
+    [DisplayName("평균구속 포크")] public double? ForkballSpeed { get; init; }
+    [DisplayName("최저구속 포크")] public double? ForkballMinSpeed { get; init; }
+    [DisplayName("최고구속 포크")] public double? ForkballMaxSpeed { get; init; }
+    [DisplayName("평균구속 너클")] public double? KnuckleballSpeed { get; init; }
+    [DisplayName("최저구속 너클")] public double? KnuckleballMinSpeed { get; init; }
+    [DisplayName("최고구속 너클")] public double? KnuckleballMaxSpeed { get; init; }
+    [DisplayName("평균구속 기타")] public double? OtherSpeed { get; init; }
+    [DisplayName("최저구속 기타")] public double? OtherMinSpeed { get; init; }
+    [DisplayName("최고구속 기타")] public double? OtherMaxSpeed { get; init; }
     [DisplayName("구사율 투심")] public double? TwoSeamUsage { get; init; }
     [DisplayName("구사율 포심")] public double? FourSeamUsage { get; init; }
     [DisplayName("구사율 커터")] public double? CutterUsage { get; init; }
