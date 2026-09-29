@@ -46,7 +46,7 @@ public sealed partial class RecordService
     }
 }
 
-public sealed class HomeWebService(DatabaseCacheService db,RecordService records,SiteOptions options,HomeLiveService live)
+public sealed class HomeWebService(DatabaseCacheService db,RecordService records,SiteOptions options,HomeLiveService live,BotStartersService starters)
 {
     async Task<object[]> LatestResults(SqliteConnection c,int year,string? date,CancellationToken ct)
     {
@@ -73,8 +73,23 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
         find.Parameters.AddWithValue("$year",year);find.Parameters.AddWithValue("$after",(object?)after??DBNull.Value);
         using var cancelFind=ct.Register(find.Cancel);
         var raw=await find.ExecuteScalarAsync(ct);
-        if(raw is null or DBNull)return (null,[]);
+        if(raw is null or DBNull)
+        {
+            var today=BotGamesService.ParseDate(null);
+            foreach(var day in new[]{today,today.AddDays(1)})
+            {
+                var dateKey=day.ToString("yyyy-MM-dd");
+                if(day.Year!=year || (after is not null && string.CompareOrdinal(dateKey,after)<=0))continue;
+                var collected=starters.Get(dateKey);
+                var upcoming=collected?.Games.Where(g=>g.Status=="BEFORE" && g.Id.Length>=13).ToArray()??[];
+                if(upcoming.Length==0)continue;
+                return (dateKey,upcoming.Select(g=>(object)new{gameId=g.Id,stadium=(string?)null,awayTeamCode=g.Id.Substring(8,2),homeTeamCode=g.Id.Substring(10,2),gameDateTime=g.Time,
+                    awayStarter=g.AwayStarter,homeStarter=g.HomeStarter,starterUpdatedAt=g.UpdatedAt,starterStatus=g.FetchFailed?"error":"available"}).ToArray());
+            }
+            return (null,[]);
+        }
         var date=Convert.ToString(raw)![..10];
+        var announced=starters.Get(date);
         await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;
         cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,GameDateTime FROM HomeGames WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' ORDER BY GameDateTime,GameId";
         cmd.Parameters.AddWithValue("$year",year);cmd.Parameters.AddWithValue("$date",date);
@@ -84,14 +99,21 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
             // 익명 타입 속성은 ASP.NET Core 기본 JSON 옵션(camelCase 네이밍 정책)의 영향을 받으므로,
             // 프런트가 읽는 필드명과 맞추기 위해 소문자로 시작하는 camelCase로 씁니다(Dictionary 키를
             // 쓰는 LatestResults와 달리 이 메서드는 익명 타입을 쓰기 때문에 정책이 적용됩니다).
-            rows.Add(new{gameId=reader.GetString(0),stadium=reader.IsDBNull(1)?null:reader.GetString(1),awayTeamCode=reader.GetString(2),homeTeamCode=reader.GetString(3),gameDateTime=reader.IsDBNull(4)?null:reader.GetString(4)});
+        {
+            var id=reader.GetString(0);
+            // DB schedules can use the short ID; preserve the doubleheader digit.
+            var probable=announced?.Games.FirstOrDefault(g=>g.Id==id || (id.Length==13 && g.Id==id+date[..4]));
+            rows.Add(new{gameId=id,stadium=reader.IsDBNull(1)?null:reader.GetString(1),awayTeamCode=reader.GetString(2),homeTeamCode=reader.GetString(3),gameDateTime=reader.IsDBNull(4)?null:reader.GetString(4),
+                awayStarter=probable?.AwayStarter,homeStarter=probable?.HomeStarter,starterUpdatedAt=probable?.UpdatedAt,
+                starterStatus=probable is null?"unavailable":probable.FetchFailed?"error":probable.Status=="CANCEL"?"cancelled":"available"});
+        }
         return (date,rows.ToArray());
     }
     readonly Dictionary<string,object> cache=new();
     readonly SemaphoreSlim mutex=new(1,1);
     public async Task<object> QueryAsync(HomeRequest r,CancellationToken ct)
     {
-        r.Validate();var snapshot=r.Section=="standings"?await live.ReadAsync(r.Year,ct):new HomeLiveSnapshot("",[]);var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{snapshot.Version}|{r.Year}|{r.Section}";
+        r.Validate();var snapshot=r.Section=="standings"?await live.ReadAsync(r.Year,ct):new HomeLiveSnapshot("",[]);var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{snapshot.Version}|{(r.Section=="standings"?starters.Version:"")}|{r.Year}|{r.Section}";
         await mutex.WaitAsync(ct);try{
             if(cache.TryGetValue(key,out var hit))return hit;
             var teams=new Dictionary<string,ForecastTeam>();var monthly=new Dictionary<string,ForecastTeam>();string? month=null;var homeMatches=new Dictionary<(string,string),int>();var h2hWins=new Dictionary<(string,string),int>();var h2hRuns=new Dictionary<(string,string),int>();string? last=null;

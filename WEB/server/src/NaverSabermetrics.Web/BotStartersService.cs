@@ -21,6 +21,7 @@ public sealed class BotStartersService(SiteOptions options)
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return new(); }
     }
     public StarterDay? Get(string date) => Volatile.Read(ref days).GetValueOrDefault(date);
+    public string Version => string.Join("|", Volatile.Read(ref days).OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value.UpdatedAt.UtcTicks}"));
     public async Task SaveAsync(StarterDay day, CancellationToken ct)
     {
         var today = BotGamesService.ParseDate(null).ToString("yyyy-MM-dd");

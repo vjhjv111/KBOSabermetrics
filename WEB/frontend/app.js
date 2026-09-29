@@ -772,13 +772,22 @@ function renderHomeUpcoming(d,year){
     const row=text('div','','home-upcoming-row');
     const away=homeTeamLink(g.awayTeamCode,year);away.title='원정';
     const home=homeTeamLink(g.homeTeamCode,year);home.title='홈';
+    for(const [link,name] of [[away,g.awayStarter],[home,g.homeStarter]]){
+      const cancelled=g.starterStatus==='cancelled';
+      const label=cancelled?'취소':name||(g.starterStatus==='error'?'조회 지연':g.starterStatus==='unavailable'?'확인 중':'미발표');
+      const starter=text('span',`선발 ${label}`,'home-upcoming-starter');
+      const stale=g.starterStatus==='error'||(g.starterUpdatedAt&&Date.now()-new Date(g.starterUpdatedAt).getTime()>15*60*1000);
+      starter.title=stale?'이전 수집 정보입니다. 갱신이 지연되고 있습니다.':'예고 선발은 경기 전 변경될 수 있습니다.';
+      if(stale&&!cancelled)starter.append(text('span',' · 지연','home-starter-delayed'));
+      link.append(starter);
+    }
     row.append(away,text('span',g.gameDateTime?.slice(11,16)||'—','home-upcoming-time'),home);
     const meta=text('div','','home-game-meta');meta.append(text('span',`${stadium} · 예정`));
     const detail=text('a','경기 정보 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.gameId)}`;detail.setAttribute('aria-label',`${teamNames[g.awayTeamCode]??g.awayTeamCode} 대 ${teamNames[g.homeTeamCode]??g.homeTeamCode} 경기 정보`);meta.append(detail);
     game.append(row,meta);list.append(game);
   }
   card.append(list);if(!d.upcomingGames?.length)card.append(text('p','예정된 경기가 없습니다.','player-empty'));
-  card.append(text('p','수집된 KBO 공식 일정 기준 · 시간·구장은 확정 전 변경될 수 있습니다.','player-note'));
+  card.append(text('p','수집된 KBO 공식 일정 기준 · 시간·구장·예고 선발은 변경될 수 있습니다.','player-note'));
 }
 function renderHomeLeaders(d){
   const war=$('home-war');war.replaceChildren(text('h2','WAR TOP 10'));war.append(homeTable(['순위','선수','구분','WAR'],d.war.map((p,i)=>[i+1,homePlayer({...p,display:''}),p.role==='pitcher'?'투수':'타자',p.display])));if(!d.war.length)war.append(text('p','표시 가능한 WAR 기록이 없습니다.','player-empty'));document.getElementById("home-leaders-note").textContent=d.note;
