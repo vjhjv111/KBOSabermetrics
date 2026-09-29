@@ -20,6 +20,13 @@ Check(HomeLiveService.Parse(Json(id,"RESULT",round:"kbo_ps"),id) is null,"포스
 Check(HomeLiveService.Parse(Json(id,"RESULT"),date+"KTHT0"+year) is null,"경기 ID 불일치 제외");
 var ended=HomeLiveService.Parse(Json(id,"ENDED"),id)!;
 Check(ended.Final&&ended.Decisions.Length==2,"ENDED 즉시 승패 투수 표시");
+var bot=BotGamesService.FromLive(playing);
+Check(bot.AwayName=="한화"&&bot.HomeName=="삼성"&&bot.Decisions.Length==0,"봇 팀 이름·진행 경기 승패 숨김");
+Check(BotGamesService.Format(playing.Date,[bot],DateTimeOffset.UtcNow).Contains("한화 3 : 2 삼성 | 8회 초"),"봇 한 줄 경기 점수·이닝");
+Check(BotGamesService.Format(ended.Date,[BotGamesService.FromLive(ended)],null).Contains("승 승리투수이름"),"봇 종료 경기 승패 투수");
+Check(BotGamesService.Format(playing.Date,[],null).Contains("수집된 경기·일정이 없습니다"),"봇 빈 날짜는 과거 경기로 대체하지 않음");
+Check(BotGamesService.ParseDate(null)==DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).DateTime),"봇 기본 날짜 한국시간");
+try{BotGamesService.ParseDate("2026-02-30");throw new Exception("Invalid date accepted");}catch(RequestError){Console.WriteLine("PASS 봇 잘못된 날짜 거부");}
 var start=DateTimeOffset.UtcNow;
 Check(RenderCollectionPolicy.NextCollectionAt(true,start,start.AddSeconds(20),10)==start.AddMinutes(1),"진행 중 수집 시작 간격 1분");
 Check(RenderCollectionPolicy.NextCollectionAt(false,start,start.AddSeconds(20),10)==start.AddMinutes(10).AddSeconds(20),"비진행 기존 수집 간격 유지");

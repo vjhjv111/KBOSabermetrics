@@ -121,4 +121,5 @@ finally
     Directory.Delete(scratch,true);
 }
 
+await StarterChecks.RunAsync(Check);
 Console.WriteLine($"Render collector validation passed ({checks} checks).");

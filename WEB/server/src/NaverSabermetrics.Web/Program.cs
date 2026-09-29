@@ -70,6 +70,10 @@ builder.Services.AddSingleton<OfficialPlayerProfileService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
 builder.Services.AddSingleton<HomeLiveService>();
+builder.Services.AddSingleton<BotGamesService>();
+builder.Services.AddSingleton<BotStartersService>();
+if (builder.Configuration.GetValue<bool?>("BotStarters:Enabled") ?? (isRender && renderCollector.Enabled))
+    builder.Services.AddHostedService<BotStartersWorker>();
 builder.Services.AddSingleton<AnalysisWebService>();
 builder.Services.AddSingleton<ComparisonWebService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
@@ -353,6 +357,18 @@ app.MapPost("/api/team", async (TeamWebRequest input, HttpContext c, TeamWebServ
 // -----------------------------------------------------------------------------
 var botTeamNames=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase)
 { ["HH"]="한화",["HT"]="KIA",["KT"]="KT",["LG"]="LG",["LT"]="롯데",["NC"]="NC",["OB"]="두산",["SK"]="SSG",["SS"]="삼성",["WO"]="키움" };
+app.MapGet("/api/bot/games",async(string? date,HttpContext c,BotGamesService games,QueryGate gate,QuotaStore quotas)=>
+{
+    if(!databaseReady)throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    var day=BotGamesService.ParseDate(date);quotas.Consume(Ip(c),10);
+    return Results.Ok(await gate.RunAsync(t=>games.QueryAsync(day,t),c.RequestAborted));
+});
+app.MapGet("/api/bot/starters", (int? dayOffset, HttpContext c, BotStartersService starters, QuotaStore quotas) =>
+{
+    quotas.Consume(Ip(c),10);
+    c.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(starters.Query(dayOffset ?? 0));
+});
 app.MapGet("/api/bot/standings", async (int? year, HttpContext c, HomeWebService home, QueryGate gate, QuotaStore quotas) =>
 {
     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
