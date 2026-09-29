@@ -101,3 +101,6 @@ td.formula-text{white-space:pre-line;vertical-align:top;height:auto;line-height:
 td.formula-text:nth-child(3){min-width:360px;max-width:520px}
 td.formula-text:nth-child(4){min-width:300px;max-width:430px}
 td.formula-text:nth-child(5){min-width:260px;max-width:380px}
+
+/* Current pitcher in the live home scoreboard. */
+.decision-P{background:#42556e}

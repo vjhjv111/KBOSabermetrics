@@ -9,7 +9,7 @@ public sealed record GameWebRequest(string Section="calendar",int Year=2026,int 
 {
     public void Validate(){if(Section is not("calendar" or "detail" or "locations")||Year is <1900 or >2200||Month is <1 or >12||Page is <1 or >100||Id.Length>40||Code.Length>40||Id.Any(c=>!char.IsAsciiLetterOrDigit(c))||Code.Any(c=>!char.IsAsciiLetterOrDigit(c))||Competition is not("정규시즌" or "포스트시즌" or "시범경기" or "전체")||(Section=="detail"&&Id.Length==0)||(Section=="locations"&&Code.Length==0))throw new RequestError("경기 조회 조건이 잘못되었습니다.");}
 }
-public sealed class GameWebService(DatabaseCacheService db,SiteOptions options)
+public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,HomeLiveService live)
 {
     async Task<List<Dictionary<string,object?>>> Read(string sql,GameWebRequest r,CancellationToken ct)
     {
@@ -36,7 +36,7 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options)
             return new{rows=rows.Take(1000),hasMore=rows.Count>1000,page=r.Page};
         }
         if(r.Section=="calendar")return new{rows=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.Stadium,g.StatusCode Status,g.RoundCode Round FROM Games g WHERE SUBSTR(g.GameDate,1,7)=$month AND {safe} ORDER BY g.GameDateTime,g.GameId LIMIT 500",r,ct)};
-        var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
+        var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0 || !RenderCollectionPolicy.IsFinalStatus(Convert.ToString(games[0]["Status"]))){var collected=await live.DetailAsync(r.Id,ct);if(collected is not null)return collected;}if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
         var batters=await Read("SELECT Pcode Code,TeamCode Team,Name,BatOrder,Position,LineupSequence,PlateAppearances PA,AtBats AB,Hits H,HomeRuns HR,Walks BB,HitByPitch HBP,Strikeouts SO,Runs R,RunsBattedIn RBI FROM BattingGameLines WHERE GameId=$id ORDER BY TeamSide,BatOrder,LineupSequence",r,ct);
         var pitchers=await Read("SELECT Pcode Code,TeamCode Team,Name,InningsDisplay IP,PitchCount NP,HitsAllowed H,HomeRunsAllowed HR,Walks BB,HitBatters HBP,Strikeouts SO,RunsAllowed R,EarnedRuns ER FROM PitchingGameLines WHERE GameId=$id ORDER BY TeamSide,AppearanceSequence",r,ct);
         var probability=await Read("SELECT ChronologicalIndex Seq,Inning,Title,HomeWinRateAfter Home,AwayWinRateAfter Away,WpaByPlate WPA FROM RelayGroups WHERE GameId=$id AND HomeWinRateAfter IS NOT NULL AND AwayWinRateAfter IS NOT NULL AND HomeWinRateAfter BETWEEN 0 AND 100 AND AwayWinRateAfter BETWEEN 0 AND 100 AND ABS(HomeWinRateAfter+AwayWinRateAfter-100)<0.1 ORDER BY ChronologicalIndex LIMIT 2000",r,ct);

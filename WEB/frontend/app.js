@@ -641,7 +641,7 @@ function renderHomeTeams(year,codes=state.catalog?.teams??[]){
 }
 function initHome(){
   const home=text('main','','home-page');home.id='home-page';home.hidden=true;
-  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-results" class="player-card"><h2>최근 경기 결과</h2></section><section id="home-upcoming" class="player-card"><h2>다음 경기 일정</h2></section><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details><div class="home-secondary-grid"><section id="home-monthly" class="player-card"><h2>월간 승률 순위</h2></section><section id="home-magic" class="player-card"><h2>매직넘버 · 트래직넘버</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p>';
+  home.innerHTML='<div class="home-heading"><div class="home-clubs"><div class="home-clubs-heading"><h2>구단 바로가기</h2><div class="home-clubs-tools"><span>로고를 눌러 팀 기록 보기</span><label>시즌 <select id="home-year"></select></label></div></div><nav id="home-teams" aria-label="구단별 팀 기록"></nav></div><aside class="home-ad-reserve"><a href="https://www.youtube.com/@sportsclassic" target="_blank" rel="noopener noreferrer" aria-label="스포츠클래식 YouTube 채널 방문"><span>광고</span><img src="/assets/sportsclassic-banner.png" alt="스포츠클래식 고품격 야구 리뷰 YouTube 채널"></a></aside></div><p id="home-status" role="status"></p><div class="home-top-grid"><section id="home-results" class="player-card"><h2>최근 경기</h2></section><section id="home-upcoming" class="player-card"><h2>다음 경기 일정</h2></section><section id="home-standings" class="player-card"><h2>팀 순위 · 피타고리안 전망</h2></section></div><details class="home-method" id="home-method"><summary>피타고리안 승률·포스트시즌 확률 계산식과 검증 결과</summary><div id="home-model-note"></div></details><div class="home-secondary-grid"><section id="home-monthly" class="player-card"><h2>월간 승률 순위</h2></section><section id="home-magic" class="player-card"><h2>매직넘버 · 트래직넘버</h2></section></div><div class="home-leaders-grid"><section id="home-war" class="player-card"><h2>WAR TOP 10</h2></section><section id="home-batters" class="player-card"><h2>타자 주요 순위</h2></section><section id="home-pitchers" class="player-card"><h2>투수 주요 순위</h2></section></div><p id="home-leaders-note" class="player-note"></p>';
   home.querySelector('.home-ad-reserve a').addEventListener('click',()=>{
     const body=JSON.stringify({adId:'sportsclassic'});
     fetch('/api/analytics/ad-click',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':state.session?.csrfToken??''},body,credentials:'same-origin',keepalive:true}).catch(()=>{});
@@ -663,7 +663,7 @@ function scrollableTable(){const wrap=text('div','','player-table-wrap');wrap.ta
 function homeTable(headers,rows){const wrap=scrollableTable(),table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers)tr.append(text('th',h));thead.append(tr);table.append(thead);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of row){const td=document.createElement('td');if(v instanceof Node)td.append(v);else td.textContent=v??'—';r.append(td);}body.append(r);}table.append(body);wrap.append(table);return wrap;}
 async function loadHome(){
   $('home-monthly').replaceChildren(text('h2','월간 승률 순위'),text('p','불러오는 중…','muted'));
-  $('home-results').replaceChildren(text('h2','최근 경기 결과'),text('p','불러오는 중…','muted'));
+  $('home-results').replaceChildren(text('h2','최근 경기'),text('p','불러오는 중…','muted'));
   $('home-upcoming').replaceChildren(text('h2','다음 경기 일정'),text('p','불러오는 중…','muted'));
   homeState.controller?.abort();const controller=new AbortController();homeState.controller=controller;const seq=++homeState.seq;const year=Number($('home-year').value);$('home-status').textContent='리그 기록을 불러오는 중…';
   renderHomeTeams(year);
@@ -672,6 +672,15 @@ async function loadHome(){
   if(seq!==homeState.seq)return;const errors=results.filter(x=>x.status==='rejected'&&x.reason.name!=='AbortError');$('home-status').textContent=errors.length?errors.map(x=>x.reason.message).join(' · '):`${year} 정규시즌 · 수집된 종료 경기 기준`;
   for(let i=0;i<results.length;i++)if(results[i].status==='rejected'&&results[i].reason.name!=='AbortError')for(const id of i===0?['home-results','home-upcoming','home-standings','home-magic','home-monthly']:['home-war','home-batters','home-pitchers']){const p=$(id).querySelector('p');if(p)p.textContent='기록을 불러오지 못했습니다. 시즌을 다시 선택해 재시도할 수 있습니다.';}
 }
+let homeRefreshBusy=false;
+setInterval(async()=>{
+  if(homeRefreshBusy||document.hidden||$('home-page')?.hidden||!state.catalog||!['','#','#home'].includes(location.hash))return;
+  const year=Number($('home-year').value),seq=homeState.seq;
+  homeRefreshBusy=true;
+  try{const d=await api('/api/home',{year,section:'standings'},homeState.controller?.signal);if(seq===homeState.seq&&!$('home-page').hidden){renderHomeStandings(d,year);$('home-status').textContent=`${year} 정규시즌 · 경기 현황 갱신 · 순위는 종료 경기 기준`;}}
+  catch(e){if(e.name!=='AbortError'&&seq===homeState.seq)$('home-status').textContent='갱신이 지연되고 있습니다. 마지막 수집 화면을 유지하며 다음 주기에 재시도합니다.';}
+  finally{homeRefreshBusy=false;}
+},60000);
 function renderHomeStandings(d,year){
   renderHomeTeams(year,d.rows.map(r=>r.team));
   renderHomeResults(d,year);
@@ -717,17 +726,18 @@ function renderMagicMatrix(d,year){
   if(d.magicNote)card.append(text('p',d.magicNote,'player-note'));
 }
 function renderHomeResults(d,year){
-  const card=$('home-results');card.replaceChildren(text('h2',`${d.asOf?.slice(0,10)??''} 경기 결과`));
+  const card=$('home-results');card.replaceChildren(text('h2',`${(d.gamesDate??d.asOf)?.slice(0,10)??''} 경기`));
   const list=text('div','','home-results-list');
   for(const g of d.latestGames??[]){
-    const game=text('article','','home-game');game.title=`${g.Stadium??'구장 정보 없음'} · 경기 종료`;
+    const final=!g.StatusCode||['RESULT','ENDED'].includes(g.StatusCode);const status=g.StatusText??(final?'종료':'진행 중');
+    const game=text('article','','home-game');game.title=`${g.Stadium??'구장 정보 없음'} · ${status}`;
     const scoreline=text('div','','home-scoreline');
     for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
       const link=homeTeamLink(code,year);link.title=side==='Away'?'원정':'홈';
-      const result=text('strong',score,score>other?'team-win':'');result.setAttribute('aria-label',`${score}점 ${score>other?'승':score<other?'패':'무승부'}`);
+      const result=text('strong',['BEFORE','CANCEL'].includes(g.StatusCode)?'—':score??'—',score>other?'team-win':'');result.setAttribute('aria-label',`${score??'—'}점${final?' '+(score>other?'승':score<other?'패':'무승부'):''}`);
       if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
-    }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · 종료`));const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);game.append(meta,scoreline);
+    }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · ${status}`));if(final){const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);}game.append(meta,scoreline);
     const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
     for(const side of ['Away','Home']){
       sides[side].dataset.team=g[side+'TeamCode'];
@@ -738,19 +748,20 @@ function renderHomeResults(d,year){
     const winner=decisive?(g.AwayScore>g.HomeScore?'Away':'Home'):null;
     const loser=decisive?(winner==='Away'?'Home':'Away'):null;
     const decisions=text('div','','home-game-decisions');
-    for(const p of g.decisions??[]){
+    for(const p of final?(g.decisions??[]):[]){
       const kind=p.label.startsWith('승리')?'W':p.label.startsWith('패')?'L':p.label.startsWith('홀드')?'H':'S';
       const side=kind==='W'?winner:kind==='L'?loser:null;
       const row=text('div','',side?'home-side-decision':'');row.title=p.label;row.setAttribute('aria-label',`${p.label} ${p.name}`);
       row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));
       (side?sides[side]:decisions).append(row);
     }
+    if(!final&&!['BEFORE','CANCEL'].includes(g.StatusCode))for(const side of ['Away','Home']){const row=text('div','','home-side-decision');row.append(text('span','P','home-decision-badge decision-P'),text('span',g[side+'Pitcher']||'—'));row.title='현재 투수';sides[side].append(row);}
     for(const side of ['Away','Home'])if(sides[side].childElementCount)scoreline.append(sides[side]);
     if(decisions.childElementCount)game.append(decisions);
     list.append(game);
   }
   card.append(list);if(!d.latestGames?.length)card.append(text('p','수집된 종료 경기가 없습니다.','player-empty'));
-  card.append(text('p','선택 시즌의 마지막 종료 경기일 기준 · 승리·패전·홀드·세이브는 수집된 중계에 기록된 경우 표시합니다.','player-note'));
+  card.append(text('p',d.liveUpdatedAt?`수집 기준 ${new Date(d.liveUpdatedAt).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})} · 진행 중 1분 주기 갱신 · 순위는 종료 경기부터 반영`:'선택 시즌의 최근 경기 · 승패 투수는 수집된 기록이 있을 때 표시합니다.','player-note'));
 }
 function renderHomeUpcoming(d,year){
   const card=$('home-upcoming');card.replaceChildren(text('h2',d.upcomingDate?`${d.upcomingDate} 경기 일정`:'다음 경기 일정'));

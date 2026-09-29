@@ -55,6 +55,9 @@ public static class RenderCollectionPolicy
     public static bool AllGamesFinal(IEnumerable<ScheduleGame> games) =>
         games.Any() && games.All(game => IsFinalStatus(game.StatusCode));
 
+    public static DateTimeOffset NextCollectionAt(bool playing,DateTimeOffset cycleStart,DateTimeOffset now,int idleMinutes) =>
+        playing ? cycleStart.AddMinutes(1) : now.AddMinutes(idleMinutes);
+
     public static string DatabaseGameId(GameRequest game) => game.GameId + game.Year;
 
     public static bool TryConsumeManualTrigger(string path)
@@ -101,6 +104,8 @@ public sealed class RenderCollectorWorker : BackgroundService
     private readonly HttpClient http;
     private DatabaseCacheService? writer;
     private DateTimeOffset? lastScheduleSyncUtc;
+    private bool liveGamesInProgress;
+    private DateTimeOffset cycleStartedUtc;
 
     public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options)
     {
@@ -115,11 +120,11 @@ public sealed class RenderCollectorWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Enabled) return;
-        // IntervalMinutes=0 is allowed on purpose: it means "no artificial gap between cycles" —
+        // IntervalMinutes=0 is allowed for idle cycles: it means "no artificial gap between cycles" —
         // useful for a local backfill run, where the real throttling already happens per-request
         // inside GameIdCollector/RelayCollector (delayMs), not at the cycle level. WaitForNextCycleAsync
         // computes deadline = now + 0 minutes, which resolves to "return immediately" with no change
-        // needed there.
+        // needed there. Live games instead use a one-minute start-to-start cadence.
         if (options.IntervalMinutes is < 0 or > 60 || options.LookbackDays is < 0 or > 7 ||
             options.ReconciliationRetryMinutes is < 1 or > 1440 ||
             options.ScheduleSyncIntervalMinutes is < 10 or > 1440)
@@ -149,6 +154,7 @@ public sealed class RenderCollectorWorker : BackgroundService
         {
             try
             {
+                cycleStartedUtc=DateTimeOffset.UtcNow;
                 await RunCycleAsync(stoppingToken);
                 await TouchHeartbeatAsync(stoppingToken);
             }
@@ -162,7 +168,7 @@ public sealed class RenderCollectorWorker : BackgroundService
 
     private async Task WaitForNextCycleAsync(CancellationToken token)
     {
-        var deadline = DateTimeOffset.UtcNow.AddMinutes(options.IntervalMinutes);
+        var deadline = RenderCollectionPolicy.NextCollectionAt(liveGamesInProgress,cycleStartedUtc,DateTimeOffset.UtcNow,options.IntervalMinutes);
         while (true)
         {
             if (RenderCollectionPolicy.TryConsumeManualTrigger(options.ManualTriggerPath))
@@ -189,7 +195,7 @@ public sealed class RenderCollectorWorker : BackgroundService
         var to = now.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         await CollectAndPublishAsync(from, to, token);
 
-        if (options.BackfillEnabled)
+        if (options.BackfillEnabled && !liveGamesInProgress)
         {
             try { await RunBackfillChunkAsync(now, token); }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -217,6 +223,8 @@ public sealed class RenderCollectorWorker : BackgroundService
         void Log(string message) => logger.LogInformation("[collector] {Message}", message);
 
         var games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token);
+        if (to==TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,korea).ToString("yyyy-MM-dd"))
+            liveGamesInProgress=games.Any(g=>!g.Cancel && g.StatusCode=="PLAY");
         if (games.Count == 0)
         {
             logger.LogInformation("Render 수집기: {From}~{To} KBO 일정 없음", from, to);

@@ -46,13 +46,13 @@ public sealed partial class RecordService
     }
 }
 
-public sealed class HomeWebService(DatabaseCacheService db,RecordService records,SiteOptions options)
+public sealed class HomeWebService(DatabaseCacheService db,RecordService records,SiteOptions options,HomeLiveService live)
 {
     async Task<object[]> LatestResults(SqliteConnection c,int year,string? date,CancellationToken ct)
     {
         if(string.IsNullOrEmpty(date))return [];
         await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;
-        cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors FROM Games WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode) IN ('RESULT','ENDED') AND AwayScore IS NOT NULL AND HomeScore IS NOT NULL AND UPPER(AwayTeamCode) NOT IN ('EA','WE') AND UPPER(HomeTeamCode) NOT IN ('EA','WE') ORDER BY GameDateTime,GameId";
+        cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors FROM HomeGames WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode) IN ('RESULT','ENDED') AND AwayScore IS NOT NULL AND HomeScore IS NOT NULL AND UPPER(AwayTeamCode) NOT IN ('EA','WE') AND UPPER(HomeTeamCode) NOT IN ('EA','WE') ORDER BY GameDateTime,GameId";
         cmd.Parameters.AddWithValue("$year",year);cmd.Parameters.AddWithValue("$date",date[..Math.Min(10,date.Length)]);using var cancel=ct.Register(cmd.Cancel);
         var games=new List<Dictionary<string,object?>>();
         await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct)){
@@ -69,14 +69,14 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
     async Task<(string? Date,object[] Games)> UpcomingSchedule(SqliteConnection c,int year,string? after,CancellationToken ct)
     {
         await using var find=c.CreateCommand();find.CommandTimeout=options.QuerySeconds;
-        find.CommandText="SELECT MIN(GameDate) FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND ($after IS NULL OR GameDate>$after) AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";
+        find.CommandText="SELECT MIN(GameDate) FROM HomeGames WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND ($after IS NULL OR GameDate>$after) AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";
         find.Parameters.AddWithValue("$year",year);find.Parameters.AddWithValue("$after",(object?)after??DBNull.Value);
         using var cancelFind=ct.Register(find.Cancel);
         var raw=await find.ExecuteScalarAsync(ct);
         if(raw is null or DBNull)return (null,[]);
         var date=Convert.ToString(raw)![..10];
         await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;
-        cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,GameDateTime FROM Games WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' ORDER BY GameDateTime,GameId";
+        cmd.CommandText="SELECT GameId,Stadium,AwayTeamCode,HomeTeamCode,GameDateTime FROM HomeGames WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' ORDER BY GameDateTime,GameId";
         cmd.Parameters.AddWithValue("$year",year);cmd.Parameters.AddWithValue("$date",date);
         using var cancelList=ct.Register(cmd.Cancel);
         var rows=new List<object>();
@@ -91,12 +91,13 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
     readonly SemaphoreSlim mutex=new(1,1);
     public async Task<object> QueryAsync(HomeRequest r,CancellationToken ct)
     {
-        r.Validate();var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{r.Year}|{r.Section}";
+        r.Validate();var snapshot=r.Section=="standings"?await live.ReadAsync(r.Year,ct):new HomeLiveSnapshot("",[]);var version=await db.GetWebSourceVersionAsync(ct);var key=$"{version}|{snapshot.Version}|{r.Year}|{r.Section}";
         await mutex.WaitAsync(ct);try{
             if(cache.TryGetValue(key,out var hit))return hit;
             var teams=new Dictionary<string,ForecastTeam>();var monthly=new Dictionary<string,ForecastTeam>();string? month=null;var homeMatches=new Dictionary<(string,string),int>();var h2hWins=new Dictionary<(string,string),int>();var h2hRuns=new Dictionary<(string,string),int>();string? last=null;
             await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());await c.OpenAsync(ct);
-            await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;cmd.CommandText="SELECT HomeTeamCode,AwayTeamCode,HomeScore,AwayScore,GameDate FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode) IN ('RESULT','ENDED') AND HomeScore IS NOT NULL AND AwayScore IS NOT NULL AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') ORDER BY GameDate,GameId";cmd.Parameters.AddWithValue("$year",r.Year);using var cancel=ct.Register(cmd.Cancel);
+            await HomeLiveService.PrepareHomeGamesAsync(c,r.Year,snapshot,ct);
+            await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;cmd.CommandText="SELECT HomeTeamCode,AwayTeamCode,HomeScore,AwayScore,GameDate FROM HomeGames WHERE SeasonYear=$year AND LOWER(TRIM(RoundCode))='kbo_r' AND UPPER(StatusCode) IN ('RESULT','ENDED') AND HomeScore IS NOT NULL AND AwayScore IS NOT NULL AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') ORDER BY GameDate,GameId";cmd.Parameters.AddWithValue("$year",r.Year);using var cancel=ct.Register(cmd.Cancel);
             await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct)){
                 var a=reader.GetString(0);var b=reader.GetString(1);var ra=reader.GetInt32(2);var rb=reader.GetInt32(3);if(ra<0||rb<0)continue;last=reader.IsDBNull(4)?last:reader.GetString(4);
                 var gameMonth=reader.IsDBNull(4)?null:reader.GetString(4)[..7];
@@ -123,7 +124,7 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 // 세어 구합니다. DB에 실제로 저장된 잔여 일정이라 우천취소·순연 반영분까지 정확합니다.
                 // 이미 종료된 과거 시즌은 이런 행이 없으므로 자연히 0(맞대결 보정 없음)이 됩니다.
                 var remainingMatches=new Dictionary<(string,string),int>();
-                await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText="SELECT HomeTeamCode,AwayTeamCode FROM Games WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
+                await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText="SELECT HomeTeamCode,AwayTeamCode FROM HomeGames WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
                     await using var remReader=await remCmd.ExecuteReaderAsync(ct);while(await remReader.ReadAsync(ct)){var ra=remReader.GetString(0);var rb=remReader.GetString(1);remainingMatches[(ra,rb)]=remainingMatches.GetValueOrDefault((ra,rb))+1;}
                 }
                 var remainingBetween=(Func<string,string,int>)((x,y)=>remainingMatches.GetValueOrDefault((x,y))+remainingMatches.GetValueOrDefault((y,x)));
@@ -137,9 +138,21 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 });
                 var magicMatrix=list.Length==10?BuildMagicMatrix(rows.Select(x=>new MagicTeam(x.team,x.w,x.l,x.remaining)).ToArray(),magicRanks,tieWinner):null;
                 var latestGames=await LatestResults(c,r.Year,last,ct);
-                var (upcomingDate,upcomingGames)=await UpcomingSchedule(c,r.Year,last,ct);
+                var gamesDate=last?.Substring(0,10);
+                var visible=snapshot.Games.Where(g=>g.Status!="BEFORE").OrderByDescending(g=>g.Date).FirstOrDefault()?.Date;
+                if(visible is not null && string.CompareOrdinal(visible,gamesDate)>=0){
+                    gamesDate=visible;
+                    var stored=await LatestResults(c,r.Year,visible,ct);
+                    var byId=stored.Cast<Dictionary<string,object?>>().ToDictionary(g=>(string)g["GameId"]!);
+                    foreach(var g in snapshot.Games.Where(g=>g.Date==visible)){
+                        if(!byId.TryGetValue(g.Id,out var existing))byId[g.Id]=g.Card();
+                        else if(existing["decisions"] is System.Collections.ICollection decisions && decisions.Count==0)existing["decisions"]=g.Decisions;
+                    }
+                    latestGames=byId.OrderBy(x=>x.Key,StringComparer.Ordinal).Select(x=>(object)x.Value).ToArray();
+                }
+                var (upcomingDate,upcomingGames)=await UpcomingSchedule(c,r.Year,gamesDate,ct);
                 var monthlyRows=teams.Keys.Select(code=>monthly.GetValueOrDefault(code)??new ForecastTeam(code,0,0,0,0,0)).Select(t=>new{team=t.Code,w=t.W,d=t.D,l=t.L,pct=t.Pct,rank=t.Pct is null?(int?)null:1+monthly.Values.Count(x=>(x.Pct??-1)>t.Pct.Value)}).OrderBy(x=>x.rank??int.MaxValue).ThenByDescending(x=>x.w).ThenBy(x=>x.team).ToArray();
-                result=new{rows,latestGames,upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="KBO 순위 기준인 승률(승 ÷ (승+패), 무승부 제외)로 계산합니다. 매직넘버는 다른 팀이 남은 경기를 모두 이겨도 해당 순위 이내가 확정되는 데 필요한 우리 팀 승리 수, 트래직넘버는 경쟁팀들이 우리 팀을 앞지르는 데 필요한 (경쟁팀 승리+우리 팀 패배) 수입니다. 잔여경기 무승부는 없다고 가정합니다. 승률 동률은 1위·5위는 순위결정전, 그 외 순위는 상대전적 → 상대 다득점으로 판정하며, 맞대결이 남아 있으면 상대전적이 이미 확정된 경우에만 반영합니다. 노란 칸(자력 확정 불가)은 남은 경기를 모두 이겨도 다른 팀 결과의 도움이 필요한 경우이며 잔여경기/매직넘버로 표시합니다. 10개 팀이 모두 있을 때만 제공합니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 코시 직행·플옵 직행·준플옵 직행·와카 홈은 같은 시뮬레이션에서 정규시즌 최종 순위가 각각 1위·2위·3위·4위로 확정될 확률입니다(1위 한국시리즈 직행, 2위 플레이오프 직행, 3위 준플레이오프 직행, 4위 와일드카드 결정전 홈 어드밴티지 기준; 순위 동률은 해당 순위 구간을 동률 팀 수만큼 균등 배분). 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
+                result=new{rows,latestGames,gamesDate,liveUpdatedAt=snapshot.Games.Where(g=>g.Date==gamesDate).Select(g=>(DateTimeOffset?)g.UpdatedAt).Max(),hasLiveGames=snapshot.Games.Any(g=>g.Playing),upcomingDate,upcomingGames,monthlyRows,month,asOf=last,forecastAvailable=odds is not null,forecastDetails,reason,simulations=PlayoffModel.Trials,exponent=1.83,forecastModel=PlayoffModel.CalibrationVersion,forecastParameters=PlayoffModel.SelectedParameters,magicMatrix,magicRanks,magicNote="KBO 순위 기준인 승률(승 ÷ (승+패), 무승부 제외)로 계산합니다. 매직넘버는 다른 팀이 남은 경기를 모두 이겨도 해당 순위 이내가 확정되는 데 필요한 우리 팀 승리 수, 트래직넘버는 경쟁팀들이 우리 팀을 앞지르는 데 필요한 (경쟁팀 승리+우리 팀 패배) 수입니다. 잔여경기 무승부는 없다고 가정합니다. 승률 동률은 1위·5위는 순위결정전, 그 외 순위는 상대전적 → 상대 다득점으로 판정하며, 맞대결이 남아 있으면 상대전적이 이미 확정된 경우에만 반영합니다. 노란 칸(자력 확정 불가)은 남은 경기를 모두 이겨도 다른 팀 결과의 도움이 필요한 경우이며 잔여경기/매직넘버로 표시합니다. 10개 팀이 모두 있을 때만 제공합니다.",note="표의 피타고리안 승률은 득점^1.83 / (득점^1.83 + 실점^1.83), 예상승은 무승부 제외 경기수 기준입니다. PS 진출 추정에는 상대 수준 보정(강도 0.5)과 경기 수에 따른 평균 회귀(강도 G/(G+40))를 추가합니다. 홈 이점 보정도 구현했으나 과거 검증에서 선택된 계수는 0입니다. 2020~2023년으로 보정값을 학습하고 2024년으로 모델을 선택한 뒤, 값을 고정해 2025년의 경기별 예측과 진출확률을 별도로 평가했습니다. 현재 전적은 유지하고 KBO 공식 2026 홈·원정 배정에서 저장된 종료 경기를 뺀 대진을 10,000회 시뮬레이션합니다. 최종 승률 5위 경계 동률은 남은 자리를 균등 배분합니다. 코시 직행·플옵 직행·준플옵 직행·와카 홈은 같은 시뮬레이션에서 정규시즌 최종 순위가 각각 1위·2위·3위·4위로 확정될 확률입니다(1위 한국시리즈 직행, 2위 플레이오프 직행, 3위 준플레이오프 직행, 4위 와일드카드 결정전 홈 어드밴티지 기준; 순위 동률은 해당 순위 구간을 동률 팀 수만큼 균등 배분). 향후 무승부·순위 결정전·부상·선발 변화는 반영하지 않습니다. 과거 6시즌을 이용한 초기 검증이며 공식 확률이 아닙니다. DB 누락은 잔여 경기로 간주되므로 완전한 시즌 데이터가 필요합니다."};
             }
             if(cache.Count>=8)cache.Clear();cache[key]=result;return result;
         }finally{mutex.Release();}

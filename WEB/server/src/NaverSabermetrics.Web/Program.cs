@@ -69,6 +69,7 @@ builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<OfficialPlayerProfileService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
+builder.Services.AddSingleton<HomeLiveService>();
 builder.Services.AddSingleton<AnalysisWebService>();
 builder.Services.AddSingleton<ComparisonWebService>();
 builder.Services.AddSingleton(_ => new DiamondRosterService(settings.DatabasePath));
@@ -316,11 +317,11 @@ app.MapPost("/api/home", async (HomeRequest input, HttpContext c, HomeWebService
     input.Validate();quotas.Consume(Ip(c),Math.Min(50,settings.MaxPageSize));
     return Results.Ok(await gate.RunAsync(t=>home.QueryAsync(input,t),c.RequestAborted));
 });
-app.MapPost("/api/games",async(GameWebRequest input,HttpContext c,QueryGate gate,QuotaStore quotas)=>
+app.MapPost("/api/games",async(GameWebRequest input,HttpContext c,QueryGate gate,QuotaStore quotas,HomeLiveService live)=>
 {
     if(!databaseReady)throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
     input.Validate();quotas.Consume(Ip(c),Math.Min(50,settings.MaxPageSize));
-    return Results.Ok(await gate.RunAsync(t=>new GameWebService(db,settings).QueryAsync(input,t),c.RequestAborted));
+    return Results.Ok(await gate.RunAsync(t=>new GameWebService(db,settings,live).QueryAsync(input,t),c.RequestAborted));
 });
 app.MapPost("/api/analysis", async (AnalysisRequest input, HttpContext c, AnalysisWebService analysis, QueryGate gate, QuotaStore quotas) =>
 {
