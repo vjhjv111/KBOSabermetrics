@@ -11,7 +11,7 @@ public sealed record HomeLiveGame(string Id, string Date, string Time, string Aw
     string? AwayPitcher, string? HomePitcher, DateTimeOffset UpdatedAt, JsonObject Source)
 {
     public bool Final => RenderCollectionPolicy.IsFinalStatus(Status);
-    public bool Playing => Status == "PLAY";
+    public bool Playing => RenderCollectionPolicy.IsLiveStatus(Status);
     public object[] Decisions => HomeLiveService.Decisions(Source);
     public Dictionary<string, object?> Card() => new()
     {

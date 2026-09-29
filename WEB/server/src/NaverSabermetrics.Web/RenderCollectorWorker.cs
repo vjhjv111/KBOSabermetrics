@@ -52,6 +52,10 @@ public static class RenderCollectionPolicy
         games.Where(game => game.CategoryId == "kbo" && !game.Cancel && game.StatusCode != "CANCEL" &&
             GameDateKey(game) == dateKey).ToArray();
 
+    public static bool IsLiveStatus(string? status) =>
+        string.Equals(status?.Trim(), "STARTED", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status?.Trim(), "PLAY", StringComparison.OrdinalIgnoreCase);
+
     public static bool AllGamesFinal(IEnumerable<ScheduleGame> games) =>
         games.Any() && games.All(game => IsFinalStatus(game.StatusCode));
 
@@ -224,7 +228,12 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         var games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token);
         if (to==TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,korea).ToString("yyyy-MM-dd"))
-            liveGamesInProgress=games.Any(g=>!g.Cancel && g.StatusCode=="PLAY");
+            {
+            var playing=games.Any(g=>!g.Cancel && RenderCollectionPolicy.IsLiveStatus(g.StatusCode));
+            if(playing!=liveGamesInProgress)
+                logger.LogInformation("Render 수집 주기 전환: 진행 경기={Playing}, 간격={Minutes}분",playing,playing?1:options.IntervalMinutes);
+            liveGamesInProgress=playing;
+        }
         if (games.Count == 0)
         {
             logger.LogInformation("Render 수집기: {From}~{To} KBO 일정 없음", from, to);

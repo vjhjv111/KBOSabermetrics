@@ -14,6 +14,14 @@ void Check(bool condition, string name)
     Console.WriteLine("PASS " + name);
 }
 
+Check(RenderCollectionPolicy.IsLiveStatus("STARTED"),"운영 네이버 STARTED를 진행 중으로 인식");
+Check(RenderCollectionPolicy.IsLiveStatus("PLAY"),"기존 PLAY 진행 상태도 지원");
+Check(!RenderCollectionPolicy.IsLiveStatus("ENDED")&&!RenderCollectionPolicy.IsLiveStatus("BEFORE"),"종료·예정 상태를 진행 중과 구분");
+var started=HomeLiveService.Parse("""{"naver":{"result":{"game":{"gameId":"20260929KTHT02026","roundCode":"kbo_r","awayTeamCode":"KT","homeTeamCode":"HT","statusCode":"STARTED","currentInning":"9회말","awayTeamScore":5,"homeTeamScore":5}}}}""","20260929KTHT02026");
+Check(started is {Playing:true,Final:false,StatusText:"9회 말"},"실제 운영 STARTED 형태의 홈 상태 판정");
+var cycleStart=DateTimeOffset.UtcNow;
+Check(RenderCollectionPolicy.NextCollectionAt(started!.Playing,cycleStart,cycleStart.AddSeconds(20),10)==cycleStart.AddMinutes(1),"STARTED 수집 시작 간격 60초 적용");
+
 var date = "20260917";
 var schedule = new[]
 {
