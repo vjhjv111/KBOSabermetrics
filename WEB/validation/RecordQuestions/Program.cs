@@ -38,6 +38,12 @@ try{QuestionTeams.Normalize("2026년 한화를 상대로 홈런",plan with{Team=
 try{QuestionTeams.Normalize("한화와 KIA 비교",plan with{Team="HH"});throw new Exception("Multiple teams dropped");}catch(RequestError){Check(true,"다중 구단 누락 차단");}
 Check(QuestionTeams.Normalize("한화가 KIA를 상대로 홈런",plan with{Team="HH",Filters=[new("opponent","HT")]}).Team=="HH","기준/상대 구단 구분 유지");
 var ninthRequest=RecordQuestionService.ToRequest(ninth,site,[2026]);
+var clubQuestion="2026시즌 10개구단 9회 투수평균자책점 알려줘";
+var clubPlan=QuestionCapabilities.NormalizeAggregation(clubQuestion,ninth with{MinimumVolume=0,Filters=[],Limit=5});
+var clubRequest=RecordQuestionService.ToRequest(clubPlan,site,[2026]);
+Check(clubRequest.Room=="team"&&clubRequest.Inning=="9회"&&clubRequest.Conditions.Count==0&&clubPlan.Limit==10,"10개구단 9회 ERA 팀 집계 확정");
+Check(QuestionCapabilities.ExplicitTeamTotals("2026시즌 10개구단 만루 ops 알려줘"),"10개구단 만루 OPS도 동일 팀 집계");
+Check(!QuestionCapabilities.ExplicitTeamTotals("10개구단 투수 중 상위 5명")&&!QuestionCapabilities.ExplicitTeamTotals("10개구단 선수 OPS"),"명시적 개인 순위는 팀 합계로 바꾸지 않음");
 Check(ninthRequest.Inning=="9회"&&ninthRequest.Conditions[0].Value==0.1,"9회와 최소 0.1이닝 보존");
 RecordQuestionService.ValidateQuestion("2026년 시즌 전체로 최소이닝은 0.1 9회(초 말 안가리고)에 era가 가장 높은 투수 5명을 알려줘",ninth);
 try{RecordQuestionService.ValidateQuestion("2026년 9회 최소 0.1이닝",ninth with{Inning=null});throw new Exception("Inning dropped");}catch(RequestError){Check(true,"모델이 회차를 삭제하면 거절");}
@@ -86,6 +92,8 @@ if(File.Exists(site.DatabasePath))
         try{await restarted.AskAsync("또 조회","test",default);throw new Exception("Limit bypass");}catch(RequestError e){Check(e.Code=="AI_LIMIT","재시작 후 IP 일일 한도 유지");}
         Check(fake.Calls==1,"한도 차단 시 추가 AI 호출 없음");
         var ninthPage=await records.QueryAsync(ninthRequest,default);
+        var clubPage=await records.QueryAsync(clubRequest,default);
+        Check(clubPage.Rows.Count==10 && clubPage.Rows.Select(r=>r.Cells["TeamCode"]).Distinct().Count()==10,"실제 DB 9회 ERA가 10개 구단으로 반환");
         Check(ninthPage.Applied.Contains("9회") && ninthPage.Rows.Count>0,"실제 DB 9회 조회 실행");
         var hanwhaPlan=QuestionTeams.Normalize("2026년 한화이글스 9회 3점차 이내 era 순위를 알려줘 최소이닝은 0.1로",ninth with{Team="HT",Descending=false,Filters=[new("score","3점차 이내")]});
         var hanwhaPage=await records.QueryAsync(RecordQuestionService.ToRequest(hanwhaPlan,site,[2026]),default);

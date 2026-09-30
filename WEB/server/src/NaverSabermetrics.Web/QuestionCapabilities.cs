@@ -5,6 +5,19 @@ namespace NaverSabermetrics.Web;
 
 public static class QuestionCapabilities
 {
+    public static bool ExplicitTeamTotals(string question)=>
+        Regex.IsMatch(question,@"(?:10|열)\s*(?:개\s*)?(?:구단|팀)|(?:전체|모든|각)\s*(?:구단|팀)|(?:구단|팀)\s*별")
+        && !Regex.IsMatch(question,@"선수|개인|[0-9]+\s*명|플레이|타석별");
+    public static QuestionPlan NormalizeAggregation(string question,QuestionPlan plan)
+    {
+        if(!ExplicitTeamTotals(question))return plan;
+        if(plan.Player is not null || plan.Metric.StartsWith("play_",StringComparison.Ordinal))
+            throw new RequestError("팀별 집계 질문이 개인 기록으로 해석되어 조회를 중단했습니다.",400,"AI_FILTER_MISMATCH");
+        var filters=(plan.Filters??[]).Where(f=>f.Key!="room").Append(new QuestionFilter("room","team")).ToArray();
+        var allTeams=Regex.IsMatch(question,@"(?:10|열)\s*(?:개\s*)?(?:구단|팀)|(?:전체|모든)\s*(?:구단|팀)");
+        var explicitRanking=Regex.IsMatch(question,@"(?:상위|하위|최고|최저|TOP)\s*[0-9]+",RegexOptions.IgnoreCase);
+        return plan with{Filters=filters,Team=allTeams?null:plan.Team,Limit=allTeams&&!explicitRanking?10:plan.Limit};
+    }
     public static readonly string[] FilterKeys=["room","competition","opponent","venue","stadium","outs","runners","score","balls","strikes","recentGames","recentDays"];
     public static ViewDefinition Resolve(string role,string metric)=>ViewRegistry.Views.FirstOrDefault(v=>v.Role==role && ViewRegistry.Properties(v).Any(p=>p.Name==metric&&ViewRegistry.IsNumber(p)))
         ?? throw new RequestError("기록실에서 확인할 수 없는 지표입니다. 지표 이름을 구체적으로 적어 주세요.",400,"AI_FILTER");

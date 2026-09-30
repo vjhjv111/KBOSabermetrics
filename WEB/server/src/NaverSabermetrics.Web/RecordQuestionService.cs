@@ -68,6 +68,7 @@ public sealed class OpenAiRecordPlanner(RecordQuestionOptions options, HttpMessa
         };
         var prompt=$"""
             Parse a Korean baseball question into plan_record_query; NEVER invent records or discard constraints.
+            Server-detected explicit team aggregation: {QuestionCapabilities.ExplicitTeamTotals(question)}. If true, MUST use room=team and never require minimum PA/IP. '10개구단 9회 투수평균자책점' means each club's pitching ERA, not individual pitchers. Return all 10 clubs unless a smaller ranking is explicitly requested.
             Exact team codes (never infer from English initials): {QuestionTeams.Mapping}. Teams explicitly found in question: {string.Join(',',QuestionTeams.Mentions(question))}.
             Years: {string.Join(',',years)}; Korea date: {BotGamesService.ParseDate(null):yyyy-MM-dd}. Ask for year if absent (올해=current year); career uses latest available year. Dates are inclusive. Month means its full date range.
             Metric candidates from the actual record registry: {QuestionCapabilities.Describe(question)}
@@ -196,6 +197,7 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             var plan=await planner.PlanAsync(question.Trim(),years,ct);
             if(!plan.Supported)return new{answer=string.IsNullOrWhiteSpace(plan.Clarification)?"연도·기간·조회할 기본 지표를 구체적으로 알려 주세요.":plan.Clarification[..Math.Min(500,plan.Clarification.Length)],clarification=true};
             plan=QuestionTeams.Normalize(question,plan);
+            plan=QuestionCapabilities.NormalizeAggregation(question,plan);
             if(MinimumWaived(question))plan=plan with{MinimumVolume=0};
             ValidateQuestion(question,plan);
             if(plan.Metric is "play_wpa" or "play_wpa_abs")return await gate.RunAsync(t=>QuestionPlays.QueryAsync(plan,site,years,catalog.MaxGameDate,t),ct);
