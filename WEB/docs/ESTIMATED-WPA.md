@@ -1,45 +1,66 @@
-# 누락 WPA 자체 계산 (로컬 검증 단계)
+# FanGraphs 승리확률표로 2016~2023 WPA 교체
 
-Render의 운영 SQLite DB에서 직접 학습·계산·저장하는 백그라운드 작업이다. 로컬에서 만든 값이나 원본 JSON을 업로드할 필요가 없다. 기본 비활성화이며, 배포 적용을 결정한 뒤 `EstimatedWpa__Enabled=true`로 실행한다. DB 경로는 기존 `NAVER_SABERMETRICS_DB` / `Site:DatabasePath` 설정을 그대로 사용한다.
+2016~2023년 종료 경기의 **모든 공식 타석 WPA**를 FanGraphs WPA Inquirer의 승리확률표로 재계산한다. 수집 WPA, 이전 `fanzai-kbo-remainder-v1` 추산값, 누락분 모두 대상이다. 정규시즌 외 종료 경기도 포함한다. 다른 연도는 변경하지 않는다.
 
-## 범위와 정의
+## 표와 계산
 
-- 2016~2023년 **정규시즌 공식 타석** 중 `WpaByPlate IS NULL`만 처리한다. 기존 0도 수집값으로 보존한다.
-- 정의: 타석 후 자기 팀 기대승률 − 타석 전 자기 팀 기대승률. 타자 기준, 투수는 부호 반전.
-- DB 단위는 기존 네이버 데이터와 같은 **%p**. 표준 소수 WPA는 저장값 ÷ 100.
-- [FanGraphs WPA](https://library.fangraphs.com/misc/wpa/)의 차분 정의를 사용한다. FanGraphs의 MLB 승리확률표나 네이버 모델을 복제한 값은 아니다.
-- 점수 차·이닝·초말·아웃 수·주자 배치에 따라 KBO 데이터에서 기대승률을 추정한다. 무승부는 0.5승으로 평가하므로 엄밀히는 `P(승)+0.5×P(무)`의 변화다.
-- 포스트시즌, 중단/단축 경기, 정상 종료를 확인할 수 없는 경기, 상태가 불완전한 타석은 제외한다. 독립 주루 플레이를 별도 선수에게 분배하지 않는 타석 단위 지표다.
+- 출처: [FanGraphs WPA Inquirer](https://www.fangraphs.com/tools/wpa-inquirer), 공개 `/api/tools/wpa-inquirer/data` 응답의 `weh`.
+- 득점환경은 타석 전후, 모든 연도에 **4.5로 고정**한다. 시즌별 KBO 득점분포를 학습하지 않는다.
+- 1~9회 × 초·말 × 0~2아웃 × 8개 주자 배치 × 홈 점수차 −10~+10 = **9,072개 상황**. FanGraphs 도구처럼 9회 이후는 9회 표를 사용한다.
+- 표의 소수 원자료를 그대로 사용한다. 화면에서 반올림된 백분율을 역산하지 않는다.
+- 홈 타자 WPA = `(타석 후 홈 WE − 타석 전 홈 WE) × 100`. 원정 타자는 부호 반전. DB 단위는 %p이고, 표준 소수 WPA는 저장값 ÷ 100이다.
+- 3아웃이면 다음 반이닝의 0아웃·주자 없음 상태로 전환한다. 정상 종료를 확인한 승리·패배는 WE 1·0으로 처리한다.
+- 표 밖 점수차를 경계값으로 치환하거나 보간하지 않는다. 상태 누락/모순, 정상 종료 확인 실패, 단축 경기, 무승부의 마지막 타석은 미산출(NULL)이다. 무승부를 임의로 0.5승으로 처리하지 않는다.
+- 이 표는 FanGraphs 도구의 WE 표다. KBO 전용으로 보정한 모델이나 FanGraphs가 공표한 KBO 선수 WPA라는 의미는 아니다. 독립 도루·폭투 등은 별도 플레이 WPA로 배분하지 않는다.
 
-## 모델
+검증 사례(득점환경 4.5, 모두 9회말 2사):
 
-종료된 정규시즌의 1~8회, 3아웃 종료를 확인한 반이닝에서 각 타석 시작 상태 이후의 추가 득점 분포를 학습한다. 24개 주자·아웃 상태별로 시즌 표본에 전체 보유 시즌의 분포 100타석분을 더해 평활화한다. 이는 사후 기술용 모델이며 당시 시점의 미래 예측 모델이 아니다.
+| 상황 | 타석 전 홈 WE | 끝내기 홈런 WPA (%p) |
+|---|---:|---:|
+| 1점 뒤짐, 1루 | 9.799999743700028% | +90.20000025629997 |
+| 2점 뒤짐, 1·2루 | 9.040000289678574% | +90.95999971032143 |
 
-각 반이닝 추가 득점 분포를 동적 계획법으로 합성한다. 양 팀에 같은 득점 환경을 적용하며 선수·팀 전력·구장별 보정은 없다. 9회 이후 끝내기·홈 공격 생략·3아웃 패배·12회 무승부를 처리한다. 2021-08-10 이후 정규시즌은 연장 없이 9회 종료로 처리한다([KBO 후반기 연장 폐지 설명](https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=8180)). 그 외 시간 제한 등에 따른 이른 무승부는 추정하지 않는다.
+## 배포와 실행
 
-한 반이닝 잔여 득점 표본은 0~30점, 동적 계획 점수 차는 ±60점에서 경계값을 적용한다. 학습에 필요한 상황별 최소 표본/시즌 100경기가 없으면 모델을 만들지 않는다. `EstimatedWpaModels`에 버전·시즌·표본 수·분포·작성시각을 보관하고 같은 버전의 모델을 자동 재학습하지 않는다.
+확보 자료는 `docs/reference-tables/`에 보관한다.
 
-## DB만으로 상태 복원
+- `팬그래프-승리확률표-4.5.xlsx`: 전체 상황의 홈·원정 WE, LI, 요청 URL·확보 시각과 끝내기 비교 수식.
+- `fangraphs-we-4.5-responses.jsonl.gz`: API 응답의 before/after 상황 값과 요청 URL·시각.
+- `fangraphs-we-4.5-manifest.json`: 표 버전, SHA-256, 득점환경, 상황 수.
+- `fangraphs-api-range-limit.txt`: 점수차 ±11 요청을 거절한 API 응답과 요청 URL.
 
-`PlateAppearances`의 타석 전/후 점수와 아웃 수를 사용한다. 저장되지 않은 타석 후 주자 배치는 **바로 다음 유효 중계 묶음 `RelayGroups.StateBefore`**에서 얻는다. 파서는 다음 중계의 시작 전 상태를 이전 중계의 최종 상태로 저장한다. 다음 타석 시작 상태를 사용하지 않으므로 사이에 일어난 별도 주루 이벤트를 끌어오지 않는다. 점수·아웃 일치 여부를 검증하고 불일치하면 제외한다.
+필요할 때만 `python WEB/tools/collect_fangraphs_we.py 출력폴더`로 재수집한다. 순차 요청으로 동작하며 HTTP 오류 시 중단하고, 저장된 JSONL에서 재개할 수 있다. 재수집한 표는 검증·해시 갱신 없이 운영 번들을 덮어쓰지 않는다.
 
-`EstimatedWpaValues`에 타석 ID, 모델 버전/시즌, 홈 기대승률 전후, 계산값을 보관한다. 원본 네이버 승리확률 및 `RelayGroups.WpaByPlate`는 변경하지 않는다. WPA 타석/시즌 합계와 `BatterGameStats.WPA`를 갱신하며, 원본 기반 경기 승리확률 그래프와 투수 등판시점 지표를 자체 계산값으로 바꾸지는 않는다.
+표는 `NaverRelay.Infrastructure.Sqlite/ReferenceTables/fangraphs-we-4.5.json`에 있으며 어셈블리 리소스로 포함한다. 웹과 PC는 동일한 표를 사용한다. 실행 시 원본 SHA-256과 전체 상황 키·확률 범위를 검증한다. 파일이 불완전하거나 변조되면 DB를 변경하기 전에 실패한다. 운영 서버는 FanGraphs에 요청하지 않는다.
 
-## 실행과 재개
+기존과 같이 `EstimatedWpa__Enabled=true`이면 서버 시작 30초 뒤 Render의 `Site:DatabasePath` / `NAVER_SABERMETRICS_DB`에 직접 적용한다. 기본값은 비활성화다. 이전 WPA 작업 때문에 이미 활성화된 서버는 이 버전 배포 후 전체 교체를 시작한다.
 
-- 서버 시작 30초 후 백그라운드 작업 시작. 화면 요청 처리와 별도 작업에서 실행한다.
-- 경기별 트랜잭션으로 값·출처·합계·체크포인트를 함께 저장한다. 기존 WPA는 덮어쓰지 않는다.
-- `EstimatedWpaBackfillGames`에 처리한 원본 갱신시각, 잔여 건수, 제외 사유를 기록한다. 중단 후 재실행하면 완료한 경기는 건너뛴다. 원본 경기가 재수집되면 다시 검토한다.
-- 데이터를 쓴 경우 캐시를 무효화한다. 모델이 존재하는 과거 경기 재수입에도 동일 계산을 적용한다.
-- `[WPA]` 로그와 `Site:StateDirectory/wpa-backfill-report.json`에서 결과 확인. Render 기본 보고서 위치는 `/var/data/state/wpa-backfill-report.json`이다.
-- 계산 실패는 사이트 구동을 중단하지 않으며 작업을 최대 3회 시도한다. 미산출 기록은 0으로 채우지 않는다.
+`[WPA]` 로그와 `Site:StateDirectory/wpa-backfill-report.json`에서 버전·표 해시·진행 결과를 확인한다. 보고서의 `Filled`는 새 값이 기록된 전체 건수(기존 값 교체 포함), `Replaced`는 그중 기존 값 교체, `Cleared`는 기존 값이 있었지만 새 방식에서 계산 불가능해 NULL로 바뀐 건수다. `Coverage.Estimated`는 새 표 기준 값, `Collected`는 아직 새 기준으로 전환되지 않은 값이다.
+
+## 저장과 복구 이력
+
+- `WpaRevisionHistory`: 타석 ID, 경기 ID, 이전/새 WPA, 이전/새 버전, 전후 WE, 변경 사유·시각. 기존 값이 0인 경우도 보관한다. 재수집으로 경기 행이 삭제돼도 이력은 남는다.
+- `WpaModelHistory`: 기존 시즌 모델 JSON을 보관한다.
+- `EstimatedWpaValues`: 현재 표로 계산한 타석의 전후 홈 WE와 WPA.
+- `EstimatedWpaBackfillGames`: 버전, 원본 갱신 시각, 잔여 건수, 처리 결과. 완료한 경기는 재실행 시 건너뛴다.
+
+값·이력·집계·체크포인트는 경기별 트랜잭션으로 저장한다. 계산 도중 원본이 바뀌면 해당 경기 전체를 롤백하고 재시도 대상으로 남긴다. 실패해도 완료한 경기는 유지한다. 원자료 `RelayGroups`의 WPA/승리확률과 원본 중계 텍스트는 보존한다.
+
+`PlateAppearances`, 타자 경기 WPA 합계, WPA를 사용하는 구원 등판 집계와 캐시를 함께 갱신한다. 경기 상세 화면은 전환 완료 경기에서 새 타석 WPA·WE를 표시한다. 과거 경기 재수입에도 등록된 표를 적용한다.
+
+기존 값 복원이 필요하면 운영 DB 백업 또는 `WpaRevisionHistory`를 사용한다. 이력을 단순히 삭제하면 원래 값이 복구되는 것은 아니다. 복구 시 타석 값과 경기 집계·캐시를 함께 갱신해야 한다.
 
 ## 로컬 검증
 
-원본 DB를 복사한 테스트 DB만 지정한다. 아래 명령은 지정한 DB에 실제로 쓴다.
+원본이 아닌 테스트 DB 복사본을 지정한다.
 
 ```powershell
-dotnet run --project WEB/validation/EstimatedWpa/EstimatedWpa.Validation.csproj -- --db '테스트 DB 경로' --train --backfill --report '보고서 경로.json'
+dotnet run --project WEB/validation/EstimatedWpa/EstimatedWpa.Validation.csproj -- --check-table
+dotnet run --project WEB/validation/EstimatedWpa/EstimatedWpa.Validation.csproj -- --db '테스트.db' --train --backfill --report '보고서.json'
 ```
 
-`--preview 원본.json --compare-db`로 동일 경기의 원본 JSON 계산과 DB 전용 계산을 비교할 수 있다. 테스트 앱에서 `EstimatedWpa__Enabled=true`를 설정하면 Render와 같은 HostedService 실행 경로를 검증한다. OpenAI 호출이나 외부 사이트 수집은 필요 없다.
+`--train`은 이전 CLI와의 호환 이름이며, 현재는 학습 없이 완성된 표를 등록한다. 같은 명령을 다시 실행해 변경 0건인지 확인할 수 있다. `--year 2018`은 시험 적용 연도를 제한한다. `--preview 원본.json`은 원본 JSON과 DB 복원의 WPA가 일치하는지 검사한다.
+
+확보한 표로 테스트 DB 복사본의 5,817경기·456,343공식 타석을 검증했다. 447,678타석이 계산됐으며, 그중 기존 값 교체 441,475건·누락분 보완 6,203건이다. 기존 추산 중 계산 불가능한 7,023건은 이력 보관 후 NULL로 바꿨고 최종 미산출은 8,665건이다. 범위 밖 연도의 264,950개 WPA와 원본 중계 WPA·WE는 변경되지 않았다.
+
+재실행 및 경기 재수입 후 재실행은 모두 변경 0건이었다. 김상수·지성준의 두 끝내기 사례는 DB, 원본 JSON 재계산, 경기 상세 API에서 각각 +90.2000002563%p와 +90.9599997103%p로 일치했다. 세부 결과는 `reference-tables/fangraphs-we-4.5-local-validation.json`에 보관한다. 이는 로컬 복사본 검증 결과이며 운영 DB 처리 완료 보고서는 별도다.

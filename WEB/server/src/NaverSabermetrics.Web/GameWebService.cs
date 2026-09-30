@@ -59,6 +59,22 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
             var detail=hasType&&speed is not null?$"{pitchType}({speed.Value:0}km/h)":hasType?pitchType!:$"{speed!.Value:0}km/h";
             return $"{text} {detail}";
         }
+        var wpaSchema=await Read("SELECT name FROM sqlite_master WHERE type='table' AND name='EstimatedWpaBackfillGames'",r,ct);
+        var converted=wpaSchema.Count>0 && (await Read($"SELECT GameId FROM EstimatedWpaBackfillGames WHERE GameId=$id AND Version='{EstimatedWpaModel.Version}'",r,ct)).Count>0;
+        if(converted)
+        {
+            probability=await Read("SELECT r.RelayGroupId Id,r.ChronologicalIndex Seq,p.Inning,r.Title,e.HomeAfter Home,100-e.HomeAfter Away,p.WpaByPlate WPA FROM PlateAppearances p JOIN RelayGroups r ON r.RelayGroupId=p.RelayGroupId JOIN EstimatedWpaValues e ON e.PlateAppearanceId=p.PlateAppearanceId WHERE p.GameId=$id AND p.IsOfficial=1 ORDER BY p.SequenceNumber LIMIT 2000",r,ct);
+            // Read this game's revised PAs once; avoid a warehouse scan for every relay group.
+            var revisedByRelay=probability.ToLookup(p=>Convert.ToString(p["Id"]));
+            foreach(var play in plays)
+            {
+                var revised=revisedByRelay[Convert.ToString(play["Id"])].ToArray();
+                var last=revised.LastOrDefault();
+                play["Home"]=last?.GetValueOrDefault("Home");
+                play["Away"]=last?.GetValueOrDefault("Away");
+                play["WPA"]=revised.Length==0?null:revised.Sum(p=>Convert.ToDouble(p["WPA"]));
+            }
+        }
         foreach(var play in plays)play["events"]=grouped[Convert.ToString(play["Id"])].Select(FormatEvent).ToArray();
         // 타석별 투구 위치 미니 스트라이크존 시각화용 — 배경/선수 이미지 없이 좌표·구종·구속·카운트만 내려줍니다.
         var pitchRows=await Read("SELECT RelayGroupId GroupId,DisplayPitchNumber Num,CrossPlateX X,CalculatedCrossPlateZ Z,TopStrikeZone Top,BottomStrikeZone Bottom,PitchResult Result,PitchType Type,SpeedKmh Speed,BallsAfter B,StrikesAfter S FROM Pitches WHERE GameId=$id ORDER BY ActualPitchIndex",r,ct);
@@ -85,6 +101,6 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
             };
         }
         foreach(var play in plays)play["pitches"]=pitchGrouped[Convert.ToString(play["Id"])].Select(FormatPitch).Where(x=>x!=null).ToArray();
-        return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays};
+        return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays,wpaSource=converted?"FanGraphs WE 4.5":"collected"};
     }
 }

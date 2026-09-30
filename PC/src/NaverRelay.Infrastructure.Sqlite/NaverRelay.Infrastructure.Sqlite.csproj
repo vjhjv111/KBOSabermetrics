@@ -16,4 +16,7 @@
     <ProjectReference Include="..\NaverRelay.Parser\NaverRelay.Parser.csproj" />
     <ProjectReference Include="..\NaverRelay.Application\NaverRelay.Application.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ReferenceTables/fangraphs-we-4.5.json" LogicalName="FanGraphsWe45.json" />
+  </ItemGroup>
 </Project>

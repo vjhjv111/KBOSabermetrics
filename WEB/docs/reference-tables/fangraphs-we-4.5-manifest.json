@@ -1,0 +1,8 @@
+{
+  "version": "fangraphs-we-4.5-a32732a0eee4",
+  "sha256": "a32732a0eee49d7ee011c019c5ed4e9b277db4ca1872ad92132d45e28ac1c6c6",
+  "states": 9072,
+  "runEnvironment": 4.5,
+  "source": "https://www.fangraphs.com/tools/wpa-inquirer",
+  "retrievedUtc": "2026-09-30T16:09:31.929786+00:00"
+}

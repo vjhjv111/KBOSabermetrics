@@ -11,7 +11,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 internal static class WarehouseProjectionBuilder
 {
-    public static WarehouseGameProjection Build(NormalizedGame game)
+    public static WarehouseGameProjection Build(NormalizedGame game, bool usePlateAppearanceWpa = false)
     {
         var batters = new Dictionary<WarehousePlayerKey, BatterGameAggregate>();
         var pitchers = new Dictionary<WarehousePlayerKey, PitcherGameAggregate>();
@@ -176,7 +176,7 @@ internal static class WarehouseProjectionBuilder
                 line.AppearanceSequence);
         }
 
-        AddReliefLeverage(game, pitchers, observations);
+        AddReliefLeverage(game, pitchers, observations, usePlateAppearanceWpa);
 
         foreach (var change in game.PlayerChanges)
         {
@@ -205,9 +205,10 @@ internal static class WarehouseProjectionBuilder
     private static void AddReliefLeverage(
         NormalizedGame game,
         IDictionary<WarehousePlayerKey, PitcherGameAggregate> pitchers,
-        IDictionary<WarehousePlayerKey, WarehousePlayerObservation> observations)
+        IDictionary<WarehousePlayerKey, WarehousePlayerObservation> observations, bool usePlateAppearanceWpa)
     {
         var groups = game.RelayGroups.OrderBy(group => group.ChronologicalIndex).ToList();
+        var paWpa = game.PlateAppearances.Where(p=>p.IsOfficialPlateAppearance).GroupBy(p=>p.RelayGroupId).ToDictionary(g=>g.Key,g=>g.Any(p=>p.WpaByPlate.HasValue)?g.Sum(p=>p.WpaByPlate):null);
         var indexById = groups.Select((group, index) => (group.RelayGroupId, index))
             .GroupBy(item => item.RelayGroupId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First().index, StringComparer.Ordinal);
@@ -233,7 +234,7 @@ internal static class WarehouseProjectionBuilder
             double? wpa = null;
             for (var index = Math.Min(changeIndex, groups.Count - 1); index >= 0; index--)
             {
-                var candidate = groups[index].WpaByPlate;
+                var candidate = usePlateAppearanceWpa ? paWpa.GetValueOrDefault(groups[index].RelayGroupId) : groups[index].WpaByPlate;
                 if (candidate.HasValue && Math.Abs(candidate.Value) > 0.0001)
                 {
                     wpa = candidate.Value;

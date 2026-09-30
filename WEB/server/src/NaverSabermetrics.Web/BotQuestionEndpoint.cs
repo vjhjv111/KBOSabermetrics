@@ -54,7 +54,7 @@ public static class BotQuestionEndpoint
                     play=Regex.Replace(play,@"\s*\(홈런거리:[^)]*\)","");
                     lines.Add($"{batter}({Team("TeamCode")}) · {play}");
                     var wpa=Cell("WPA");if(double.TryParse(wpa,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var number))wpa=number.ToString("+0.###;-0.###;0",System.Globalization.CultureInfo.InvariantCulture);
-                    lines.Add($"WPA {wpa}%p · 상대 투수 {Cell("Pitcher")}"+(Cell("WpaSource")=="FANZAI 추정"?" · 자체 추정":""));
+                    lines.Add($"WPA {wpa}%p · 상대 투수 {Cell("Pitcher")}"+(Cell("WpaSource")=="FanGraphs WE 4.5"?" · FG 4.5":Cell("WpaSource")=="기존 추산"?" · 기존 추산":""));
                 }
                 else
                 {

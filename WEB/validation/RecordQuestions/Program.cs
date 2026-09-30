@@ -125,11 +125,11 @@ if(Environment.GetEnvironmentVariable("SABER_WPA_DB") is string wpaDb)
     var wpaPlan=plan with{Year=2018,Metric="play_wpa_abs",StartDate=null,EndDate=null,Limit=1};
     var result=await QuestionPlays.QueryAsync(wpaPlan,wpaSite,[2018],new DateTime(2026,9,23),default);
     var json=JsonSerializer.SerializeToElement(result,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase});
-    Check(json.GetProperty("rows").GetArrayLength()==1,"2018 추정 WPA 플레이 반환");
-    Check(json.GetProperty("rows")[0].GetProperty("cells").GetProperty("WpaSource").GetString()=="FANZAI 추정","추정 WPA 출처 구분");
+    Check(json.GetProperty("rows").GetArrayLength()==1,"2018 FanGraphs WPA 플레이 반환");
+    Check(json.GetProperty("rows")[0].GetProperty("cells").GetProperty("WpaSource").GetString()=="FanGraphs WE 4.5","FanGraphs WPA 출처 구분");
     var reply=BotQuestionEndpoint.Format(result);
-    Check(reply.Contains("자체 추정")&&reply.Contains("%p"),"봇에 추정값 및 단위 표시");
-    Console.WriteLine("ESTIMATED WPA BOT RESPONSE\n"+reply);
+    Check(reply.Contains("FG 4.5")&&reply.Contains("%p"),"봇에 FanGraphs 출처 및 단위 표시");
+    Console.WriteLine("FANGRAPHS WPA BOT RESPONSE\n"+reply);
 }
 Console.WriteLine($"Record question checks passed ({checks}); no OpenAI requests made.");
 

@@ -14,7 +14,7 @@ public static class QuestionPlays
         await connection.OpenAsync(ct);await using var cmd=connection.CreateCommand();cmd.CommandTimeout=site.QuerySeconds;
         cmd.CommandText="SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='EstimatedWpaValues'";
         var hasEstimates=Convert.ToInt32(await cmd.ExecuteScalarAsync(ct))>0;
-        var source=hasEstimates?"CASE WHEN e.PlateAppearanceId IS NULL THEN '수집' ELSE 'FANZAI 추정' END":"'수집'";
+        var source=hasEstimates?$"CASE WHEN e.ModelVersion='{NaverRelay.Infrastructure.Sqlite.EstimatedWpaModel.Version}' AND e.Wpa=p.WpaByPlate THEN 'FanGraphs WE 4.5' WHEN e.PlateAppearanceId IS NULL THEN '수집' ELSE '기존 추산' END":"'수집'";
         var sign=plan.Role=="pitcher"?"-p.WpaByPlate":"p.WpaByPlate";
         var order=plan.Metric=="play_wpa_abs"?$"ABS({sign})":sign;
         cmd.CommandText=$"""
@@ -46,6 +46,6 @@ public static class QuestionPlays
         var columns=names.Select((n,i)=>new WebColumn(n,labels[i],"text",false)).ToArray();
         return new{answer=rows.Count==0?"조건에 맞는 WPA 타석 기록이 없습니다.":"개별 타석 WPA 기록을 조회했습니다.",clarification=false,columns,rows,asOf=asOf?.ToString("yyyy-MM-dd"),
             applied=$"{start:yyyy-MM-dd} ~ {end:yyyy-MM-dd} · 정규시즌 · {plan.Inning??"전체 회차"} · 팀 {plan.Team??"전체"} · 선수 {plan.Player??"전체"} · {(plan.Role=="pitcher"?"투수":"타자")} 시점 · {(plan.Metric=="play_wpa_abs"?"절댓값":"부호 있는 WPA")} {(plan.Descending?"내림차순":"오름차순")}",
-            warnings=new[]{"WPA가 있는 공식 타석만 대상입니다. 개별 투구·도루 등 독립 주루 플레이 순위는 포함하지 않습니다.","수집 WPA를 우선 사용하고 누락분은 FANZAI 자체 추정값으로 보완합니다. 추정값은 KBO 득점분포 기반이며 무승부를 0.5승으로 처리합니다. 두 출처의 모델은 동일하지 않습니다.","WPA는 %p 단위입니다(표준 WPA는 표시값÷100). 투수 시점은 부호를 반전합니다. 미산출 기록은 0으로 취급하지 않습니다.","DB 수집 기준일 이후 경기는 포함되지 않습니다."}};
+            warnings=new[]{"WPA가 있는 공식 타석만 대상입니다. 개별 투구·도루 등 독립 주루 플레이 순위는 포함하지 않습니다.","2016~2023년은 교체 작업이 완료된 경기부터 FanGraphs WE 표(득점환경 4.5)를 사용합니다. 표 밖 점수차·불완전한 상태·무승부 종료 타석은 미산출입니다. 출처는 각 기록에 표시합니다.","WPA는 %p 단위입니다(표준 WPA는 표시값÷100). 투수 시점은 부호를 반전합니다. 미산출 기록은 0으로 취급하지 않습니다.","DB 수집 기준일 이후 경기는 포함되지 않습니다."}};
     }
 }

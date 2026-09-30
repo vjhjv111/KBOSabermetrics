@@ -1,0 +1,259 @@
+{
+  "table": {
+    "version": "fangraphs-we-4.5-a32732a0eee4",
+    "sha256": "a32732a0eee49d7ee011c019c5ed4e9b277db4ca1872ad92132d45e28ac1c6c6",
+    "states": 9072,
+    "runEnvironment": 4.5,
+    "source": "https://www.fangraphs.com/tools/wpa-inquirer",
+    "retrievedUtc": "2026-09-30T16:09:31.929786+00:00"
+  },
+  "testDatabase": "Disposable copy of the existing warehouse; one existing-WPA=0 fixture was seeded to verify replacement of collected values.",
+  "migration": {
+    "Games": 5817,
+    "Filled": 447678,
+    "Skipped": 8665,
+    "Errors": [],
+    "Replaced": 441475,
+    "Cleared": 7023,
+    "Coverage": [
+      {
+        "Year": 2016,
+        "Total": 57613,
+        "Collected": 0,
+        "Estimated": 56464,
+        "Missing": 1149
+      },
+      {
+        "Year": 2017,
+        "Total": 56880,
+        "Collected": 0,
+        "Estimated": 55476,
+        "Missing": 1404
+      },
+      {
+        "Year": 2018,
+        "Total": 56903,
+        "Collected": 0,
+        "Estimated": 55757,
+        "Missing": 1146
+      },
+      {
+        "Year": 2019,
+        "Total": 55627,
+        "Collected": 0,
+        "Estimated": 54837,
+        "Missing": 790
+      },
+      {
+        "Year": 2020,
+        "Total": 57629,
+        "Collected": 0,
+        "Estimated": 56420,
+        "Missing": 1209
+      },
+      {
+        "Year": 2021,
+        "Total": 57021,
+        "Collected": 0,
+        "Estimated": 55812,
+        "Missing": 1209
+      },
+      {
+        "Year": 2022,
+        "Total": 57275,
+        "Collected": 0,
+        "Estimated": 56350,
+        "Missing": 925
+      },
+      {
+        "Year": 2023,
+        "Total": 57395,
+        "Collected": 0,
+        "Estimated": 56562,
+        "Missing": 833
+      }
+    ]
+  },
+  "verification": {
+    "checks": [
+      "No v1 audit values remain",
+      "Every non-null 2016-2023 WPA has matching FanGraphs provenance",
+      "All 264950 out-of-scope WPA values unchanged",
+      "Existing collected zero was archived and replaced",
+      "All 447678 WPA rows match exact before-WE cells and signed changes",
+      "20180919HTSS02018 walkoff equals FanGraphs",
+      "20180630LTHH02018 walkoff equals FanGraphs",
+      "Batter-game sums reconciled",
+      "Every previously populated WPA recoverable from history",
+      "Raw relay WPA/WE fields unchanged",
+      "SQLite quick_check"
+    ],
+    "tableStates": 9072,
+    "converted": 447678,
+    "examples": [
+      {
+        "PlateAppearanceId": "20180919HTSS02018:pa:107:idx107",
+        "BatterName": "김상수",
+        "ResultText": "김상수 : 좌익수 뒤 홈런 (홈런거리:115M)",
+        "HomeBefore": 9.799999743700027,
+        "HomeAfter": 100.0,
+        "Wpa": 90.20000025629997
+      },
+      {
+        "PlateAppearanceId": "20180630LTHH02018:pa:94:idx94",
+        "BatterName": "지성준",
+        "ResultText": "지성준 : 좌익수 뒤 홈런 (홈런거리:135M) ",
+        "HomeBefore": 9.040000289678574,
+        "HomeAfter": 100.0,
+        "Wpa": 90.95999971032143
+      }
+    ],
+    "historyRows": 454701
+  },
+  "rerun": {
+    "Games": 0,
+    "Filled": 0,
+    "Skipped": 0,
+    "Errors": [],
+    "Replaced": 0,
+    "Cleared": 0,
+    "Coverage": [
+      {
+        "Year": 2016,
+        "Total": 57613,
+        "Collected": 0,
+        "Estimated": 56464,
+        "Missing": 1149
+      },
+      {
+        "Year": 2017,
+        "Total": 56880,
+        "Collected": 0,
+        "Estimated": 55476,
+        "Missing": 1404
+      },
+      {
+        "Year": 2018,
+        "Total": 56903,
+        "Collected": 0,
+        "Estimated": 55757,
+        "Missing": 1146
+      },
+      {
+        "Year": 2019,
+        "Total": 55627,
+        "Collected": 0,
+        "Estimated": 54837,
+        "Missing": 790
+      },
+      {
+        "Year": 2020,
+        "Total": 57629,
+        "Collected": 0,
+        "Estimated": 56420,
+        "Missing": 1209
+      },
+      {
+        "Year": 2021,
+        "Total": 57021,
+        "Collected": 0,
+        "Estimated": 55812,
+        "Missing": 1209
+      },
+      {
+        "Year": 2022,
+        "Total": 57275,
+        "Collected": 0,
+        "Estimated": 56350,
+        "Missing": 925
+      },
+      {
+        "Year": 2023,
+        "Total": 57395,
+        "Collected": 0,
+        "Estimated": 56562,
+        "Missing": 833
+      }
+    ]
+  },
+  "rerunAfterReimport": {
+    "Games": 0,
+    "Filled": 0,
+    "Skipped": 0,
+    "Errors": [],
+    "Replaced": 0,
+    "Cleared": 0,
+    "Coverage": [
+      {
+        "Year": 2016,
+        "Total": 57613,
+        "Collected": 0,
+        "Estimated": 56464,
+        "Missing": 1149
+      },
+      {
+        "Year": 2017,
+        "Total": 56880,
+        "Collected": 0,
+        "Estimated": 55476,
+        "Missing": 1404
+      },
+      {
+        "Year": 2018,
+        "Total": 56903,
+        "Collected": 0,
+        "Estimated": 55757,
+        "Missing": 1146
+      },
+      {
+        "Year": 2019,
+        "Total": 55627,
+        "Collected": 0,
+        "Estimated": 54837,
+        "Missing": 790
+      },
+      {
+        "Year": 2020,
+        "Total": 57629,
+        "Collected": 0,
+        "Estimated": 56420,
+        "Missing": 1209
+      },
+      {
+        "Year": 2021,
+        "Total": 57021,
+        "Collected": 0,
+        "Estimated": 55812,
+        "Missing": 1209
+      },
+      {
+        "Year": 2022,
+        "Total": 57275,
+        "Collected": 0,
+        "Estimated": 56350,
+        "Missing": 925
+      },
+      {
+        "Year": 2023,
+        "Total": 57395,
+        "Collected": 0,
+        "Estimated": 56562,
+        "Missing": 833
+      }
+    ]
+  },
+  "gameApi": [
+    {
+      "game": "20180919HTSS02018",
+      "source": "FanGraphs WE 4.5",
+      "wpa": 90.20000025629997,
+      "eventsPreserved": true
+    },
+    {
+      "game": "20180630LTHH02018",
+      "source": "FanGraphs WE 4.5",
+      "wpa": 90.95999971032143,
+      "eventsPreserved": true
+    }
+  ]
+}
