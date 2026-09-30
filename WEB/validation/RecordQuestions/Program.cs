@@ -54,6 +54,12 @@ Reject(plan with{StartDate="2026-05-31",EndDate="2026-05-01"},"역전 기간 거
 Reject(plan with{EndDate=null},"불완전 날짜 거절");
 Reject(plan with{Year=2027},"DB 미보유 연도 거절");
 Reject(plan with{Metric="avg"},"최소 타석 없는 비율 순위 거절");
+var teamOps=plan with{Metric="ops",Team="WO",StartDate=null,EndDate=null,Filters=[new("room","team"),new("runners","만루")]};
+var teamOpsRequest=RecordQuestionService.ToRequest(teamOps,site,[2026]);
+Check(teamOpsRequest.Room=="team"&&teamOpsRequest.Conditions.Count==0,"팀 만루 OPS는 최소 타석 없이 조회");
+Check(RecordQuestionService.ToRequest(teamOps with{Role="pitcher",Metric="era",Team=null},site,[2026]).Conditions.Count==0,"팀 ERA 순위도 최소 이닝 없이 조회");
+Check(RecordQuestionService.MinimumWaived("타석수 무관 2026기준 키움히어로즈 만루 ops알려줘"),"스크린샷의 타석수 무관 인식");
+Check(RecordQuestionService.ToRequest(plan with{Metric="ops"},site,[2026],minimumWaived:true).Conditions.Count==0,"개인 순위도 명시한 표본 제한 해제 허용");
 Reject(plan with{Team="invalid"},"허용하지 않은 팀 거절");
 try{OpenAiRecordPlanner.Parse("{}");throw new Exception("Missing fields accepted");}catch(JsonException){Check(true,"필수 해석 필드 누락 거절");}
 try{OpenAiRecordPlanner.Parse(JsonSerializer.Serialize(plan,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase})[..^1]+",\"sql\":\"SELECT 1\"}");throw new Exception("Extra fields accepted");}catch(JsonException){Check(true,"추가 모델 필드 거절");}
@@ -84,6 +90,9 @@ if(File.Exists(site.DatabasePath))
         var hanwhaPlan=QuestionTeams.Normalize("2026년 한화이글스 9회 3점차 이내 era 순위를 알려줘 최소이닝은 0.1로",ninth with{Team="HT",Descending=false,Filters=[new("score","3점차 이내")]});
         var hanwhaPage=await records.QueryAsync(RecordQuestionService.ToRequest(hanwhaPlan,site,[2026]),default);
         Check(hanwhaPage.Rows.Count>0 && hanwhaPage.Rows.All(r=>r.Cells["TeamCode"]=="HH"),"스크린샷 질문의 실제 DB 결과가 한화 선수만 포함");
+        var teamOpsPage=await records.QueryAsync(teamOpsRequest,default);
+        Check(teamOpsPage.Rows.Count==1&&teamOpsPage.Rows[0].Cells["TeamCode"]=="WO"&&teamOpsPage.Rows[0].Cells["OPS"]!="-","실제 DB 키움 만루 팀 OPS 한 행 조회");
+        Console.WriteLine("KIWOOM BASES LOADED OPS="+teamOpsPage.Rows[0].Cells["OPS"]);
         Console.WriteLine("9TH INNING "+JsonSerializer.Serialize(ninthPage.Rows[0].Cells.Where(x=>new[]{"Name","ERA","InningsPitched"}.Contains(x.Key)).ToDictionary()));
         var plays=JsonSerializer.SerializeToElement(await QuestionPlays.QueryAsync(plan with{Metric="play_wpa",StartDate=null,EndDate=null},site,[2026],new DateTime(2026,9,23),default));
         Check(plays.GetProperty("rows").GetArrayLength()==1,"실제 DB 시즌 최고 WPA 타석 조회");

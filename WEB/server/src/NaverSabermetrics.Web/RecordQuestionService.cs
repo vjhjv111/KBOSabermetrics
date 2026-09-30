@@ -63,7 +63,7 @@ public sealed class OpenAiRecordPlanner(RecordQuestionOptions options, HttpMessa
             ["metric"]=Str("지표 코드 또는 목록의 속성명. 개별 WPA 플레이는 play_wpa, 절대 변화량은 play_wpa_abs."),["descending"]=new{type="boolean"},
             ["filters"]=new{type="array",items=new{type="object",properties=new{key=new{type="string",@enum=QuestionCapabilities.FilterKeys},value=new{type="string"}},required=new[]{"key","value"},additionalProperties=false}},
             ["inning"]=NullableStr("특정 회차 1회~9회 또는 연장. 전체는 null. 초/말 구분 요청은 미지원. 초말 무관은 지원."),
-            ["minimumVolume"]=new{type="number",description="명시된 최소 타석 또는 야구 표기 이닝. 0.1은 한 아웃, 0.2는 두 아웃. 반올림 금지. 명시 없으면 0. 비율 순위는 최소 기준을 반드시 되물어라."},
+            ["minimumVolume"]=new{type="number",description="명시된 최소 타석 또는 야구 표기 이닝. 0.1은 한 아웃, 0.2는 두 아웃. 반올림 금지. 팀 합계/선수 개인/타석수 무관이면 최소 기준을 요구하지 말고 명시 없으면 0."},
             ["limit"]=new{type="integer",description="요청한 상위/하위 인원 1~20. 단순 선수 조회는 20. 1위 질문은 1."}
         };
         var prompt=$"""
@@ -73,7 +73,8 @@ public sealed class OpenAiRecordPlanner(RecordQuestionOptions options, HttpMessa
             Metric candidates from the actual record registry: {QuestionCapabilities.Describe(question)}
             Basic aliases: batter hr=홈런,hits=안타,rbi=타점,runs=득점,sb=도루,bb=볼넷,so=삼진,avg=타율,obp=출루율,slg=장타율,ops=OPS; pitcher so=탈삼진,bb=볼넷,ip=이닝,era=평균자책점,whip=WHIP,hra=피홈런,ra=실점. Other metrics use exact property names from candidates.
             Filters (empty array if absent): room=season/team/career; competition=정규시즌/시범경기/포스트시즌/전체; opponent=team code; venue=홈/원정; stadium=Korean venue name; outs=0/1/2; runners=주자 없음/1루/2루/3루/1·2루/1·3루/2·3루/만루/득점권; score=동점/리드/열세/1점차 이내/2점차 이내/3점차 이내; balls=0..3 plus strikes=0..2; recentGames=5/10/20/30; recentDays=7/14/30/60/90.
-            Preserve inning 1회..9회 or 연장. 9회(초 말 안가리고) means 9회. Explicit top/bottom selection or multiple innings unsupported. Preserve baseball IP notation: 0.1=one out, 0.2=two outs; NEVER round to 1. MinimumVolume defaults 0. Ratio rankings avg/obp/slg/ops/era/whip require an explicit minimum PA/IP, except individual player lookup.
+            Team aggregate questions MUST set filters room=team, not individual-player rankings. Example: '타석수 무관 2026기준 키움히어로즈 만루 ops알려줘' => team=WO, room=team, runners=만루, metric=ops, minimumVolume=0, supported=true. A club's OPS/ERA is its aggregate, never the average of player rates. Player rankings explicitly asking 선수/타자/투수/상위 N명 keep room=season.
+            Preserve inning 1회..9회 or 연장. 9회(초 말 안가리고) means 9회. Explicit top/bottom selection or multiple innings unsupported. Preserve baseball IP notation: 0.1=one out, 0.2=two outs; NEVER round to 1. MinimumVolume defaults 0. Only INDIVIDUAL PLAYER ratio RANKINGS require a minimum PA/IP. Team totals/team rankings and single-player lookup do NOT. Explicit '타석수 무관', '이닝 무관', '최소 기준 없음' waives this requirement: minimumVolume=0, do not ask again.
             Highest/most => descending true, lowest/least false. Explicit highest ERA means true (not best pitching). Best ERA/WHIP means false. Limit 1..20.
             Individual WPA play => play_wpa (signed batting-side value), biggest absolute swing => play_wpa_abs. Pitcher viewpoint uses role=pitcher and inverted sign. Play query supports year/date/team/player/inning only, filters=[],minimumVolume=0. Aggregate player WPA uses Wpa instead. Never replace play queries with aggregate rankings.
             All questions are independent. If ANY requested condition cannot be represented, supported=false and clarification in Korean. Do not erase conditions to answer. No arbitrary SQL, external search, predictions or multi-metric comparisons. Always fill every schema field; supported=true => clarification empty.
@@ -124,7 +125,7 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
     private readonly SemaphoreSlim serial=new(1,1);
     public bool Ready=>options.Enabled && planner.Ready;
     public object Status()=>new{enabled=Ready,message=Ready?"연도·기간·선수·팀별 기본 기록을 질문해 보세요.":"기록 질문 기능은 준비 중입니다. 서버의 API 키와 활성화 설정이 필요합니다."};
-    public static RecordRequest ToRequest(QuestionPlan p,SiteOptions site,int[] years)
+    public static RecordRequest ToRequest(QuestionPlan p,SiteOptions site,int[] years,bool minimumWaived=false)
     {
         var metric=Metrics.GetValueOrDefault(p.Metric,p.Metric);
         var view=QuestionCapabilities.Resolve(p.Role,metric);
@@ -139,14 +140,15 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             return d;
         }
         if((p.StartDate is null)!=(p.EndDate is null))throw new RequestError("조회 시작일과 종료일을 함께 지정해 주세요.");
-        if(new[]{"AVG","OBP","SLG","OPS","ERA","WHIP"}.Contains(metric)&&p.Player is null&&p.MinimumVolume==0)
-            throw new RequestError("비율 순위는 최소 타석 또는 최소 이닝을 함께 알려 주세요.",400,"AI_FILTER");
         var r=new RecordRequest{Year=p.Year,Role=p.Role,View=view.Key,Team=p.Team,PlayerName=p.Player,Inning=p.Inning,StartDate=Date(p.StartDate),EndDate=Date(p.EndDate),
             SortBy=metric,Descending=p.Descending,PageSize=Math.Min(50,site.MaxPageSize),
             Conditions=p.MinimumVolume>0?[new(p.Role=="batter"?"PA":"InningsPitched","gte",p.MinimumVolume)]:[]};
         r=QuestionCapabilities.Apply(r,p.Filters);
+        if(r.Room!="team"&&!minimumWaived&&new[]{"AVG","OBP","SLG","OPS","ERA","WHIP"}.Contains(metric)&&p.Player is null&&p.MinimumVolume==0)
+            throw new RequestError("선수별 비율 순위는 최소 타석·이닝을 알려 주시거나 '타석수/이닝 무관'을 명시해 주세요.",400,"AI_FILTER");
         r.Validate(site);return r;
     }
+    public static bool MinimumWaived(string question)=>Regex.IsMatch(question,@"(?:타석|이닝)\s*(?:수|수는|은|는)?\s*(?:무관|상관\s*없|제한\s*없)|최소\s*기준\s*(?:없|무관)");
     public static string? UnsupportedQuestion(string question)
     {
         if(Regex.IsMatch(question,@"초에|말에|회\s*[초말]"))return "초말을 나눈 조건은 아직 연결되지 않았습니다. 초·말 합산 결과로 대체하지 않고 조회를 중단합니다.";
@@ -194,9 +196,10 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             var plan=await planner.PlanAsync(question.Trim(),years,ct);
             if(!plan.Supported)return new{answer=string.IsNullOrWhiteSpace(plan.Clarification)?"연도·기간·조회할 기본 지표를 구체적으로 알려 주세요.":plan.Clarification[..Math.Min(500,plan.Clarification.Length)],clarification=true};
             plan=QuestionTeams.Normalize(question,plan);
+            if(MinimumWaived(question))plan=plan with{MinimumVolume=0};
             ValidateQuestion(question,plan);
             if(plan.Metric is "play_wpa" or "play_wpa_abs")return await gate.RunAsync(t=>QuestionPlays.QueryAsync(plan,site,years,catalog.MaxGameDate,t),ct);
-            var request=ToRequest(plan,site,years);
+            var request=ToRequest(plan,site,years,MinimumWaived(question));
             TablePage page;
             try{page=await gate.RunAsync(t=>records.QueryAsync(request,t),ct);}
             catch(RequestError e) when(e.Code=="QUERY_BUSY"){throw new RequestError("기록 조회가 몰려 있습니다. 잠시 후 다시 시도해 주세요.",429,"AI_DB_BUSY");}
