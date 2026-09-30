@@ -54,7 +54,7 @@ public static class BotQuestionEndpoint
                     play=Regex.Replace(play,@"\s*\(홈런거리:[^)]*\)","");
                     lines.Add($"{batter}({Team("TeamCode")}) · {play}");
                     var wpa=Cell("WPA");if(double.TryParse(wpa,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var number))wpa=number.ToString("+0.###;-0.###;0",System.Globalization.CultureInfo.InvariantCulture);
-                    lines.Add($"WPA {wpa} · 상대 투수 {Cell("Pitcher")}");
+                    lines.Add($"WPA {wpa}%p · 상대 투수 {Cell("Pitcher")}"+(Cell("WpaSource")=="FANZAI 추정"?" · 자체 추정":""));
                 }
                 else
                 {
@@ -73,7 +73,7 @@ public static class BotQuestionEndpoint
             }
             if(rows.GetArrayLength()>10)lines.Add("상위 10개만 표시");
             if(rows.EnumerateArray().Any(r=>r.GetProperty("cells").TryGetProperty("WPA",out _)))
-                lines.Add("WPA: "+(applied.Contains("투수 시점")?"투수":"타자")+" 시점"+(applied.Contains("절댓값")?" · 절댓값 순위":"")+" · 수집된 타석 기준");
+                lines.Add("WPA: "+(applied.Contains("투수 시점")?"투수":"타자")+" 시점"+(applied.Contains("절댓값")?" · 절댓값 순위":"")+" · 산출 가능한 타석 기준");
         }
         if(data.TryGetProperty("warnings",out var warnings)&&warnings.EnumerateArray().Any(w=>(w.GetString()??"").Contains("근사치")))lines.Add("* 상황별 기록은 근사치");
         if(data.TryGetProperty("asOf",out var asOf))lines.Add("기준 "+asOf.GetString());

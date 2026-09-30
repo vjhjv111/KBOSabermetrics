@@ -71,6 +71,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await ExecuteAsync(connection, "PRAGMA mmap_size=536870912;", cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, SchemaSql, cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, OfficialBoxSourceSchema, cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, EstimatedWpaSchema, cancellationToken).ConfigureAwait(false);
         await EnsureColumnAsync(connection, "Players", "LastClubGameDate", "TEXT NULL", cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "SchemaVersion", WarehouseSchemaVersion, cancellationToken).ConfigureAwait(false);
         await SetMetadataIfMissingAsync(connection, "DataVersion", "0", cancellationToken).ConfigureAwait(false);
@@ -236,7 +237,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
     }
 
     private sealed record PreparedGameWrite(NormalizedGame Game, InputDocument Document, string SourceJson,
-        string SourceFingerprint, KboPlayLog.Document? Official, WarehouseGameProjection Projection);
+        string SourceFingerprint, KboPlayLog.Document? Official, WarehouseGameProjection Projection, List<EstimatedWpaValue> EstimatedWpa);
 
     private async Task<PreparedGameWrite> PrepareGameWriteAsync(NormalizedGame game, InputDocument document,
         CancellationToken cancellationToken, KboPlayLog.Document? official)
@@ -273,16 +274,17 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
             await ApplyKboCorrectionsAsync(game, cancellationToken, box.DownloadedAt ?? official.DownloadedAt).ConfigureAwait(false);
         }
         await ApplyStoredOfficialRbiAsync(game, cancellationToken).ConfigureAwait(false);
+        var estimatedWpa = await ApplyEstimatedWpaAsync(game, cancellationToken).ConfigureAwait(false);
         var projection = WarehouseProjectionBuilder.Build(game);
         game.Summary.WarningCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
         game.Summary.ErrorCount = game.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
-        return new(game, document, sourceJson, sourceFingerprint, official, projection);
+        return new(game, document, sourceJson, sourceFingerprint, official, projection, estimatedWpa);
     }
 
     private async Task WritePreparedGameAsync(SqliteConnection connection, SqliteTransaction transaction,
         PreparedGameWrite item, CancellationToken cancellationToken)
     {
-        var (game, document, sourceJson, sourceFingerprint, official, projection) = item;
+        var (game, document, sourceJson, sourceFingerprint, official, projection, estimatedWpa) = item;
         if (official != null)
         {
             await using var cmd = connection.CreateCommand(); cmd.Transaction = transaction;
@@ -299,6 +301,7 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         await InsertRelayGroupsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertEventsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertPlateAppearancesAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
+        await SaveEstimatedWpaValuesAsync(connection, transaction, game.GameId, estimatedWpa, cancellationToken).ConfigureAwait(false);
         await InsertPitchesAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertRunnerEventsAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);
         await InsertPlayerChangesAsync(connection, transaction, game, cancellationToken).ConfigureAwait(false);

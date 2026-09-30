@@ -64,6 +64,8 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(_=>new DatabaseCacheService(settings.DatabasePath,webReadOnly:true));
 builder.Services.AddSingleton(renderCollector);
 if(isRender && renderCollector.Enabled)builder.Services.AddHostedService<RenderCollectorWorker>();
+if(builder.Configuration.GetValue<bool>("EstimatedWpa:Enabled"))
+    builder.Services.AddHostedService<EstimatedWpaBackfillWorker>();
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
 builder.Services.AddSingleton<OfficialPlayerProfileService>();

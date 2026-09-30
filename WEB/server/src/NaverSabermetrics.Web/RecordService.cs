@@ -229,6 +229,8 @@ public sealed partial class RecordService
             display.Add(new(Convert.ToString(codeProperty?.GetValue(row)), cells));
         }
         var warnings = new List<string>();
+        if(properties.Any(p=>p.Name.Contains("Wpa",StringComparison.OrdinalIgnoreCase)))
+            warnings.Add("WPA는 수집값을 우선 사용하며, 2016~2023년 누락분에는 FANZAI 자체 추정값이 포함될 수 있습니다. KBO 득점분포와 무승부 0.5승 기준이며 네이버 모델과 동일하지 않습니다.");
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
         else warnings.Add(request.Role == "pitcher"
             ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
