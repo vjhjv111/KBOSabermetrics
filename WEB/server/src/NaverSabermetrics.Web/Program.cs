@@ -71,6 +71,12 @@ builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
 builder.Services.AddSingleton<HomeLiveService>();
 builder.Services.AddSingleton<BotGamesService>();
+var questionOptions=builder.Configuration.GetSection("RecordQuestions").Get<RecordQuestionOptions>()??new();
+if(questionOptions.DailyLimit is <1 or >10000 || questionOptions.PerIpDailyLimit is <1 or >1000 || questionOptions.MaxInputTokens is <1 or >10000 || string.IsNullOrWhiteSpace(questionOptions.Model))
+    throw new InvalidOperationException("기록 질문 설정이 올바르지 않습니다.");
+builder.Services.AddSingleton(questionOptions);
+builder.Services.AddSingleton<IRecordQuestionPlanner,OpenAiRecordPlanner>();
+builder.Services.AddSingleton<RecordQuestionService>();
 builder.Services.AddSingleton<BotStartersService>();
 if (builder.Configuration.GetValue<bool?>("BotStarters:Enabled") ?? (isRender && renderCollector.Enabled))
     builder.Services.AddHostedService<BotStartersWorker>();
@@ -219,6 +225,11 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRouting();app.UseRateLimiter();
 app.Use(async(c,next)=>
 {
+    if(c.Request.Path=="/api/bot/ask")
+    {
+        BotQuestionEndpoint.Authorize(Environment.GetEnvironmentVariable("FANZAI_BOT_API_KEY"),c.Request.Headers["X-Fanzai-Bot-Key"].ToString());
+        await next(c);return;
+    }
     if(c.Request.Method=="POST" && c.Request.Path.StartsWithSegments("/api"))
         await c.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(c);
     await next(c);
@@ -236,6 +247,20 @@ app.MapPost("/api/analytics/ad-click",(AdClickRequest request,HttpContext c,Quot
     return Results.NoContent();
 });
 app.MapDiamondGame();
+app.MapGet("/api/ask/status",()=>Results.Ok(new{enabled=false,message="기록 질문은 카톡봇 /팬자이 명령으로 이용해 주세요."}));
+app.MapPost("/api/ask",async(RecordQuestion request,HttpContext c,RecordQuestionService questions,QuotaStore quotas)=>
+{
+    await Task.CompletedTask;
+    return Results.Json(new{code="WEB_ASK_DISABLED",message="기록 질문은 카톡봇 /팬자이 명령으로 이용해 주세요."},statusCode:404);
+});
+app.MapPost("/api/bot/ask",async(RecordQuestion request,HttpContext c,RecordQuestionService questions,QuotaStore quotas)=>
+{
+    if(!databaseReady)throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
+    quotas.Consume(Ip(c),50);
+    c.Response.Headers.CacheControl="no-store";
+    var result=await questions.AskAsync(request.Question,Ip(c),c.RequestAborted,authenticatedBot:true);
+    return Results.Ok(new{text=BotQuestionEndpoint.Format(result),data=result});
+});
 app.MapDiamondSeason();
 app.MapDiamondCareer();
 app.MapDiamondMatch();

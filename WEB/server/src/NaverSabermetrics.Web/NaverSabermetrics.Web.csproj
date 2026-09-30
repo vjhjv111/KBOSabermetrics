@@ -26,6 +26,8 @@
     <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.png" />
     <BrandAsset Include="$(MSBuildProjectDirectory)/../../../frontend/assets/*.ico" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/app.js" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/record-questions.js" />
+    <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/record-questions.css" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/games.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/diamond.js" />
     <FrontendAsset Include="$(MSBuildProjectDirectory)/../../../frontend/analysis.js" />
