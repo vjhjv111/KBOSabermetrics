@@ -71,6 +71,8 @@ namespace Diamond.EditorTools
             Lit("WallPadding", new Color(0.086f, 0.263f, 0.20f), 0.35f);
             Lit("Gold", new Color(0.91f, 0.76f, 0.32f), 0.45f);
             Lit("Ball", new Color(0.98f, 0.98f, 0.96f), 0.5f);
+            Lit("Player", new Color(0.92f, 0.93f, 0.95f), 0.35f);
+            Lit("PlayerJoints", new Color(0.12f, 0.16f, 0.22f), 0.3f);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("FIELDMAT ok");
