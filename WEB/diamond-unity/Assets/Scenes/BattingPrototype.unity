@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &109866018
+--- !u!1 &346572317
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,9 +127,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 109866021}
-  - component: {fileID: 109866020}
-  - component: {fileID: 109866019}
+  - component: {fileID: 346572320}
+  - component: {fileID: 346572319}
+  - component: {fileID: 346572318}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -137,21 +137,21 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &109866019
+--- !u!81 &346572318
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 109866018}
+  m_GameObject: {fileID: 346572317}
   m_Enabled: 1
---- !u!20 &109866020
+--- !u!20 &346572319
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 109866018}
+  m_GameObject: {fileID: 346572317}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -196,13 +196,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &109866021
+--- !u!4 &346572320
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 109866018}
+  m_GameObject: {fileID: 346572317}
   serializedVersion: 2
   m_LocalRotation: {x: 0.010896053, y: 0, z: 0, w: 0.99994063}
   m_LocalPosition: {x: 0, y: 1.8, z: -4.5}
@@ -211,7 +211,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1188162079
+--- !u!1 &444818284
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -219,8 +219,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1188162081}
-  - component: {fileID: 1188162080}
+  - component: {fileID: 444818286}
+  - component: {fileID: 444818285}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -228,13 +228,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1188162080
+--- !u!108 &444818285
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1188162079}
+  m_GameObject: {fileID: 444818284}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -293,13 +293,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1188162081
+--- !u!4 &444818286
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1188162079}
+  m_GameObject: {fileID: 444818284}
   serializedVersion: 2
   m_LocalRotation: {x: 0.418082, y: -0.27027258, z: 0.13182074, w: 0.85719514}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -308,7 +308,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1306652274
+--- !u!1 &1698668405
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -316,10 +316,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1306652278}
-  - component: {fileID: 1306652277}
-  - component: {fileID: 1306652276}
-  - component: {fileID: 1306652275}
+  - component: {fileID: 1698668409}
+  - component: {fileID: 1698668408}
+  - component: {fileID: 1698668407}
+  - component: {fileID: 1698668406}
   m_Layer: 0
   m_Name: Field
   m_TagString: Untagged
@@ -327,13 +327,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1306652275
+--- !u!114 &1698668406
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1306652274}
+  m_GameObject: {fileID: 1698668405}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e28087658ebec1443a72397715c42abe, type: 3}
@@ -346,13 +346,13 @@ MonoBehaviour:
   humanBatter: 1
   simulateHumanClicks: 0
   quitAfterPitches: 0
---- !u!114 &1306652276
+--- !u!114 &1698668407
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1306652274}
+  m_GameObject: {fileID: 1698668405}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c31d7e84a953ece4db3790390f098176, type: 3}
@@ -362,32 +362,39 @@ MonoBehaviour:
   pitchClip: {fileID: -203655887218126122, guid: 1a732fb97a92f104a954a37532ff5dbf, type: 3}
   batterPrefab: {fileID: 919132149155446097, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
   hitClip: {fileID: -203655887218126122, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
+  catcherPrefab: {fileID: 919132149155446097, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
+  catcherClip: {fileID: -203655887218126122, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
+  catcherDepth: 1
+  missClip: {fileID: -203655887218126122, guid: 277caad7d77fd9b4c8f7ab9274e784aa, type: 3}
+  missBlendMs: 90
+  holdMs: 450
+  returnMs: 650
   autoPlaySample: 1
   slowMotion: 1
   windupMs: 1800
   swingClipSpeed: 1.8
   blendFraction: 0.3
   loadClipSeconds: 1.3
---- !u!114 &1306652277
+--- !u!114 &1698668408
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1306652274}
+  m_GameObject: {fileID: 1698668405}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1de032bc92b86ff48bca19e3754d6e66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.StadiumBuilder
   buildOnStart: 1
---- !u!4 &1306652278
+--- !u!4 &1698668409
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1306652274}
+  m_GameObject: {fileID: 1698668405}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -400,6 +407,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 109866021}
-  - {fileID: 1188162081}
-  - {fileID: 1306652278}
+  - {fileID: 346572320}
+  - {fileID: 444818286}
+  - {fileID: 1698668409}

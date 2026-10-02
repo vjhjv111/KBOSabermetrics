@@ -30,5 +30,15 @@ namespace Diamond.Sim
         /// after about 2.5 s (measured by AnalyzeRun). Hold the pose at the end of the follow-through instead.
         /// </summary>
         public const double HitSwingEndSeconds = 2.40;
+
+        public const string Catcher = "Baseball Catcher";
+        /// <summary>The first second of the clip is a still crouch (hips 0.38 m); after 1.0 s the catcher stands up and throws (AnalyzeCatcher).</summary>
+        public const double CatcherStanceSeconds = 0.5;
+
+        public const string Miss = "Baseball Hit_almostmiss";
+        /// <summary>Hand speed peaks at 1.00 s in the swing-and-miss clip (AnalyzeMotions).</summary>
+        public const double MissContactSeconds = 1.00;
+        /// <summary>The clip's sprint begins at about 1.7 s (AnalyzeRun); hold the pose just before it.</summary>
+        public const double MissSwingEndSeconds = 1.65;
     }
 }
