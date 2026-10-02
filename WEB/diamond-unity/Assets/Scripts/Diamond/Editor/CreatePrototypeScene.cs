@@ -43,6 +43,7 @@ namespace Diamond.EditorTools
             var field = new GameObject("Field");
             field.AddComponent<StadiumBuilder>();
             var demo = field.AddComponent<PitchReplayDemo>();
+            field.AddComponent<Diamond.Net.ServerPlay>();
             var so = new SerializedObject(demo);
             so.FindProperty("pitcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Pitching_1.fbx");
             so.FindProperty("pitchClip").objectReferenceValue = Clip("Assets/Motions/Baseball Pitching_1.fbx");

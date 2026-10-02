@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Diamond.Model;
 
 namespace Diamond.Net
@@ -39,6 +40,13 @@ namespace Diamond.Net
             using var req = UnityWebRequest.Get(_baseUrl + "/api/session");
             req.SetRequestHeader("Cache-Control", "no-store");
             _csrf = JsonUtility.FromJson<SessionDto>(await Send(req)).csrfToken ?? "";
+        }
+
+        /// <summary>GET /api/diamond/roster: season, teams, batters (with profile.bats) and pitchers (with profile.throws/delivery).</summary>
+        public async Task<JObject> GetRoster()
+        {
+            using var req = UnityWebRequest.Get(_baseUrl + "/api/diamond/roster");
+            return JObject.Parse(await Send(req));
         }
 
         public async Task<ActionView> Get(string code)
