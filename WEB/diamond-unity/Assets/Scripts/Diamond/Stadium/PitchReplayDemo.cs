@@ -21,8 +21,8 @@ namespace Diamond.Stadium
         [SerializeField] GameObject catcherPrefab;     // optional: crouching catcher behind the plate (Baseball Catcher)
         [SerializeField] AnimationClip catcherClip;
         [SerializeField] float catcherDepth = 1.5f;    // metres behind the plate
-        [SerializeField] AnimationClip missClip;       // unused: whiffs reuse the hit swing (Baseball Hit_almostmiss was dropped)
-        [SerializeField] float missBlendMs = 90f;      // crossfade from the hit swing into the miss swing once the server says "miss"
+        [SerializeField] AnimationClip homerunClip;    // swing used when the server calls a home run (Baseball Hit_homerun); every other swing uses hitClip
+        [SerializeField] float homerunBlendMs = 140f;  // crossfade from the hit swing into the home-run swing
         [SerializeField] float holdMs = 450f;          // hold the follow-through before returning to the stance
         [SerializeField] float returnMs = 650f;        // blend back to the stance
         [SerializeField] bool autoPlaySample = true;
@@ -42,7 +42,7 @@ namespace Diamond.Stadium
             // Batter only: inputs 0 = hit swing, 1 = miss swing, 2 = stance (hit clip frozen at 0).
             public AnimationMixerPlayable Mixer;
             public AnimationClipPlayable[] Clips;
-            public AnimationClip MissClip;
+            public AnimationClip HomerunClip;
         }
 
         Actor _pitcher, _batter, _catcher;
@@ -57,7 +57,8 @@ namespace Diamond.Stadium
         Pitch _pitch, _samplePitch;
         PitchResult _result, _sampleResult;
         double? _plannedContactMs;   // when the batter's swing contact happens (null = taking the pitch)
-        double? _missKnownAtMs;      // server-clock time at which the "no contact" verdict arrived
+        double? _homerunKnownAtMs;   // server-clock time at which the "home run" verdict arrived
+        double _hrContact = 1.2, _hrEnd = 2.2;   // contact instant and end of the follow-through in the home-run clip (measured at spawn)
         double _lastMs;              // last evaluated server time
         float _sampleStart;
         Vector3 _handAtRelease;
@@ -114,7 +115,7 @@ namespace Diamond.Stadium
         }
 
         /// <summary>Batter rig: a mixer over the hit swing, the miss swing and the stance so swings can crossfade and return to the stance.</summary>
-        Actor SpawnBatter(GameObject prefab, AnimationClip hit, AnimationClip miss, Vector3 position, float yaw)
+        Actor SpawnBatter(GameObject prefab, AnimationClip hit, AnimationClip homerun, Vector3 position, float yaw)
         {
             var go = Instantiate(prefab, position, Quaternion.Euler(0, yaw, 0), transform);
             var surface = Resources.Load<Material>("Diamond/Player");
@@ -123,6 +124,11 @@ namespace Diamond.Stadium
                 r.sharedMaterial = r.name.Contains("Joints") ? joints : surface;
             var animator = go.GetComponent<Animator>() ?? go.AddComponent<Animator>();
             animator.applyRootMotion = false;
+            if (homerun != null)
+            {
+                _hrContact = MeasureContact(go, homerun);
+                _hrEnd = System.Math.Min(_hrContact + 1.1, homerun.length - 0.05);
+            }
             var graph = PlayableGraph.Create("Batter " + prefab.name);
             graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
             var output = AnimationPlayableOutput.Create(graph, "anim", animator);
@@ -130,7 +136,7 @@ namespace Diamond.Stadium
             var clips = new[]
             {
                 AnimationClipPlayable.Create(graph, hit),
-                AnimationClipPlayable.Create(graph, miss != null ? miss : hit),
+                AnimationClipPlayable.Create(graph, homerun != null ? homerun : hit),
                 AnimationClipPlayable.Create(graph, hit),
             };
             for (var i = 0; i < clips.Length; i++) graph.Connect(clips[i], 0, mixer, i);
@@ -139,7 +145,7 @@ namespace Diamond.Stadium
             graph.Play();
             return new Actor
             {
-                Go = go, Clip = hit, MissClip = miss, Graph = graph, Mixer = mixer, Clips = clips,
+                Go = go, Clip = hit, HomerunClip = homerun, Graph = graph, Mixer = mixer, Clips = clips,
                 Hand = animator.GetBoneTransform(HumanBodyBones.RightHand),
             };
         }
@@ -164,7 +170,12 @@ namespace Diamond.Stadium
             }
 
             _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180);
-            _batter = SpawnBatter(batterPrefab, hitClip, null, Field.ToUnity(-1.15, 0, 0), 0);
+            #if UNITY_EDITOR
+            // Scenes built before the home-run swing existed have no clip assigned: pick it up from the project.
+            if (homerunClip == null)
+                homerunClip = System.Linq.Enumerable.FirstOrDefault(System.Linq.Enumerable.OfType<AnimationClip>(UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Motions/Baseball Hit_homerun.fbx")), c => !c.name.StartsWith("__preview__"));
+#endif
+            _batter = SpawnBatter(batterPrefab, hitClip, homerunClip, Field.ToUnity(-1.15, 0, 0), 0);
             var pitcherAnimator = _pitcher.Go.GetComponent<Animator>();
             _pArm = new[]
             {
@@ -207,7 +218,7 @@ namespace Diamond.Stadium
         {
             _pitch = pitch;
             _plannedContactMs = swingContactMs;
-            _missKnownAtMs = null;
+            _homerunKnownAtMs = null;
             _result = null;
             _released = false;
             if (_trail != null) _trail.Clear();
@@ -238,7 +249,7 @@ namespace Diamond.Stadium
             // Contact positions come from the server in the web game's plate mapping; show them in the regulation zone.
             _result = result?.contact == null ? result : WithZoneContact(result);
             // A swing that never made contact is a miss: crossfade into the miss swing from the moment the verdict arrives.
-            _missKnownAtMs = _plannedContactMs != null && result != null && result.contact == null ? _lastMs : (double?)null;
+            _homerunKnownAtMs = _plannedContactMs != null && result != null && result.outcome == "HR" && homerunClip != null ? _lastMs : (double?)null;
         }
 
         /// <summary>Plans the batter's swing for the current pitch (human input): contact happens at <paramref name="contactMs"/> on the server clock.</summary>
@@ -361,32 +372,60 @@ namespace Diamond.Stadium
             return Vector3.Cross(r.normalized, Vector3.up);
         }
 
-        /// <summary>Poses the batter: hit swing, crossfade to the miss swing on a whiff, then hold and blend back to the stance.</summary>
+        /// <summary>Poses the batter: hit swing (the home-run swing on a home run), then hold and blend back to the stance.</summary>
         void PoseBatter(double ms)
         {
             var b = _batter;
             if (b == null) return;
             var hitT = BatterClipTime(ms);
-            double missT = 0, wMiss = 0, wStance = 0;
+            double hrT = 0, wHr = 0, wStance = 0;
             if (_plannedContactMs is double contact)
             {
-                var isMiss = _missKnownAtMs != null;
-                // Miss clip time: its contact (MissContactSeconds) meets the same contact time, clamped before the run to first.
-                missT = System.Math.Min(MotionTiming.MissSwingEndSeconds,
-                    System.Math.Max(0, MotionTiming.MissContactSeconds + (ms - contact) / 1000.0 * swingClipSpeed));
-                if (isMiss && b.MissClip != null) wMiss = Smooth((ms - _missKnownAtMs.Value) / missBlendMs);
-                var swingEnd = isMiss
-                    ? contact + (MotionTiming.MissSwingEndSeconds - MotionTiming.MissContactSeconds) / swingClipSpeed * 1000.0
-                    : contact + (MotionTiming.HitSwingEndSeconds - MotionTiming.HitContactSeconds) / swingClipSpeed * 1000.0;
-                wStance = Smooth((ms - (swingEnd + holdMs)) / returnMs);
+                var isHr = _homerunKnownAtMs != null;
+                // Home-run clip time: its contact meets the same contact time.
+                hrT = System.Math.Min(_hrEnd, System.Math.Max(0, _hrContact + (ms - contact) / 1000.0 * swingClipSpeed));
+                if (isHr)
+                {
+                    // Fade over the stretch before the swing starts (both clips share the stance), or from the verdict if it came later.
+                    var fadeStart = System.Math.Max(_homerunKnownAtMs.Value, contact - (_hrContact - loadClipSeconds) / swingClipSpeed * 1000.0 - homerunBlendMs);
+                    wHr = Smooth((ms - fadeStart) / homerunBlendMs);
+                }
+                wStance = Smooth((ms - (contact + FollowThroughMs(isHr) + holdMs)) / returnMs);
             }
             b.Clips[0].SetTime(Mathf.Clamp((float)hitT, 0f, b.Clip.length - 0.001f));
-            b.Clips[1].SetTime(Mathf.Clamp((float)missT, 0f, (b.MissClip != null ? b.MissClip.length : b.Clip.length) - 0.001f));
+            b.Clips[1].SetTime(Mathf.Clamp((float)hrT, 0f, (b.HomerunClip != null ? b.HomerunClip.length : b.Clip.length) - 0.001f));
             b.Clips[2].SetTime(0);
-            b.Mixer.SetInputWeight(0, (float)((1 - wMiss) * (1 - wStance)));
-            b.Mixer.SetInputWeight(1, (float)(wMiss * (1 - wStance)));
+            b.Mixer.SetInputWeight(0, (float)((1 - wHr) * (1 - wStance)));
+            b.Mixer.SetInputWeight(1, (float)(wHr * (1 - wStance)));
             b.Mixer.SetInputWeight(2, (float)wStance);
             b.Graph.Evaluate();
+        }
+
+        double FollowThroughMs(bool homerun) => homerun
+            ? (_hrEnd - _hrContact) / swingClipSpeed * 1000.0
+            : (MotionTiming.HitSwingEndSeconds - MotionTiming.HitContactSeconds) / swingClipSpeed * 1000.0;
+
+        /// <summary>Milliseconds after bat contact at which the batter's follow-through is over (the director then hands him over to the base-running rig).</summary>
+        public double SwingFollowThroughMs(bool homerun) => FollowThroughMs(homerun && homerunClip != null);
+
+        /// <summary>Finds when the hands peak in speed in <paramref name="clip"/> (the bat contact) by sampling it on <paramref name="go"/>.</summary>
+        static double MeasureContact(GameObject go, AnimationClip clip)
+        {
+            var animator = go.GetComponent<Animator>();
+            var hand = animator != null ? animator.GetBoneTransform(HumanBodyBones.RightHand) : null;
+            if (hand == null) return clip.length * 0.5;
+            const float dt = 1f / 30f;
+            var n = Mathf.FloorToInt(clip.length * 0.75f / dt);
+            var best = 0f; var bestT = clip.length * 0.5f;
+            Vector3 prev = default;
+            for (var i = 0; i < n; i++)
+            {
+                clip.SampleAnimation(go, i * dt);
+                var p = hand.position;
+                if (i > 0) { var v = (p - prev).magnitude / dt; if (v > best) { best = v; bestT = i * dt; } }
+                prev = p;
+            }
+            return bestT;
         }
 
         /// <summary>Holds the crouch and reaches the glove hand to where the pitch will arrive, unless the ball is hit.</summary>

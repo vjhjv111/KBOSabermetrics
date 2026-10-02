@@ -27,6 +27,8 @@ namespace Diamond.Stadium
         [SerializeField] float throwSpeed = 27f;       // thrown ball, m/s
 
         // ---- rigs -----------------------------------------------------------------------------------------------
+        double _batterSwapMs;   // server time at which the swinging batter is replaced by his running rig (0 = no swap pending)
+
         sealed class Rig
         {
             public GameObject Go;
@@ -127,6 +129,7 @@ namespace Diamond.Stadium
             _endMs = 0;
             demo.BallOverride = null;
             demo.SetBatterVisible(true);
+            _batterSwapMs = 0;
             foreach (var f in _fielders)
             {
                 f.Segments.Clear();
@@ -176,10 +179,11 @@ namespace Diamond.Stadium
             var out_ = !isHit && !walk;
 
             // --- batter becomes a runner ---
-            var runStart = t0 + (walk ? 400 : 450);
-            if (inPlay) demo.SetBatterVisible(false);
+            // The batter keeps swinging until his follow-through is over, then the base-running rig takes over (Evaluate swaps them).
+            var runStart = walk ? t0 + 400 : t0 + demo.SwingFollowThroughMs(r.outcome == "HR") + 60;
+            _batterSwapMs = inPlay ? runStart : 0;
             var batterRunner = _runners[0];
-            batterRunner.Go.SetActive(true);
+            batterRunner.Go.SetActive(!inPlay);
             var batterStart = inPlay ? demo.BatterPosition : Base(0) + new Vector3(-1.15f, 0, 0);
             batterStart.y = 0;
             var batterDest = out_ ? 1 : destination;
@@ -507,6 +511,12 @@ namespace Diamond.Stadium
         public void Evaluate(double ms)
         {
             if (!_built) return;
+            if (_batterSwapMs > 0)
+            {
+                var swapped = ms >= _batterSwapMs;
+                demo.SetBatterVisible(!swapped);
+                _runners[0].Go.SetActive(swapped);
+            }
             foreach (var f in _fielders) EvaluateRig(f, ms);
             foreach (var r in _runners) EvaluateRig(r, ms);
         }

@@ -50,6 +50,7 @@ namespace Diamond.EditorTools
             so.FindProperty("pitchClip").objectReferenceValue = Clip("Assets/Motions/Baseball Pitching_1.fbx");
             so.FindProperty("batterPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Hit.fbx");
             so.FindProperty("hitClip").objectReferenceValue = Clip("Assets/Motions/Baseball Hit.fbx");
+            so.FindProperty("homerunClip").objectReferenceValue = Clip("Assets/Motions/Baseball Hit_homerun.fbx");
             so.FindProperty("catcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Catcher.fbx");
             so.FindProperty("catcherClip").objectReferenceValue = Clip("Assets/Motions/Baseball Catcher.fbx");
             so.ApplyModifiedPropertiesWithoutUndo();
