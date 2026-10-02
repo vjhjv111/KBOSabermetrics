@@ -83,13 +83,13 @@ namespace Diamond.Stadium
             // Batter's boxes: 4 ft x 6 ft, the inside edge 6 inches off the plate.
             foreach (var side in new[] { -1, 1 })
             {
-                const double inner = 0.368, outer = 1.588, half = 0.915; const float w = 0.05f;
-                var cx = side * (inner + outer) / 2;
-                var length = (float)(outer - inner);
+                const double boxIn = 0.368, boxOut = 1.588, half = 0.915; const float w = 0.05f;
+                var cx = side * (boxIn + boxOut) / 2;
+                var length = (float)(boxOut - boxIn);
                 Chalk("Batter box front", cx, -half, length, w);
                 Chalk("Batter box back", cx, half, length, w);
-                Chalk("Batter box inner", side * inner, 0, w, (float)(2 * half));
-                Chalk("Batter box outer", side * outer, 0, w, (float)(2 * half));
+                Chalk("Batter box boxIn", side * boxIn, 0, w, (float)(2 * half));
+                Chalk("Batter box boxOut", side * boxOut, 0, w, (float)(2 * half));
             }
 
             // Foul lines and poles.
