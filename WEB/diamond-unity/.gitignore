@@ -28,3 +28,10 @@ sysinfo.txt
 *.unitypackage
 crashlytics-build.properties
 
+
+# Mixamo animation/character files may not be redistributed as raw files (Adobe terms); keep them local
+/Assets/Motions/
+/Assets/Motions.meta
+
+# Debug screenshots rendered by Diamond.EditorTools.CaptureField
+/Captures/
