@@ -60,7 +60,7 @@ namespace Diamond.Net
 
         // --- human batter input ---------------------------------------------------------------------------------
         // Aim space matches the web game: zone edges at +/-1, the bat's contact point is (x*0.5 m, 1.05 + y*0.55 m).
-        const float ZoneHalfWidth = 0.5f, ZoneCentreY = 1.05f, ZoneHalfHeight = 0.55f;
+        const float ZoneHalfWidth = Diamond.Sim.StrikeZone.HalfWidth, ZoneCentreY = Diamond.Sim.StrikeZone.CenterY, ZoneHalfHeight = Diamond.Sim.StrikeZone.HalfHeight;
         Transform _reticle;
         LineRenderer _zoneBox;
         Vector2 _aim;

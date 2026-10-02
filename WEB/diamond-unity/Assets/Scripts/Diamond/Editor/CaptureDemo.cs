@@ -64,7 +64,7 @@ namespace Diamond.EditorTools
                 Debug.Log($"FACE ms={ms:0} chest(pitcher)={demo.Facing(true):0.00} chest(batter)={demo.Facing(false):0.00} toes(pitcher)={demo.ToeForward(true):0.00} toes(batter)={demo.ToeForward(false):0.00}");
             }
             // Which clip time puts the throwing hand closest to the server's release point?
-            var target = Diamond.Sim.Field.ToUnity(Diamond.Sim.BallFlight.Pitched(demo.Pitch, demo.Pitch.releaseAt));
+            var target = Diamond.Sim.Field.ToUnity(Diamond.Sim.BallFlight.PitchedZone(demo.Pitch, demo.Pitch.releaseAt));
             var bestT = 0.0; var bestD = float.MaxValue; var bestPos = Vector3.zero;
             for (var t = 1.0; t <= 2.2; t += 0.01)
             {

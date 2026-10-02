@@ -34,6 +34,8 @@ namespace Diamond.Sim
         public const string Catcher = "Baseball Catcher";
         /// <summary>The first second of the clip is a still crouch (hips 0.38 m); after 1.0 s the catcher stands up and throws (AnalyzeCatcher).</summary>
         public const double CatcherStanceSeconds = 0.5;
+        /// <summary>Clip time with the catcher partly risen (hips 0.78 m), used to reach high pitches (AnalyzeCatcher: 1.4 s).</summary>
+        public const double CatcherStandSeconds = 1.45;
 
         public const string Miss = "Baseball Hit_almostmiss";
         /// <summary>Hand speed peaks at 1.00 s in the swing-and-miss clip (AnalyzeMotions).</summary>

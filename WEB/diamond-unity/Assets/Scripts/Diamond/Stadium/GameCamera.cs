@@ -12,11 +12,11 @@ namespace Diamond.Stadium
     {
         [SerializeField] PitchReplayDemo demo;
         [Header("Pitch view (behind home plate)")]
-        [SerializeField] Vector3 pitchPosition = new Vector3(0f, 1.8f, -4.8f);
+        [SerializeField] Vector3 pitchPosition = new Vector3(0f, 1.9f, -6.6f);
         [SerializeField] Vector3 pitchLookAt = new Vector3(0f, 1.3f, 12f);
         [SerializeField] float pitchFov = 45f;
         [Header("Ball tracking view")]
-        [SerializeField] Vector3 followPosition = new Vector3(0f, 3.6f, -9f);
+        [SerializeField] Vector3 followPosition = new Vector3(0f, 3.8f, -10.5f);
         [SerializeField] float frameWidthMetres = 14f;    // height of the field window kept around the ball
         [SerializeField] float minFov = 20f;
         [SerializeField] float maxFov = 50f;

@@ -61,6 +61,22 @@ namespace Diamond.EditorTools
                 demo.Evaluate(contact + dt);
                 Shot(cam, Path.Combine(dir, $"miss_{name}.png"), new Vector3(2.8f, 1.5f, -3.2f), new Vector3(-0.4f, 0.9f, 0f), 38);
             }
+            // (c) Wide, high and low pitches: the catcher should slide, turn and rise to receive them.
+            foreach (var (tag, tx, ty) in new[] { ("wideR", 1.8, 0.0), ("wideL", -1.8, 0.0), ("high", 0.0, 1.8), ("low", 0.0, -1.8) })
+            {
+                var extra = new Pitch
+                {
+                    id = 3, type = "fastball", velocity = 145, releaseAt = pitch.releaseAt, flightMs = pitch.flightMs,
+                    releaseX = pitch.releaseX, releaseY = pitch.releaseY, releaseZ = pitch.releaseZ,
+                    target = new Vec2 { x = tx, y = ty }, breakX = 0.02, breakY = 0.03,
+                };
+                demo.Play(extra, null);
+                demo.Evaluate(arrival - 800);
+                demo.SetResult(new PitchResult { kind = "ball", outcome = "BALL", label = "볼" });
+                demo.Evaluate(arrival + 350);
+                Debug.Log($"CATCH {tag} gloveToBall={demo.GloveToBall():0.00}m ball={demo.Ball.position:0.00}");
+                Shot(cam, Path.Combine(dir, $"catch_{tag}.png"), new Vector3(2.6f, 1.6f, -4.6f), new Vector3(0f, 0.9f, -1.4f), 42);
+            }
             Debug.Log("CATCHER ok");
         }
     }

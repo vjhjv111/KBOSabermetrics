@@ -24,17 +24,33 @@ namespace Diamond.Sim
         }
 
         /// <summary>
-        /// Visual pitch path: identical to <see cref="Pitched"/> up to the plate, then it keeps the ball's exit velocity
+        /// Same curve as <see cref="Pitched"/>, but the plate target is mapped through <see cref="StrikeZone"/> (regulation-sized zone)
+        /// instead of the web game's 1.0 m x 1.1 m zone. Release point and break are unchanged.
+        /// </summary>
+        public static Position3 PitchedZone(Pitch p, double time)
+        {
+            var u = Clamp((time - p.releaseAt) / p.flightMs, 0, 1.35);
+            var bend = Math.Sin(Math.PI * Math.Min(1, u));
+            return new Position3
+            {
+                x = (p.releaseX ?? -0.33) * (1 - u) + StrikeZone.X(p.target.x) * u - p.breakX * bend,
+                y = (p.releaseY ?? 1.84) * (1 - u) + StrikeZone.Y(p.target.y) * u + p.breakY * bend + 0.12 * bend,
+                z = (p.releaseZ ?? -18.44) * (1 - u),
+            };
+        }
+
+        /// <summary>
+        /// Visual pitch path: identical to <see cref="PitchedZone"/> up to the plate, then it keeps the ball's exit velocity
         /// (smooth continuation of the same curve) until it reaches the catcher's mitt <paramref name="catchDepth"/> metres
         /// behind the plate, where it stops. The web version extrapolates a bent straight line instead.
         /// </summary>
-        public static Position3 PitchedVisual(Pitch p, double time, double catchDepth = 0.9)
+        public static Position3 PitchedVisual(Pitch p, double time, double catchDepth = 1.25)
         {
             var u = (time - p.releaseAt) / p.flightMs;
-            if (u <= 1) return Pitched(p, time);
+            if (u <= 1) return PitchedZone(p, time);
             const double e = 1e-4;
-            var at1 = Pitched(p, p.releaseAt + p.flightMs);
-            var before = Pitched(p, p.releaseAt + p.flightMs * (1 - e));
+            var at1 = PitchedZone(p, p.releaseAt + p.flightMs);
+            var before = PitchedZone(p, p.releaseAt + p.flightMs * (1 - e));
             // Per-unit-u velocity at the plate; web z grows towards the catcher.
             var vx = (at1.x - before.x) / e; var vy = (at1.y - before.y) / e; var vz = (at1.z - before.z) / e;
             var uCatch = vz > 1e-6 ? catchDepth / vz : 0.06;

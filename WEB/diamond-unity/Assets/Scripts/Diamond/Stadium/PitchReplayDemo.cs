@@ -20,7 +20,7 @@ namespace Diamond.Stadium
         [SerializeField] AnimationClip hitClip;
         [SerializeField] GameObject catcherPrefab;     // optional: crouching catcher behind the plate (Baseball Catcher)
         [SerializeField] AnimationClip catcherClip;
-        [SerializeField] float catcherDepth = 1.0f;    // metres behind the plate
+        [SerializeField] float catcherDepth = 1.5f;    // metres behind the plate
         [SerializeField] AnimationClip missClip;       // swing-and-miss clip (Baseball Hit_almostmiss); optional
         [SerializeField] float missBlendMs = 90f;      // crossfade from the hit swing into the miss swing once the server says "miss"
         [SerializeField] float holdMs = 450f;          // hold the follow-through before returning to the stance
@@ -47,6 +47,7 @@ namespace Diamond.Stadium
 
         Actor _pitcher, _batter, _catcher;
         Transform _gloveUpper, _gloveLower, _gloveHand;
+        Vector3 _catcherHome;
         Transform _ball;
         TrailRenderer _trail;
         Pitch _pitch, _samplePitch;
@@ -154,11 +155,12 @@ namespace Diamond.Stadium
             }
 
             _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180);
-            _batter = SpawnBatter(batterPrefab, hitClip, missClip, Field.ToUnity(-0.95, 0, 0), 0);
+            _batter = SpawnBatter(batterPrefab, hitClip, missClip, Field.ToUnity(-1.15, 0, 0), 0);
             if (catcherPrefab != null && catcherClip != null)
             {
                 // The catcher squats behind the plate facing the pitcher (clip faces model +z = towards the mound with yaw 0).
-                _catcher = Spawn(catcherPrefab, catcherClip, Field.ToUnity(0, 0, catcherDepth), 0);
+                _catcherHome = Field.ToUnity(0, 0, catcherDepth);
+                _catcher = Spawn(catcherPrefab, catcherClip, _catcherHome, 0);
                 var animator = _catcher.Go.GetComponent<Animator>();
                 _gloveUpper = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
                 _gloveLower = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
@@ -194,9 +196,19 @@ namespace Diamond.Stadium
             if (_trail != null) _trail.Clear();
         }
 
+        static PitchResult WithZoneContact(PitchResult r) => new PitchResult
+        {
+            id = r.id, label = r.label, kind = r.kind, outcome = r.outcome, timing = r.timing, aimError = r.aimError, quality = r.quality,
+            distance = r.distance, exitSpeed = r.exitSpeed, launchAngle = r.launchAngle, direction = r.direction, points = r.points,
+            plateEnded = r.plateEnded, at = r.at, swingAt = r.swingAt, swingAim = r.swingAim, plateLocation = r.plateLocation,
+            bodyHit = r.bodyHit, trajectory = r.trajectory,
+            contact = new Contact { at = r.contact.at, position = StrikeZone.FromWeb(r.contact.position) },
+        };
+
         public void SetResult(PitchResult result)
         {
-            _result = result;
+            // Contact positions come from the server in the web game's plate mapping; show them in the regulation zone.
+            _result = result?.contact == null ? result : WithZoneContact(result);
             // A swing that never made contact is a miss: crossfade into the miss swing from the moment the verdict arrives.
             _missKnownAtMs = _plannedContactMs != null && result != null && result.contact == null ? _lastMs : (double?)null;
         }
@@ -284,7 +296,7 @@ namespace Diamond.Stadium
             if (!batted)
             {
                 var u = (float)((ms - _pitch.releaseAt) / (_pitch.flightMs * blendFraction));
-                var offset = (_handAtRelease - Field.ToUnity(BallFlight.Pitched(_pitch, _pitch.releaseAt))) * Mathf.Clamp01(1f - u);
+                var offset = (_handAtRelease - Field.ToUnity(BallFlight.PitchedZone(_pitch, _pitch.releaseAt))) * Mathf.Clamp01(1f - u);
                 world += offset;
             }
             _ball.position = world;
@@ -349,14 +361,26 @@ namespace Diamond.Stadium
         void PoseCatcher(double ms)
         {
             if (_catcher == null) return;
-            Pose(_catcher, MotionTiming.CatcherStanceSeconds);
             var arrival = _pitch.releaseAt + _pitch.flightMs;
-            var w = Smooth((ms - (arrival - 350)) / 300.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 500.0));
-            if (_result?.contact != null && ms >= _result.contact.at - 50)
-                w *= 1.0 - Smooth((ms - (_result.contact.at - 50)) / 150.0); // ball was hit: no catch
-            if (w <= 0.001) return;
             var mitt = Field.ToUnity(BallFlight.PitchedVisual(_pitch, arrival + 1000));
-            TwoBoneIk(_gloveUpper, _gloveLower, _gloveHand, mitt, (float)w);
+            // Body first (starts early: the catcher reads the pitch), then the glove (IK) on arrival.
+            var body = Smooth((ms - (arrival - 650)) / 450.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 600.0));
+            var glove = Smooth((ms - (arrival - 350)) / 300.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 500.0));
+            if (_result?.contact != null && ms >= _result.contact.at - 50)
+            {
+                // Ball was hit: no catch, relax back to the crouch.
+                var relax = 1.0 - Smooth((ms - (_result.contact.at - 50)) / 150.0);
+                body *= relax; glove *= relax;
+            }
+            // Slide towards the ball, turn the shoulders to it, and stand up for high pitches.
+            var shift = Mathf.Clamp(mitt.x * 0.85f, -0.85f, 0.85f) * (float)body;
+            var yaw = Mathf.Clamp(mitt.x * 30f, -28f, 28f) * (float)body;
+            var stand = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.0f, 1.5f, mitt.y)) * (float)body;
+            var t = (float)MotionTiming.CatcherStanceSeconds + stand * (float)(MotionTiming.CatcherStandSeconds - MotionTiming.CatcherStanceSeconds);
+            _catcher.Go.transform.SetPositionAndRotation(_catcherHome + new Vector3(shift, 0, 0), Quaternion.Euler(0, yaw, 0));
+            Pose(_catcher, t);
+            if (glove <= 0.001) return;
+            TwoBoneIk(_gloveUpper, _gloveLower, _gloveHand, mitt, (float)glove);
         }
 
         /// <summary>
