@@ -142,6 +142,33 @@ public sealed partial class DatabaseCacheService
         };
     }
 
+    /// <summary>Per-season batter runs per win: FanGraphs RPW = (league RA9 + 2) x 1.5 over regular-season final pitching lines.</summary>
+    public async Task<IReadOnlyList<(int Year, double Ra9, double RunsPerWin)>> GetSeasonRunsPerWinAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT g.SeasonYear, COALESCE(SUM(p.RunsAllowed),0), COALESCE(SUM(p.InningsOuts),0)
+            FROM PitcherGameStats p
+            INNER JOIN Games g ON g.GameId=p.GameId
+            WHERE p.HasFinalLine=1
+              AND g.SeasonYear IS NOT NULL
+              AND LOWER(TRIM(COALESCE(g.RoundCode,'')))='kbo_r'
+            GROUP BY g.SeasonYear
+            HAVING SUM(p.InningsOuts) > 0
+            ORDER BY g.SeasonYear DESC;
+            """;
+        var rows = new List<(int, double, double)>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var ra9 = ReadInt32(reader, 1) * 27.0 / ReadInt32(reader, 2);
+            rows.Add((ReadInt32(reader, 0), ra9, (ra9 + 2.0) * 1.5));
+        }
+        return rows;
+    }
+
     private static async Task<LeaguePitchingTotals> ReadLeaguePitchingAsync(
         SqliteConnection connection,
         CancellationToken cancellationToken)

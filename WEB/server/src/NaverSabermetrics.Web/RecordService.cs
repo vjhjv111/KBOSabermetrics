@@ -316,12 +316,12 @@ public sealed partial class RecordService
             if (r.Year.HasValue)
             {
                 var prefix = $"{r.Year.Value} ";
-                return lg.Constants
+                return (await SeasonConstantsAsync(lg, token).ConfigureAwait(false))
                     .Where(row => row.Metric.StartsWith(prefix, StringComparison.Ordinal))
                     .Cast<object>()
                     .ToList();
             }
-            return lg.Constants
+            return (await SeasonConstantsAsync(lg, token).ConfigureAwait(false))
                 .Where(row => !HasSeasonPrefix(row.Metric))
                 .Cast<object>()
                 .ToList();
@@ -427,6 +427,14 @@ public sealed partial class RecordService
             var p=def.RowType.GetProperty("Pcode"); var team=def.RowType.GetProperty("TeamCode");
             rows=rows.Where(x=>eligible.Contains(RecordRoomRowFactory.Key(Convert.ToString(p?.GetValue(x)),Convert.ToString(team?.GetValue(x))))).ToList();
         }
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<LeagueConstantGridRow>> SeasonConstantsAsync(LeagueReference lg, CancellationToken token)
+    {
+        var rows = new List<LeagueConstantGridRow>(lg.Constants);
+        foreach (var (year, ra9, rpw) in await _db.GetSeasonRunsPerWinAsync(token).ConfigureAwait(false))
+            rows.Add(new() { Metric = $"{year} Runs Per Win", Value = rpw, Description = $"타자 WAR 환산 기준: (리그 RA9 {ra9:0.000} + 2) × 1.5" });
         return rows;
     }
 
