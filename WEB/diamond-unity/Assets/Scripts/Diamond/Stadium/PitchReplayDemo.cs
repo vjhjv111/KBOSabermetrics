@@ -21,7 +21,7 @@ namespace Diamond.Stadium
         [SerializeField] GameObject catcherPrefab;     // optional: crouching catcher behind the plate (Baseball Catcher)
         [SerializeField] AnimationClip catcherClip;
         [SerializeField] float catcherDepth = 1.5f;    // metres behind the plate
-        [SerializeField] AnimationClip missClip;       // swing-and-miss clip (Baseball Hit_almostmiss); optional
+        [SerializeField] AnimationClip missClip;       // unused: whiffs reuse the hit swing (Baseball Hit_almostmiss was dropped)
         [SerializeField] float missBlendMs = 90f;      // crossfade from the hit swing into the miss swing once the server says "miss"
         [SerializeField] float holdMs = 450f;          // hold the follow-through before returning to the stance
         [SerializeField] float returnMs = 650f;        // blend back to the stance
@@ -164,7 +164,7 @@ namespace Diamond.Stadium
             }
 
             _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180);
-            _batter = SpawnBatter(batterPrefab, hitClip, missClip, Field.ToUnity(-1.15, 0, 0), 0);
+            _batter = SpawnBatter(batterPrefab, hitClip, null, Field.ToUnity(-1.15, 0, 0), 0);
             var pitcherAnimator = _pitcher.Go.GetComponent<Animator>();
             _pArm = new[]
             {
