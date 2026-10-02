@@ -386,7 +386,7 @@ public sealed partial class DatabaseCacheService
         Row("Blend fWAR 가중치", value.PitcherWar.BlendFipWeight, "KBO Blend WAR에서 fWAR 비중"),
         Row("Blend RA9 가중치", value.PitcherWar.BlendRa9Weight, "KBO Blend WAR에서 RA9-WAR 비중"),
         Row("대체선수 Runs/600PA*", 20.0, "타자 Site WAR v1"),
-        Row("Runs Per Win*", 10.0, "타자 Site WAR v1"),
+        Row("Runs Per Win*", (value.LeagueRa9 + 2.0) * 1.5, "타자 Site WAR v2: (리그 RA9 + 2) × 1.5 (FanGraphs RPW). 전체 연도 평균 참고값이며 실제 WAR은 조회 범위 값을 사용"),
         Row("FG 포지션 기준 이닝", WarehousePositionAdjustment.FullSeasonInnings, "162경기 × 9이닝 (수비 포지션 보정치의 풀타임 기준)"),
         Row("FG 포지션 기준 PA(DH)", WarehousePositionAdjustment.DesignatedHitterFullSeasonPlateAppearances, "지명타자 보정치의 풀타임 기준 타석"),
         Row("포지션 보정 C*", WarehousePositionAdjustment.Rates["C"], "포수, 풀타임(1458이닝) 기준 run/season"),

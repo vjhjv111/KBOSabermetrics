@@ -6,7 +6,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 public sealed partial class DatabaseAnalyticsService
 {
     private const double BatterWarShare = 1.0 - KboPitcherWarMath.DefaultPitcherWarShare; // 57%
-    private const double BatterRunsPerWin = 10.0;
+    private const double FallbackBatterRunsPerWin = 10.0;
 
     private sealed record WarAllocationCalibration(
         int GameCount,
@@ -14,6 +14,7 @@ public sealed partial class DatabaseAnalyticsService
         double BatterTargetWar,
         double PitcherTargetWar,
         double BatterReplacementRunsPerPa,
+        double BatterRunsPerWin,
         double PitcherWarPerInning,
         double FanGraphsPitcherWarPerInning,
         double LoweredReplacementPitcherWarPerInning,
@@ -35,7 +36,7 @@ public sealed partial class DatabaseAnalyticsService
             EndDate = query.EndDate,
             RecentGameCount = query.RecentGameCount,
         };
-        var cacheKey = $"common-war-allocation-v1:{scope.CacheKey}";
+        var cacheKey = $"common-war-allocation-v2:{scope.CacheKey}";
         var cached = await _database.TryLoadComputedAsync<WarAllocationCalibration>(cacheKey, cancellationToken)
             .ConfigureAwait(false);
         if (cached is not null) return cached;
@@ -64,7 +65,14 @@ public sealed partial class DatabaseAnalyticsService
             nonReplacementRuns += battingRuns + runningRuns + row.Position.Runs;
             leaguePa += row.PlateAppearances;
         }
-        var replacementRunsNeeded = batterTargetWar * BatterRunsPerWin - nonReplacementRuns;
+        // FanGraphs RPW = 9 x (runs / innings pitched) x 1.5 + 3 = (R/9 + 2) x 1.5, computed for the same
+        // league-wide window used for the WAR allocation. R/9 treats extra innings like any other inning.
+        var leagueRuns = leagueData.Pitchers.Where(row => row.FinalGames > 0).Sum(row => (double)row.RunsAllowed);
+        var leagueInnings = leagueData.Pitchers.Where(row => row.FinalGames > 0).Sum(row => row.InningsOuts) / 3.0;
+        var batterRunsPerWin = leagueInnings > 0 && leagueRuns > 0
+            ? (leagueRuns * 9.0 / leagueInnings + 2.0) * 1.5
+            : FallbackBatterRunsPerWin;
+        var replacementRunsNeeded = batterTargetWar * batterRunsPerWin - nonReplacementRuns;
         var batterReplacementRunsPerPa = leaguePa > 0
             ? replacementRunsNeeded / leaguePa
             : 20.0 / 600.0;
@@ -113,6 +121,7 @@ public sealed partial class DatabaseAnalyticsService
             batterTargetWar,
             pitcherTargetWar,
             batterReplacementRunsPerPa,
+            batterRunsPerWin,
             pitcherWarPerInning,
             fanGraphsPitcherWarPerInning,
             loweredReplacementPitcherWarPerInning,
