@@ -13,6 +13,9 @@ namespace Diamond.EditorTools
     public static class ConfigureMotions
     {
         static readonly string[] Loops = { "Idle", "Milling", "Walk", "On Deck" };
+        // Locomotion and throwing clips travel several metres; the game moves the actor itself, so keep them in place.
+        static bool InPlace(string path) => path.EndsWith("/Running.fbx") || path.Contains("Jog") || path.Contains("Overhand Throw");
+        static bool Looping(string path) => path.EndsWith("/Running.fbx") || path.Contains("Jog");
 
         [MenuItem("Diamond/Configure motions (Humanoid)")]
         public static void Run()
@@ -26,7 +29,8 @@ namespace Diamond.EditorTools
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                 importer.importAnimation = true;
                 importer.materialImportMode = ModelImporterMaterialImportMode.None;
-                var loop = Loops.Any(path.Contains);
+                var loop = Loops.Any(path.Contains) || Looping(path);
+                var inPlace = InPlace(path);
                 var clips = importer.defaultClipAnimations;
                 foreach (var clip in clips)
                 {
@@ -35,7 +39,8 @@ namespace Diamond.EditorTools
                     // stay in the animation even when the Animator ignores root motion.
                     clip.lockRootRotation = true; clip.keepOriginalOrientation = true;
                     clip.lockRootHeightY = true; clip.keepOriginalPositionY = true;
-                    clip.lockRootPositionXZ = true; clip.keepOriginalPositionXZ = true;
+                    clip.lockRootPositionXZ = !inPlace; clip.keepOriginalPositionXZ = !inPlace;
+                    if (Looping(path)) { clip.lockRootRotation = true; clip.keepOriginalOrientation = false; }
                 }
                 importer.clipAnimations = clips;
                 importer.SaveAndReimport();

@@ -48,6 +48,10 @@ namespace Diamond.Stadium
         Actor _pitcher, _batter, _catcher;
         Transform _gloveUpper, _gloveLower, _gloveHand;
         Vector3 _catcherHome;
+        Transform[] _pArm;               // throwing arm: upper, lower, hand (model's right arm; mirrored for left-handers)
+        Transform _pChest, _pSpine;
+        string _pitchStyle = "overhand";  // overhand | sidearm | underhand
+        [SerializeField] float sideBendSign = 1f;  // flips the lateral torso lean if it tilts the wrong way
         Transform _ball;
         TrailRenderer _trail;
         Pitch _pitch, _samplePitch;
@@ -156,6 +160,14 @@ namespace Diamond.Stadium
 
             _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180);
             _batter = SpawnBatter(batterPrefab, hitClip, missClip, Field.ToUnity(-1.15, 0, 0), 0);
+            var pitcherAnimator = _pitcher.Go.GetComponent<Animator>();
+            _pArm = new[]
+            {
+                pitcherAnimator.GetBoneTransform(HumanBodyBones.RightUpperArm), pitcherAnimator.GetBoneTransform(HumanBodyBones.RightLowerArm),
+                pitcherAnimator.GetBoneTransform(HumanBodyBones.RightHand),
+            };
+            _pChest = pitcherAnimator.GetBoneTransform(HumanBodyBones.UpperChest) ?? pitcherAnimator.GetBoneTransform(HumanBodyBones.Chest);
+            _pSpine = pitcherAnimator.GetBoneTransform(HumanBodyBones.Spine);
             if (catcherPrefab != null && catcherClip != null)
             {
                 // The catcher squats behind the plate facing the pitcher (clip faces model +z = towards the mound with yaw 0).
@@ -273,6 +285,7 @@ namespace Diamond.Stadium
             // Pitcher: clip time runs at a constant ratio so that clip release meets pitch.releaseAt after windupMs.
             var pitchRate = MotionTiming.Pitch1ReleaseSeconds / (windupMs / 1000.0);
             Pose(_pitcher, MotionTiming.Pitch1ReleaseSeconds + (ms - _pitch.releaseAt) / 1000.0 * pitchRate);
+            ApplyDeliveryStyle(ms);
             PoseBatter(ms);
             PoseCatcher(ms);
             _lastMs = ms;
@@ -380,34 +393,58 @@ namespace Diamond.Stadium
             _catcher.Go.transform.SetPositionAndRotation(_catcherHome + new Vector3(shift, 0, 0), Quaternion.Euler(0, yaw, 0));
             Pose(_catcher, t);
             if (glove <= 0.001) return;
-            TwoBoneIk(_gloveUpper, _gloveLower, _gloveHand, mitt, (float)glove);
+            BoneMath.TwoBoneIk(_catcher.Go.transform, _gloveUpper, _gloveLower, _gloveHand, mitt, (float)glove);
+        }
+
+        // --- handedness and delivery style ------------------------------------------------------------------------
+
+        /// <summary>Left-handed players are the same rig mirrored across the x axis (all bone adjustments use model space).</summary>
+        public void SetPitcher(bool leftHanded, string delivery)
+        {
+            _pitchStyle = delivery == "sidearm" || delivery == "underhand" ? delivery : "overhand";
+            if (_pitcher != null) _pitcher.Go.transform.localScale = new Vector3(leftHanded ? -1f : 1f, 1f, 1f);
+        }
+
+        /// <summary>Puts the batter in the right-handed (x &lt; 0) or left-handed (x &gt; 0) box.</summary>
+        public void SetBatter(bool leftHanded)
+        {
+            if (_batter == null) return;
+            _batter.Go.transform.position = Field.ToUnity(leftHanded ? 1.15 : -1.15, 0, 0);
+            _batter.Go.transform.localScale = new Vector3(leftHanded ? -1f : 1f, 1f, 1f);
         }
 
         /// <summary>
-        /// Analytic two-bone IK (law of cosines): rotates the upper and lower arm so the hand reaches <paramref name="target"/>
-        /// (clamped to the arm's reach), keeping the elbow on its animated side, blended by <paramref name="weight"/>.
+        /// Adapts the overhand mocap to the pitcher's arm slot: tilts the torso towards the throwing side (more for sidearm and
+        /// underhand) and moves the throwing hand to the pitch's actual release point around the release.
         /// </summary>
-        static void TwoBoneIk(Transform upper, Transform lower, Transform hand, Vector3 target, float weight)
+        void ApplyDeliveryStyle(double ms)
         {
-            if (upper == null || lower == null || hand == null) return;
-            var upperRot = upper.rotation; var lowerRot = lower.rotation;
-            var a = upper.position; var b = lower.position; var c = hand.position;
-            var lenAb = (b - a).magnitude; var lenBc = (c - b).magnitude;
-            var toTarget = target - a;
-            var dist = Mathf.Clamp(toTarget.magnitude, Mathf.Abs(lenAb - lenBc) + 0.001f, lenAb + lenBc - 0.001f);
-            var dir = toTarget.normalized;
-            var cos = (lenAb * lenAb + dist * dist - lenBc * lenBc) / (2f * lenAb * dist);
-            var angle = Mathf.Acos(Mathf.Clamp(cos, -1f, 1f));
-            var pole = Vector3.ProjectOnPlane(b - a, dir);
-            pole = pole.sqrMagnitude < 1e-8f ? Vector3.down : pole.normalized;
-            var elbow = a + (dir * Mathf.Cos(angle) + pole * Mathf.Sin(angle)) * lenAb;
-            upper.rotation = Quaternion.FromToRotation(b - a, elbow - a) * upper.rotation;
-            b = lower.position; c = hand.position;
-            var reachPoint = a + dir * dist;
-            lower.rotation = Quaternion.FromToRotation(c - b, reachPoint - b) * lower.rotation;
-            upper.rotation = Quaternion.Slerp(upperRot, upper.rotation, weight);
-            lower.rotation = Quaternion.Slerp(lowerRot, lower.rotation, weight);
+            if (_pitcher == null || _pArm == null || _pArm[0] == null) return;
+            var rel = _pitch.releaseAt;
+            var w = (float)(Smooth((ms - (rel - 650)) / 450.0) * (1.0 - Smooth((ms - (rel + 100)) / 450.0)));
+            if (w <= 0.001f) return;
+            var root = _pitcher.Go.transform;
+            float side, lean, ik;
+            switch (_pitchStyle)
+            {
+                case "sidearm": side = 22f; lean = 6f; ik = 1f; break;
+                case "underhand": side = 38f; lean = 16f; ik = 1f; break;
+                default: side = 0f; lean = 0f; ik = 0.6f; break;
+            }
+            if (side > 0f || lean > 0f)
+            {
+                // Tilt towards the throwing side (model +x for the right-handed rig) and bow forward (model +z).
+                var tilt = Quaternion.AngleAxis(-side * w * 0.5f * sideBendSign, Vector3.forward) * Quaternion.AngleAxis(lean * w * 0.5f, Vector3.right);
+                if (_pSpine != null) BoneMath.RotateInModelSpace(_pSpine, root, tilt);
+                if (_pChest != null) BoneMath.RotateInModelSpace(_pChest, root, tilt);
+            }
+            var release = Field.ToUnity(_pitch.releaseX ?? -0.33, _pitch.releaseY ?? 1.84, _pitch.releaseZ ?? -18.32);
+            BoneMath.TwoBoneIk(root, _pArm[0], _pArm[1], _pArm[2], release, w * ik);
         }
+
+        public Vector3 ThrowingHandPosition => _pArm != null && _pArm[2] != null ? _pArm[2].position : Vector3.zero;
+
+        public float ThrowingShoulderHeight() => _pArm != null && _pArm[0] != null ? _pArm[0].position.y : -1f;
 
         static void Pose(Actor a, double clipTime)
         {
