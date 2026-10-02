@@ -18,6 +18,8 @@ namespace Diamond.EditorTools
             var play = Object.FindFirstObjectByType<ServerPlay>();
             var so = new SerializedObject(play);
             so.FindProperty("quitAfterPitches").intValue = 10;
+            so.FindProperty("humanBatter").boolValue = true;
+            so.FindProperty("simulateHumanClicks").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorApplication.EnterPlaymode();
         }

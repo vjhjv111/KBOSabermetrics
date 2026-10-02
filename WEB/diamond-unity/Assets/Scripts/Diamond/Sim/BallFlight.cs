@@ -23,6 +23,25 @@ namespace Diamond.Sim
             };
         }
 
+        /// <summary>
+        /// Visual pitch path: identical to <see cref="Pitched"/> up to the plate, then it keeps the ball's exit velocity
+        /// (smooth continuation of the same curve) until it reaches the catcher's mitt <paramref name="catchDepth"/> metres
+        /// behind the plate, where it stops. The web version extrapolates a bent straight line instead.
+        /// </summary>
+        public static Position3 PitchedVisual(Pitch p, double time, double catchDepth = 0.9)
+        {
+            var u = (time - p.releaseAt) / p.flightMs;
+            if (u <= 1) return Pitched(p, time);
+            const double e = 1e-4;
+            var at1 = Pitched(p, p.releaseAt + p.flightMs);
+            var before = Pitched(p, p.releaseAt + p.flightMs * (1 - e));
+            // Per-unit-u velocity at the plate; web z grows towards the catcher.
+            var vx = (at1.x - before.x) / e; var vy = (at1.y - before.y) / e; var vz = (at1.z - before.z) / e;
+            var uCatch = vz > 1e-6 ? catchDepth / vz : 0.06;
+            var k = Math.Min(u - 1, uCatch);
+            return new Position3 { x = at1.x + vx * k, y = Math.Max(0.12, at1.y + vy * k), z = at1.z + vz * k };
+        }
+
         public static long CarryDistance(double exitSpeed, double angle, double height = 1.05)
         {
             var speed = exitSpeed / 3.6 * SpeedScale;

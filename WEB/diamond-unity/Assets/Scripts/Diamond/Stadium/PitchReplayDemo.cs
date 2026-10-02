@@ -21,9 +21,9 @@ namespace Diamond.Stadium
         [SerializeField] bool autoPlaySample = true;
         [SerializeField] float slowMotion = 1f;
         [SerializeField] float windupMs = 1800f;     // game's PITCH_WINDUP_MS
-        [SerializeField] float swingClipSpeed = 1.6f; // plays the swing faster than the mocap speed
+        [SerializeField] float swingClipSpeed = 1.8f; // plays the swing faster than the mocap speed
         [SerializeField] float blendFraction = 0.3f;  // share of the flight used to merge hand position into the server path
-        [SerializeField] float loadClipSeconds = 1.1f; // clip time of the fully loaded stance before the swing starts
+        [SerializeField] float loadClipSeconds = 1.3f; // clip time of the fully loaded stance before the swing starts
 
         sealed class Actor
         {
@@ -137,6 +137,9 @@ namespace Diamond.Stadium
 
         public void SetResult(PitchResult result) => _result = result;
 
+        /// <summary>Plans the batter's swing for the current pitch (human input): contact happens at <paramref name="contactMs"/> on the server clock.</summary>
+        public void PlanSwing(double contactMs) => _plannedContactMs = contactMs;
+
         /// <summary>Falls back to looping the built-in sample pitch (used when no server is reachable).</summary>
         public void StartSample()
         {
@@ -176,7 +179,7 @@ namespace Diamond.Stadium
                 return loadClipSeconds * Smooth((ms - loadStart) / (swingStart - loadStart));
             }
             // Taking the pitch: load slightly during the flight, then relax back after it passes.
-            var load = 0.45 * Smooth((ms - loadStart) / (0.7 * _pitch.flightMs));
+            var load = 1.0 * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
             var relax = Smooth((ms - (arrival + 250)) / 700.0);
             return loadClipSeconds * load * (1.0 - relax);
         }
@@ -209,7 +212,7 @@ namespace Diamond.Stadium
             }
             var contact = _result?.contact;
             var batted = contact != null && ms >= contact.at;
-            var position = batted ? BallFlight.Batted(_result, ms) : BallFlight.Pitched(_pitch, ms);
+            var position = batted ? BallFlight.Batted(_result, ms) : BallFlight.PitchedVisual(_pitch, ms);
             var world = Field.ToUnity(position);
             if (!batted)
             {
