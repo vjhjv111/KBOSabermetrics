@@ -41,6 +41,30 @@ namespace Diamond.Stadium
         bool _released;
 
         public Transform Ball => _ball;
+        /// <summary>World-space facing (chest direction on the ground plane) of the pitcher or batter, derived from the shoulder line.</summary>
+        /// <summary>World position of the pitcher's throwing hand with the clip at <paramref name="clipSeconds"/> (for timing analysis).</summary>
+        public Vector3 PitcherHandAt(double clipSeconds)
+        {
+            Pose(_pitcher, clipSeconds);
+            return _pitcher.Hand.position;
+        }
+
+        public Vector3 ToeForward(bool pitcher)
+        {
+            var a = (pitcher ? _pitcher : _batter).Go.GetComponent<Animator>();
+            var f = (a.GetBoneTransform(HumanBodyBones.LeftToes).position - a.GetBoneTransform(HumanBodyBones.LeftFoot).position)
+                  + (a.GetBoneTransform(HumanBodyBones.RightToes).position - a.GetBoneTransform(HumanBodyBones.RightFoot).position);
+            f.y = 0;
+            return f.normalized;
+        }
+
+        public Vector3 Facing(bool pitcher)
+        {
+            var a = (pitcher ? _pitcher : _batter).Go.GetComponent<Animator>();
+            var r = a.GetBoneTransform(HumanBodyBones.RightUpperArm).position - a.GetBoneTransform(HumanBodyBones.LeftUpperArm).position;
+            r.y = 0;
+            return Vector3.Cross(r.normalized, Vector3.up);
+        }
         public Pitch Pitch => _pitch;
         public PitchResult Result => _result;
 

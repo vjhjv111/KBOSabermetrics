@@ -28,7 +28,15 @@ namespace Diamond.EditorTools
                 importer.materialImportMode = ModelImporterMaterialImportMode.None;
                 var loop = Loops.Any(path.Contains);
                 var clips = importer.defaultClipAnimations;
-                foreach (var clip in clips) { clip.loopTime = loop; clip.loopPose = loop; }
+                foreach (var clip in clips)
+                {
+                    clip.loopTime = loop; clip.loopPose = loop;
+                    // Bake root rotation and position into the pose (keeping the original heading) so the body turn and stride
+                    // stay in the animation even when the Animator ignores root motion.
+                    clip.lockRootRotation = true; clip.keepOriginalOrientation = true;
+                    clip.lockRootHeightY = true; clip.keepOriginalPositionY = true;
+                    clip.lockRootPositionXZ = true; clip.keepOriginalPositionXZ = true;
+                }
                 importer.clipAnimations = clips;
                 importer.SaveAndReimport();
 

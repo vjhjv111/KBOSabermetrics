@@ -49,6 +49,32 @@ namespace Diamond.EditorTools
                 var mid = new Vector3(0, 1.4f, 9f);
                 Shot(cam, Path.Combine(dir, $"demo_{name}_side.png"), mid + new Vector3(16f, 1.2f, 0), mid, 42);
             }
+            // Start-of-motion top-down views of each actor (world +x is to the right, +z up in the image).
+            foreach (var (name, ms) in new (string, double)[] { ("start", 0), ("pre", release - 1800), ("rel", release) })
+            {
+                demo.Evaluate(ms);
+                var moundPos = new Vector3(0, 0, 18.44f);
+                Shot(cam, Path.Combine(dir, $"face_pitcher_{name}.png"), moundPos + new Vector3(0, 7f, 0.01f), moundPos, 35);
+                var plate = new Vector3(-0.95f, 0, 0);
+                Shot(cam, Path.Combine(dir, $"face_batter_{name}.png"), plate + new Vector3(0.6f, 7f, 0.01f), plate + new Vector3(0.6f, 0, 0), 35);
+            }
+            foreach (var ms in new double[] { 0, release - 1800, release - 900, release, contact - 300, contact })
+            {
+                demo.Evaluate(ms);
+                Debug.Log($"FACE ms={ms:0} chest(pitcher)={demo.Facing(true):0.00} chest(batter)={demo.Facing(false):0.00} toes(pitcher)={demo.ToeForward(true):0.00} toes(batter)={demo.ToeForward(false):0.00}");
+            }
+            // Which clip time puts the throwing hand closest to the server's release point?
+            var target = Diamond.Sim.Field.ToUnity(Diamond.Sim.BallFlight.Pitched(demo.Pitch, demo.Pitch.releaseAt));
+            var bestT = 0.0; var bestD = float.MaxValue; var bestPos = Vector3.zero;
+            for (var t = 1.0; t <= 2.2; t += 0.01)
+            {
+                var p = demo.PitcherHandAt(t);
+                var d = Vector3.Distance(p, target);
+                if (d < bestD) { bestD = d; bestT = t; bestPos = p; }
+            }
+            Debug.Log($"RELEASE target={target:0.00} bestClipTime={bestT:0.00}s dist={bestD:0.00}m handAt={bestPos:0.00}");
+            foreach (var t in new[] { 1.3, 1.4, 1.5, 1.6, 1.7 })
+                Debug.Log($"RELEASE hand t={t:0.0}s pos={demo.PitcherHandAt(t):0.00} dist={Vector3.Distance(demo.PitcherHandAt(t), target):0.00}");
             Debug.Log($"DEMO ok ball@release={demo.Ball.position}");
         }
     }

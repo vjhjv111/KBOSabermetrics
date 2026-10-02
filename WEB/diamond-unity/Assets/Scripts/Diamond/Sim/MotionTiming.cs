@@ -5,7 +5,11 @@ namespace Diamond.Sim
     /// (30 fps, Humanoid, root rotation baked as imported). Values are estimates from hand motion and must be
     /// confirmed visually in the editor before final tuning.
     ///
-    /// Orientation (model space, +z = model forward, identity root):
+    /// Root rotation and position are baked into the pose at import (ConfigureMotions), so the body turn survives applyRootMotion=false.
+    /// Verified world facing with the pitcher at yaw 180 on the mound and the batter at yaw 0 at x&lt;0: the pitcher starts facing the
+    /// third-base side (-x), squares to home (-z) at release; the batter starts with the chest towards the plate (+x).
+    ///
+    /// Earlier notes on model-space orientation (before baking):
     ///  - Pitching clips throw along +z; place the pitcher on the mound with yaw 180 so the ball travels towards home (-z in Unity).
     ///  - The hitting clips are a right-handed stance whose chest faces +x and whose lead (left) foot strides to +z,
     ///    so a right-handed batter at Unity x&lt;0 uses yaw 0. A left-handed batter is the mirror image (flip x scale or use mirrored clips).
@@ -13,8 +17,8 @@ namespace Diamond.Sim
     public static class MotionTiming
     {
         public const string Pitch1 = "Baseball Pitching_1";
-        /// <summary>Right hand is overhead and moving forward at about 1.50 s; the 1.63 s speed peak is the follow-through.</summary>
-        public const double Pitch1ReleaseSeconds = 1.50;
+        /// <summary>Clip time at which the throwing hand is closest (about 0.22 m) to the game's release point (measured by CaptureDemo with baked root motion).</summary>
+        public const double Pitch1ReleaseSeconds = 1.41;
         public const double Pitch1LengthSeconds = 3.933;
 
         public const string Hit = "Baseball Hit";
