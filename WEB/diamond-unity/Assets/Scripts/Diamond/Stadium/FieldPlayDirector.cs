@@ -256,10 +256,36 @@ namespace Diamond.Stadium
         // ---- fielding -------------------------------------------------------------------------------------------
 
         /// <summary>Finds the fielder who gets to the ball first and the time/place of the interception.</summary>
-        bool FindIntercept(PitchResult r, double t0, out int fielder, out double tI, out Vector3 pI)
+        bool FindIntercept(PitchResult r, double t0, bool inAir, out int fielder, out double tI, out Vector3 pI)
         {
             fielder = -1; tI = 0; pI = Vector3.zero;
             var ground = r.trajectory == "ground";
+            if (inAir)
+            {
+                // A fly-ball out is caught before the ball lands: the first moment it is descending through catching height.
+                var prev = float.MaxValue;
+                for (var dt = 200; dt <= 7000; dt += 40)
+                {
+                    var q3 = BallFlight.Batted(r, t0 + dt);
+                    if (q3 == null) continue;
+                    var q = Pos(q3);
+                    var down = q.y <= prev; prev = q.y;
+                    if (!down || q.y > 1.8f || q.y < 0.7f) continue;
+                    var near = 0; var nearDist = float.MaxValue; var reach = -1;
+                    for (var i = 0; i < _fielders.Length; i++)
+                    {
+                        var d = Vector2.Distance(new Vector2(_fielders[i].Home.x, _fielders[i].Home.z), new Vector2(q.x, q.z));
+                        if (d < nearDist) { near = i; nearDist = d; }
+                        if (d / fielderSpeed + 0.25f <= dt / 1000f && (reach < 0 || d < Vector2.Distance(new Vector2(_fielders[reach].Home.x, _fielders[reach].Home.z), new Vector2(q.x, q.z)))) reach = i;
+                    }
+                    // Someone gets there in time or not, the catch is made here: the nearest fielder is sent (faster if he has to be).
+                    fielder = reach >= 0 ? reach : near; tI = t0 + dt; pI = new Vector3(q.x, 0, q.z);
+                    if (reach >= 0) return true;
+                    // Keep scanning while the ball is still high enough: a later point gives the fielder more time.
+                    if (q.y < 1.0f) return true;
+                }
+                if (fielder >= 0) return true;
+            }
             var prevY = float.MaxValue;
             for (var dt = 200; dt <= 7000; dt += 40)
             {
@@ -300,7 +326,7 @@ namespace Diamond.Stadium
 
         double BuildFielding(PitchResult r, double t0, int destination, bool outPlay)
         {
-            if (!FindIntercept(r, t0, out var fi, out var tI, out var pI)) return t0;
+            if (!FindIntercept(r, t0, r.trajectory != "ground" && outPlay, out var fi, out var tI, out var pI)) return t0;
             var fielder = _fielders[fi];
             var flyBall = r.trajectory != "ground";
             var from = fielder.Home;

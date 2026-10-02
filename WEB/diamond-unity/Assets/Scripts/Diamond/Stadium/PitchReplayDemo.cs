@@ -281,7 +281,9 @@ namespace Diamond.Stadium
                 var swingStart = contact - (MotionTiming.HitContactSeconds - loadClipSeconds) / swingClipSpeed * 1000.0;
                 // Stop at the end of the follow-through: the rest of the clip is the run to first base.
                 if (ms >= swingStart) return System.Math.Min(MotionTiming.HitSwingEndSeconds, loadClipSeconds + (ms - swingStart) / 1000.0 * swingClipSpeed);
-                return loadClipSeconds * Smooth((ms - loadStart) / (swingStart - loadStart));
+                // Load during the flight exactly as when taking the pitch, and ease into the swing's first frame so an early click doesn't snap.
+                var pre = loadClipSeconds * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
+                return pre + (loadClipSeconds - pre) * Smooth((ms - (swingStart - 140)) / 140.0);
             }
             // Taking the pitch: load slightly during the flight, then relax back after it passes.
             var load = 1.0 * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
@@ -441,22 +443,42 @@ namespace Diamond.Stadium
             var w = (float)(Smooth((ms - (rel - 650)) / 450.0) * (1.0 - Smooth((ms - (rel + 100)) / 450.0)));
             if (w <= 0.001f) return;
             var root = _pitcher.Go.transform;
-            float side, lean, ik;
+            float side, lean;
             switch (_pitchStyle)
             {
-                case "sidearm": side = 22f; lean = 6f; ik = 1f; break;
-                case "underhand": side = 38f; lean = 16f; ik = 1f; break;
-                default: side = 0f; lean = 0f; ik = 0.6f; break;
-            }
-            if (side > 0f || lean > 0f)
-            {
-                // Tilt towards the throwing side (model +x for the right-handed rig) and bow forward (model +z).
-                var tilt = Quaternion.AngleAxis(-side * w * 0.5f * sideBendSign, Vector3.forward) * Quaternion.AngleAxis(lean * w * 0.5f, Vector3.right);
-                if (_pSpine != null) BoneMath.RotateInModelSpace(_pSpine, root, tilt);
-                if (_pChest != null) BoneMath.RotateInModelSpace(_pChest, root, tilt);
+                case "sidearm": side = 22f; lean = 6f; break;
+                case "underhand": side = 38f; lean = 16f; break;
+                default: side = 0f; lean = 0f; break;
             }
             var release = Field.ToUnity(_pitch.releaseX ?? -0.33, _pitch.releaseY ?? 1.84, _pitch.releaseZ ?? -18.32);
-            BoneMath.TwoBoneIk(root, _pArm[0], _pArm[1], _pArm[2], release, w * ik);
+
+            // Where the animated throwing hand is at the clip's release (tilt included), measured once per pitch and style.
+            if (!ReferenceEquals(_relModelFor, _pitch))
+            {
+                Pose(_pitcher, MotionTiming.Pitch1ReleaseSeconds);
+                TiltTorso(root, side, lean, 1f);
+                _relModel = root.InverseTransformPoint(_pArm[2].position);
+                _relModelFor = _pitch;
+                var rate = MotionTiming.Pitch1ReleaseSeconds / (windupMs / 1000.0);
+                Pose(_pitcher, MotionTiming.Pitch1ReleaseSeconds + (ms - rel) / 1000.0 * rate);
+            }
+            TiltTorso(root, side, lean, w);
+            // Shift the hand along its own arc by the offset between the clip's release and the game's release point, so the arm keeps
+            // swinging through the throw instead of being pinned to one spot.
+            var current = root.InverseTransformPoint(_pArm[2].position);
+            var offset = root.InverseTransformPoint(release) - _relModel;
+            BoneMath.TwoBoneIk(root, _pArm[0], _pArm[1], _pArm[2], root.TransformPoint(current + offset * w), 1f);
+        }
+
+        Vector3 _relModel; Pitch _relModelFor;
+
+        /// <summary>Tilts the torso towards the throwing side (model +x for the right-handed rig) and bows it forward (model +z).</summary>
+        void TiltTorso(Transform root, float side, float lean, float w)
+        {
+            if (side <= 0f && lean <= 0f) return;
+            var tilt = Quaternion.AngleAxis(-side * w * 0.5f * sideBendSign, Vector3.forward) * Quaternion.AngleAxis(lean * w * 0.5f, Vector3.right);
+            if (_pSpine != null) BoneMath.RotateInModelSpace(_pSpine, root, tilt);
+            if (_pChest != null) BoneMath.RotateInModelSpace(_pChest, root, tilt);
         }
 
         public Vector3 ThrowingHandPosition => _pArm != null && _pArm[2] != null ? _pArm[2].position : Vector3.zero;

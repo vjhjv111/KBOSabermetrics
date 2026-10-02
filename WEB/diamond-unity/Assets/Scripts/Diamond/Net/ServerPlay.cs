@@ -384,6 +384,10 @@ namespace Diamond.Net
 
         async Task<(ActionView view, PitchResult result)> PlayPitch(ActionView view)
         {
+            // Next batter steps in right away: fielders, runners and the batter (unhidden, in his box, in the stance) are set before the server round trip.
+            BeginPlay(view);
+            _demo.ShowStance(ServerNow);
+            _active = true;
             view = await OpReady(view);
             Sync(view);
             var pitch = view.pitch;
@@ -546,6 +550,7 @@ namespace Diamond.Net
             _hud.PitchMenuAnchor = new Vector3(0f, 1.1f, 18.44f);
 
             // Hold everyone in the stance while the user prepares the pitch.
+            BeginPlay(action);
             _demo.ShowStance(ServerNow);
             _active = true;
             _pitchSubmitted = false; _charging = false;
