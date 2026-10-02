@@ -15,6 +15,10 @@ namespace Diamond.Stadium
         [SerializeField] Vector3 pitchPosition = new Vector3(0f, 1.9f, -6.6f);
         [SerializeField] Vector3 pitchLookAt = new Vector3(0f, 1.3f, 12f);
         [SerializeField] float pitchFov = 45f;
+        [Header("Pitcher view (behind the mound, when the user pitches)")]
+        [SerializeField] Vector3 pitcherViewPosition = new Vector3(0f, 3.4f, 24.5f);
+        [SerializeField] Vector3 pitcherViewLookAt = new Vector3(0f, 1.0f, 0f);
+        [SerializeField] float pitcherViewFov = 30f;
         [Header("Ball tracking view")]
         [SerializeField] Vector3 followPosition = new Vector3(0f, 3.8f, -10.5f);
         [SerializeField] float frameWidthMetres = 14f;    // height of the field window kept around the ball
@@ -30,7 +34,10 @@ namespace Diamond.Stadium
         Vector3 _lookPoint, _prevBall, _ballVelocity;
         bool _following;
         const float BallBaseScale = 0.074f;
-        bool _init;
+        bool _init, _pitcherView;
+
+        /// <summary>Selects the view used before contact: behind home plate (batting) or behind the mound (pitching).</summary>
+        public void SetPitcherView(bool pitcher) => _pitcherView = pitcher;
 
         void Awake()
         {
@@ -72,9 +79,9 @@ namespace Diamond.Stadium
             }
             else
             {
-                wantPos = pitchPosition;
-                wantLook = pitchLookAt;
-                wantFov = pitchFov;
+                wantPos = _pitcherView ? pitcherViewPosition : pitchPosition;
+                wantLook = _pitcherView ? pitcherViewLookAt : pitchLookAt;
+                wantFov = _pitcherView ? pitcherViewFov : pitchFov;
                 if (_following) { demo.Ball.localScale = Vector3.one * BallBaseScale; _following = false; }
             }
 

@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &208015172
+--- !u!1 &280727093
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,227 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 208015174}
-  - component: {fileID: 208015173}
+  - component: {fileID: 280727097}
+  - component: {fileID: 280727096}
+  - component: {fileID: 280727095}
+  - component: {fileID: 280727094}
+  m_Layer: 0
+  m_Name: Field
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &280727094
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 280727093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e28087658ebec1443a72397715c42abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Net.ServerPlay
+  baseUrl: http://127.0.0.1:5080
+  pace: practice
+  fullMatch: 1
+  hostTeam: 
+  guestTeam: 
+  swingChance: 0.85
+  autoStart: 1
+  humanBatter: 1
+  humanPitcher: 1
+  simulateHumanClicks: 0
+  quitAfterPitches: 0
+--- !u!114 &280727095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 280727093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c31d7e84a953ece4db3790390f098176, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.PitchReplayDemo
+  pitcherPrefab: {fileID: 919132149155446097, guid: 1a732fb97a92f104a954a37532ff5dbf, type: 3}
+  pitchClip: {fileID: -203655887218126122, guid: 1a732fb97a92f104a954a37532ff5dbf, type: 3}
+  batterPrefab: {fileID: 919132149155446097, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
+  hitClip: {fileID: -203655887218126122, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
+  catcherPrefab: {fileID: 919132149155446097, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
+  catcherClip: {fileID: -203655887218126122, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
+  catcherDepth: 1.5
+  missClip: {fileID: -203655887218126122, guid: 277caad7d77fd9b4c8f7ab9274e784aa, type: 3}
+  missBlendMs: 90
+  holdMs: 450
+  returnMs: 650
+  autoPlaySample: 1
+  slowMotion: 1
+  windupMs: 1800
+  swingClipSpeed: 1.8
+  blendFraction: 0.3
+  loadClipSeconds: 1.3
+  sideBendSign: 1
+--- !u!114 &280727096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 280727093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1de032bc92b86ff48bca19e3754d6e66, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.StadiumBuilder
+  buildOnStart: 1
+--- !u!4 &280727097
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 280727093}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1811313088
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1811313092}
+  - component: {fileID: 1811313091}
+  - component: {fileID: 1811313090}
+  - component: {fileID: 1811313089}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1811313089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1811313088}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89c36ab2b911a284fa7fbcdc4621a6d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.GameCamera
+  demo: {fileID: 280727095}
+  pitchPosition: {x: 0, y: 1.9, z: -6.6}
+  pitchLookAt: {x: 0, y: 1.3, z: 12}
+  pitchFov: 45
+  pitcherViewPosition: {x: 0, y: 3.4, z: 24.5}
+  pitcherViewLookAt: {x: 0, y: 1, z: 0}
+  pitcherViewFov: 30
+  followPosition: {x: 0, y: 3.8, z: -10.5}
+  frameWidthMetres: 14
+  minFov: 20
+  maxFov: 50
+  positionTime: 0.45
+  lookTime: 0.12
+  fovTime: 0.25
+--- !u!81 &1811313090
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1811313088}
+  m_Enabled: 1
+--- !u!20 &1811313091
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1811313088}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.55, g: 0.72, b: 0.88, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.1
+  far clip plane: 600
+  field of view: 50
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &1811313092
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1811313088}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.010896053, y: 0, z: 0, w: 0.99994063}
+  m_LocalPosition: {x: 0, y: 1.8, z: -4.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2060161129
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2060161131}
+  - component: {fileID: 2060161130}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -136,13 +355,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &208015173
+--- !u!108 &2060161130
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 208015172}
+  m_GameObject: {fileID: 2060161129}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -201,228 +420,16 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &208015174
+--- !u!4 &2060161131
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 208015172}
+  m_GameObject: {fileID: 2060161129}
   serializedVersion: 2
   m_LocalRotation: {x: 0.418082, y: -0.27027258, z: 0.13182074, w: 0.85719514}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &952323488
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 952323492}
-  - component: {fileID: 952323491}
-  - component: {fileID: 952323490}
-  - component: {fileID: 952323489}
-  m_Layer: 0
-  m_Name: Field
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &952323489
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 952323488}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e28087658ebec1443a72397715c42abe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Net.ServerPlay
-  baseUrl: http://127.0.0.1:5080
-  pace: practice
-  swingChance: 0.85
-  autoStart: 1
-  humanBatter: 1
-  simulateHumanClicks: 0
-  quitAfterPitches: 0
---- !u!114 &952323490
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 952323488}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c31d7e84a953ece4db3790390f098176, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.PitchReplayDemo
-  pitcherPrefab: {fileID: 919132149155446097, guid: 1a732fb97a92f104a954a37532ff5dbf, type: 3}
-  pitchClip: {fileID: -203655887218126122, guid: 1a732fb97a92f104a954a37532ff5dbf, type: 3}
-  batterPrefab: {fileID: 919132149155446097, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
-  hitClip: {fileID: -203655887218126122, guid: 1494cc353546d9543b5865f742d9ae3e, type: 3}
-  catcherPrefab: {fileID: 919132149155446097, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
-  catcherClip: {fileID: -203655887218126122, guid: e0ebb13edd925f648b0d9abb5dabe80d, type: 3}
-  catcherDepth: 1.5
-  missClip: {fileID: -203655887218126122, guid: 277caad7d77fd9b4c8f7ab9274e784aa, type: 3}
-  missBlendMs: 90
-  holdMs: 450
-  returnMs: 650
-  autoPlaySample: 1
-  slowMotion: 1
-  windupMs: 1800
-  swingClipSpeed: 1.8
-  blendFraction: 0.3
-  loadClipSeconds: 1.3
-  sideBendSign: 1
---- !u!114 &952323491
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 952323488}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1de032bc92b86ff48bca19e3754d6e66, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.StadiumBuilder
-  buildOnStart: 1
---- !u!4 &952323492
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 952323488}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2062708813
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2062708817}
-  - component: {fileID: 2062708816}
-  - component: {fileID: 2062708815}
-  - component: {fileID: 2062708814}
-  m_Layer: 0
-  m_Name: Main Camera
-  m_TagString: MainCamera
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2062708814
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2062708813}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 89c36ab2b911a284fa7fbcdc4621a6d6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Diamond.Stadium.GameCamera
-  demo: {fileID: 952323490}
-  pitchPosition: {x: 0, y: 1.9, z: -6.6}
-  pitchLookAt: {x: 0, y: 1.3, z: 12}
-  pitchFov: 45
-  followPosition: {x: 0, y: 3.8, z: -10.5}
-  frameWidthMetres: 14
-  minFov: 20
-  maxFov: 50
-  positionTime: 0.45
-  lookTime: 0.12
-  fovTime: 0.25
---- !u!81 &2062708815
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2062708813}
-  m_Enabled: 1
---- !u!20 &2062708816
-Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2062708813}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.55, g: 0.72, b: 0.88, a: 1}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.1
-  far clip plane: 600
-  field of view: 50
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &2062708817
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2062708813}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.010896053, y: 0, z: 0, w: 0.99994063}
-  m_LocalPosition: {x: 0, y: 1.8, z: -4.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -432,6 +439,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 2062708817}
-  - {fileID: 208015174}
-  - {fileID: 952323492}
+  - {fileID: 1811313092}
+  - {fileID: 2060161131}
+  - {fileID: 280727097}

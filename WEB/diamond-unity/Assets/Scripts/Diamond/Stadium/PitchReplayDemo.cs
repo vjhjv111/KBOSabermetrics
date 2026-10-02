@@ -217,6 +217,17 @@ namespace Diamond.Stadium
             contact = new Contact { at = r.contact.at, position = StrikeZone.FromWeb(r.contact.position) },
         };
 
+        /// <summary>Holds everyone in their stance (used while waiting for the user to throw a pitch).</summary>
+        public void ShowStance(double nowMs)
+        {
+            var idle = new Pitch
+            {
+                id = 0, type = "fastball", velocity = 140, releaseAt = nowMs + 1e7, flightMs = 900,
+                releaseX = -0.33, releaseY = 1.84, releaseZ = -18.32, target = new Vec2(),
+            };
+            Play(idle, null);
+        }
+
         public void SetResult(PitchResult result)
         {
             // Contact positions come from the server in the web game's plate mapping; show them in the regulation zone.

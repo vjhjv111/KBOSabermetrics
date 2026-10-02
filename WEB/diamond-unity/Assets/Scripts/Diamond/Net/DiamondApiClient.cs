@@ -49,6 +49,27 @@ namespace Diamond.Net
             return JObject.Parse(await Send(req));
         }
 
+        /// <summary>POST /api/diamond/match (full friendly match) with the session CSRF token; returns the raw JSON response.</summary>
+        public async Task<JObject> PostMatchRaw(JObject body)
+        {
+            await EnsureSession();
+            using var req = new UnityWebRequest(_baseUrl + "/api/diamond/match", "POST")
+            {
+                uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body.ToString(Formatting.None))),
+                downloadHandler = new DownloadHandlerBuffer(),
+            };
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.SetRequestHeader("X-CSRF-TOKEN", _csrf);
+            try { return JObject.Parse(await Send(req)); }
+            catch (Exception e) when (e.Message.Contains("CSRF")) { _csrf = ""; throw; }
+        }
+
+        public async Task<JObject> GetMatchRaw(string code)
+        {
+            using var req = UnityWebRequest.Get(_baseUrl + "/api/diamond/match?code=" + UnityWebRequest.EscapeURL(code));
+            return JObject.Parse(await Send(req));
+        }
+
         public async Task<ActionView> Get(string code)
         {
             using var req = UnityWebRequest.Get(_baseUrl + "/api/diamond/action?code=" + UnityWebRequest.EscapeURL(code));

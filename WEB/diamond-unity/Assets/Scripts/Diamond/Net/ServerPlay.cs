@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Diamond.Model;
 using Diamond.Stadium;
@@ -8,29 +9,38 @@ using Diamond.Stadium;
 namespace Diamond.Net
 {
     /// <summary>
-    /// Plays a live AI-pitcher vs. automated-batter at-bat sequence against the site's local server: creates a game,
-    /// asks for pitches, replays each one (pitcher windup, release, ball flight), decides whether to swing, sends the
-    /// swing to the server and replays the server's verdict (miss, foul, hit, out...). The server stays authoritative.
+    /// Drives the 3D replay from the site's local server. Two modes:
+    ///  - practice: an endless AI-pitcher practice game (6 plate appearances per game);
+    ///  - full match: a friendly match against an AI club. When the user's club bats, each pitch is replayed and the batter swings
+    ///    (mouse aim + click, or automated); when it fields, the half-inning is simulated by the server.
+    /// The server is authoritative for every result; this class only replays and presents them.
     /// </summary>
     [RequireComponent(typeof(PitchReplayDemo))]
     public sealed class ServerPlay : MonoBehaviour
     {
         [SerializeField] string baseUrl = "http://127.0.0.1:5080";
         [SerializeField] string pace = "practice";           // practice = slow pitches, real, full
+        [SerializeField] bool fullMatch = true;              // false: endless practice game
+        [SerializeField] string hostTeam = "";               // full match clubs (codes such as LG, HT); empty = random
+        [SerializeField] string guestTeam = "";
         [SerializeField, Range(0f, 1f)] float swingChance = 0.85f;
         [SerializeField] bool autoStart = true;
         [SerializeField] bool humanBatter = true;            // true: aim with the mouse and click to swing; false: automated batter
+        [SerializeField] bool humanPitcher = true;           // full match: pitch yourself when your club is in the field (else the half-inning is simulated)
         [SerializeField] bool simulateHumanClicks = false;   // test hook: click automatically around the arrival time (exercises the human path)
         [SerializeField] int quitAfterPitches = 0;           // >0: exit the editor after N pitches (automated smoke test)
 
         const double SwingContactMs = 95; // DiamondEngine.SwingContactMs on the server
 
         PitchReplayDemo _demo;
+        GameHud _hud;
         DiamondApiClient _api;
+        MatchClient _match;
+        string _practiceCode;
         double _clockOffset;           // server ms - local ms
         bool _active;
-        string _status = "starting...";
-        string _line = "";
+        int _pitchesPlayed;
+        string _shownBatter, _shownPitcher;
         readonly System.Random _rng = new System.Random();
 
         double ServerNow => Time.realtimeSinceStartupAsDouble * 1000.0 + _clockOffset;
@@ -39,18 +49,17 @@ namespace Diamond.Net
         {
             _demo = GetComponent<PitchReplayDemo>();
             _demo.AutoPlaySample = false;
+            _hud = GetComponent<GameHud>() ?? gameObject.AddComponent<GameHud>();
         }
-
-        void CreateVisualsIfHuman() { if (humanBatter) CreateAimVisuals(); }
 
         async void Start()
         {
-            CreateVisualsIfHuman();
+            if (humanBatter || humanPitcher) CreateAimVisuals();
             if (!autoStart) return;
             try { await Run(); }
             catch (Exception e)
             {
-                _status = "server unavailable (" + e.Message + ") - showing sample pitch";
+                _hud.SetStatus("server unavailable (" + e.Message + ") - showing sample pitch");
                 Debug.LogWarning("ServerPlay: " + e.Message);
                 _active = false;
                 _demo.StartSample();
@@ -59,7 +68,7 @@ namespace Diamond.Net
         }
 
         // --- human batter input ---------------------------------------------------------------------------------
-        // Aim space matches the web game: zone edges at +/-1, the bat's contact point is (x*0.5 m, 1.05 + y*0.55 m).
+        // Aim space matches the web game: zone edges at +/-1, mapped to the regulation-sized zone (see StrikeZone).
         const float ZoneHalfWidth = Diamond.Sim.StrikeZone.HalfWidth, ZoneCentreY = Diamond.Sim.StrikeZone.CenterY, ZoneHalfHeight = Diamond.Sim.StrikeZone.HalfHeight;
         Transform _reticle;
         LineRenderer _zoneBox;
@@ -93,9 +102,69 @@ namespace Diamond.Net
             _reticle = dot.transform;
         }
 
+        // --- human pitcher input ----------------------------------------------------------------------------------
+        // Same controls as the web game: pick a pitch, aim on the zone, then hold the button and release at the centre of
+        // the 1.4 s gauge (quality = 1 - |position - 0.5| * 2).
+        const float GaugeSeconds = 1.4f;
+        bool _awaitingPitchInput;
+        string[] _pitchTypes = new string[0];
+        int _pitchTypeIndex;
+        bool _charging;
+        float _chargeStart;
+        bool _pitchSubmitted;
+        Vector2 _pitchAim;
+        double _pitchQuality;
+
+        static string PitchLabel(string type, double velocity) => type switch
+        {
+            "fastball" => "직구", "slider" => "슬라이더", "curve" => "커브", "changeup" => "체인지업",
+            "splitter" => "스플리터", "sinker" => "싱커", "cutter" => "커터", _ => type,
+        } + (velocity > 0 ? $"  {velocity:0}km/h" : "");
+
+        void SelectPitch(int index)
+        {
+            if (index < 0 || index >= _pitchTypes.Length) return;
+            _pitchTypeIndex = index;
+            RefreshPitchMenu();
+        }
+
+        string[] _pitchMenuLabels = new string[0];
+        void RefreshPitchMenu() => _hud.SetPitchMenu(_pitchMenuLabels, _pitchTypeIndex);
+
+        void UpdatePitchInput()
+        {
+            if (!_awaitingPitchInput || _pitchSubmitted) return;
+            for (var i = 0; i < _pitchTypes.Length && i < 9; i++)
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i)) SelectPitch(i);
+            if (Input.mouseScrollDelta.y != 0 && _pitchTypes.Length > 0)
+                SelectPitch((_pitchTypeIndex + (Input.mouseScrollDelta.y < 0 ? 1 : _pitchTypes.Length - 1)) % _pitchTypes.Length);
+            if (Input.GetMouseButtonDown(0))
+            {
+                if (_hud.OverPitchMenu(Input.mousePosition, out var picked)) { SelectPitch(picked); }
+                else { _charging = true; _chargeStart = Time.realtimeSinceStartup; }
+            }
+            if (_charging)
+            {
+                var pos = ((Time.realtimeSinceStartup - _chargeStart) % GaugeSeconds) / GaugeSeconds;
+                _hud.SetGauge(true, pos);
+                if (Input.GetMouseButtonUp(0))
+                {
+                    _charging = false;
+                    _hud.SetGauge(false, 0);
+                    _pitchQuality = Mathf.Clamp01(1f - Mathf.Abs(pos - 0.5f) * 2f);
+                    _pitchAim = _aim;
+                    _pitchSubmitted = true;
+                }
+            }
+        }
+
         void UpdateAim()
         {
-            if (!humanBatter || _reticle == null) return;
+            if (_reticle == null) return;
+            var aiming = (humanBatter && _awaitingInput) || _awaitingPitchInput;
+            _reticle.gameObject.SetActive(aiming);
+            if (_zoneBox != null) _zoneBox.enabled = aiming;
+            if (!aiming) return;
             var cam = Camera.main;
             if (cam == null) return;
             var ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -110,6 +179,7 @@ namespace Diamond.Net
                 _clickedAt = ServerNow;
                 _clickAim = _aim;
             }
+            UpdatePitchInput();
         }
 
         void Update()
@@ -118,14 +188,6 @@ namespace Diamond.Net
             if (_active) _demo.Evaluate(ServerNow);
         }
 
-        void OnGUI()
-        {
-            GUI.Label(new Rect(12, 8, 900, 24), "Diamond 3D  |  " + _status);
-            if (_line.Length > 0) GUI.Label(new Rect(12, 30, 900, 24), _line);
-        }
-
-        int _pitchesPlayed;
-
         void SmokeExit(int code)
         {
 #if UNITY_EDITOR
@@ -133,7 +195,8 @@ namespace Diamond.Net
 #endif
         }
 
-        void Sync(ActionView view) => _clockOffset = view.serverNow - Time.realtimeSinceStartupAsDouble * 1000.0;
+        void Sync(long serverNow) => _clockOffset = serverNow - Time.realtimeSinceStartupAsDouble * 1000.0;
+        void Sync(ActionView view) => Sync(view.serverNow);
 
         async Task WaitServer(double targetMs)
         {
@@ -144,118 +207,341 @@ namespace Diamond.Net
 
         double Gauss() => Math.Sqrt(-2 * Math.Log(Math.Max(1e-9, _rng.NextDouble()))) * Math.Cos(2 * Math.PI * _rng.NextDouble());
 
+        // --- server operations: the same pitch loop runs against the practice game or the full match ----------------
+
+        async Task<ActionView> OpReady(ActionView v)
+        {
+            if (_match != null) return (await _match.Command("ready", new { previousPitch = v.pitchCount })).Action;
+            return await _api.Post(new { op = "ready", code = _practiceCode, previousPitch = v.pitchCount });
+        }
+
+        async Task<ActionView> OpSwing(int pitchId, double inputAt, object aim)
+        {
+            if (_match != null) return (await _match.Command("swing", new { pitchId, inputAt, aim })).Action;
+            return await _api.Post(new { op = "swing", code = _practiceCode, pitchId, inputAt, aim });
+        }
+
+        async Task<ActionView> OpPoll()
+        {
+            if (_match != null) return (await _match.Refresh()).Action;
+            return await _api.Get(_practiceCode);
+        }
+
         async Task Run()
         {
             _api = new DiamondApiClient(baseUrl);
-            _status = "connecting to " + baseUrl;
+            _hud.SetStatus("connecting to " + baseUrl);
             await _api.EnsureSession();
             var roster = await _api.GetRoster();
-            var season = roster.Value<int>("season");
-            // The prototype has right-handed batting and overhand pitching motions only.
-            var batter = roster["batters"].First(b => b["profile"]?.Value<string>("bats") == "R");
-            var pitcher = roster["pitchers"].First(p => p["profile"]?.Value<string>("throws") == "R" && p["profile"]?.Value<string>("delivery") == "overhand");
-            _line = $"batter {batter.Value<string>("name")} ({batter.Value<string>("team")})  vs  pitcher {pitcher.Value<string>("name")} ({pitcher.Value<string>("team")})  season {season}";
+            if (fullMatch) await RunMatch(roster); else await RunPractice(roster);
+        }
 
+        // --- practice: endless 6-plate-appearance games with random players --------------------------------------
+
+        async Task RunPractice(JObject roster)
+        {
+            var season = roster.Value<int>("season");
             async Task<ActionView> NewGame()
             {
+                var batter = Pick(roster["batters"]);
+                var pitcher = Pick(roster["pitchers"]);
                 var created = await _api.Post(new { op = "create", mode = "ai", role = "batter", batter = batter.Value<string>("id"), pitcher = pitcher.Value<string>("id"), pace, season });
                 Sync(created);
+                _practiceCode = created.code;
+                var pb = batter["profile"]; var pp = pitcher["profile"];
+                ApplyPlayers(batter.Value<string>("name"), pb?.Value<string>("bats"), pitcher.Value<string>("name"), pp?.Value<string>("throws"), pp?.Value<string>("delivery"),
+                    batter.Value<string>("team"), pitcher.Value<string>("team"));
                 return created;
             }
 
             var view = await NewGame();
-            var code = view.code;
-
             while (true)
             {
                 // A practice game ends after 6 plate appearances: start a fresh one.
-                if (view.done)
+                if (view.done) { _hud.SetStatus($"game over (score {view.score}) - starting a new game"); view = await NewGame(); }
+                var (next, _) = await PlayPitch(view);
+                view = next;
+                if (QuitReached()) return;
+            }
+        }
+
+        JToken Pick(JToken list)
+        {
+            var items = list.ToArray();
+            return items[_rng.Next(items.Length)];
+        }
+
+        // --- full match -----------------------------------------------------------------------------------------
+
+        async Task RunMatch(JObject roster)
+        {
+            var season = roster.Value<int>("season");
+            var codes = roster["teams"].Select(t => t.Value<string>("code")).ToArray();
+            _match = new MatchClient(_api);
+
+            async Task<MatchState> NewMatch()
+            {
+                var host = !string.IsNullOrEmpty(hostTeam) ? hostTeam : codes[_rng.Next(codes.Length)];
+                var guest = !string.IsNullOrEmpty(guestTeam) && guestTeam != host ? guestTeam : codes.Where(c => c != host).OrderBy(_ => _rng.Next()).First();
+                var created = await _match.Create(season, host, guest, pace);
+                Sync(created.ServerNow);
+                _shownBatter = _shownPitcher = null;
+                return created;
+            }
+
+            var state = await NewMatch();
+            while (true)
+            {
+                PresentState(state);
+                if (state.Complete)
                 {
-                    _status = $"game over (score {view.score}) - starting a new game";
-                    view = await NewGame();
-                    code = view.code;
+                    var winner = state.HomeRuns > state.AwayRuns ? state.TeamName(state.HomeTeam) : state.AwayRuns > state.HomeRuns ? state.TeamName(state.AwayTeam) : "무승부";
+                    _hud.ShowBanner($"경기 종료  {state.AwayRuns} : {state.HomeRuns}  ({winner})", new Color(1f, 0.85f, 0.3f), 8f);
+                    _hud.SetStatus("경기 종료 - 잠시 후 새 경기를 시작합니다");
+                    await Task.Delay(8000);
+                    state = await NewMatch();
+                    continue;
                 }
-                view = await _api.Post(new { op = "ready", code, previousPitch = view.pitchCount });
-                Sync(view);
-                var pitch = view.pitch;
-                if (pitch == null) { await Task.Delay(300); continue; }
-
-                var arrival = pitch.releaseAt + pitch.flightMs;
-                var inZone = Math.Abs(pitch.target.x) <= 1.0 && Math.Abs(pitch.target.y) <= 1.0;
-                _clickedAt = null;
-                _awaitingInput = humanBatter;
-                _demo.Play(pitch, null);
-                _active = true;
-
-                PitchResult result;
-                double? swingContact = null;      // server-clock contact time of the swing that was sent, if any
-                object swingAim = null;
-                double? swingInputAt = null;
-                if (humanBatter)
+                var action = state.Action;
+                if (humanPitcher && action != null && action.role == "pitcher")
                 {
-                    _status = $"{view.balls}-{view.strikes}  pitch #{pitch.id} {pitch.type} {pitch.velocity:0}km/h  -  move the mouse to aim, click to swing";
-                    // Wait for a click or for the pitch to pass (the server resolves a take after the arrival window).
-                    var simulatedClick = arrival - SwingContactMs + Gauss() * 70;
-                    while (_clickedAt == null && ServerNow < arrival + 900)
+                    // The user's club is in the field: pitch yourself.
+                    state = await PlayHumanPitch(state);
+                    if (QuitReached()) return;
+                    continue;
+                }
+                SetPitcherView(false);
+                if (action == null || action.role != "batter")
+                {
+                    // The user's club is in the field but pitching is automated: the half-inning is played by the server.
+                    _active = false;
+                    _hud.SetStatus($"{state.Inning}회 {(state.TopHalf ? "초" : "말")} 수비 — 서버가 이닝을 진행합니다");
+                    state = await _match.Command("sim-half");
+                    Sync(state.ServerNow);
+                    var events = state.RecentEvents(3);
+                    if (events.Length > 0) _hud.ShowBanner(events[events.Length - 1], Color.white, 2.5f);
+                    continue;
+                }
+
+                ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
+                    state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam));
+                var (_, result) = await PlayPitch(action);
+                state = _match.State;
+                if (QuitReached()) return;
+            }
+        }
+
+        void PresentState(MatchState s)
+        {
+            if (!s.HasGame) return;
+            _hud.SetLineScore(s.TeamName(s.AwayTeam), s.TeamName(s.HomeTeam), s.AwayLine, s.HomeLine, s.AwayRuns, s.HomeRuns, s.AwayHits, s.HomeHits);
+            var a = s.Action;
+            var r = s.BaseRunners;
+            _hud.SetSituation(s.Inning, s.TopHalf, a?.balls ?? 0, a?.strikes ?? 0, s.Outs, r[0], r[1], r[2]);
+            _hud.SetLog(s.RecentEvents(4));
+        }
+
+        void ApplyPlayers(string batterName, string bats, string pitcherName, string throws, string delivery, string batterTeam, string pitcherTeam)
+        {
+            var pitcherLeft = throws == "L";
+            // Switch hitters bat from the side opposite the pitcher's throwing hand.
+            var batterLeft = bats == "L" || (bats == "S" && !pitcherLeft);
+            _demo.SetPitcher(pitcherLeft, delivery);
+            _demo.SetBatter(batterLeft);
+            var form = delivery == "sidearm" ? "사이드암" : delivery == "underhand" ? "언더핸드" : "오버핸드";
+            _hud.SetPlayers($"타자  {batterName} ({batterTeam})  {(batterLeft ? "좌타" : "우타")}{(bats == "S" ? " (양타)" : "")}",
+                            $"투수  {pitcherName} ({pitcherTeam})  {(pitcherLeft ? "좌투" : "우투")} {form}");
+        }
+
+        bool QuitReached()
+        {
+            if (quitAfterPitches > 0 && ++_pitchesPlayed >= quitAfterPitches)
+            {
+                Debug.Log("ServerPlay smoke test ok: " + _pitchesPlayed + " pitches");
+                SmokeExit(0);
+                return true;
+            }
+            return false;
+        }
+
+        // --- one pitch: replay, swing decision, server verdict ------------------------------------------------------
+
+        async Task<(ActionView view, PitchResult result)> PlayPitch(ActionView view)
+        {
+            view = await OpReady(view);
+            Sync(view);
+            var pitch = view.pitch;
+            if (pitch == null) { await Task.Delay(300); return (view, null); }
+
+            var arrival = pitch.releaseAt + pitch.flightMs;
+            var inZone = Math.Abs(pitch.target.x) <= 1.0 && Math.Abs(pitch.target.y) <= 1.0;
+            _clickedAt = null;
+            _awaitingInput = humanBatter;
+            _demo.Play(pitch, null);
+            _active = true;
+            if (_match != null) PresentState(_match.State);
+            _hud.SetSituation(_match?.State.Inning ?? 1, _match?.State.TopHalf ?? true, view.balls, view.strikes, _match?.State.Outs ?? 0,
+                              _match?.State.BaseRunners[0], _match?.State.BaseRunners[1], _match?.State.BaseRunners[2]);
+
+            double? swingInputAt = null;
+            object swingAim = null;
+            if (humanBatter)
+            {
+                _hud.SetStatus($"{pitch.type} {pitch.velocity:0}km/h — 마우스로 조준, 클릭으로 스윙");
+                // Wait for a click or for the pitch to pass (the server resolves a take after the arrival window).
+                var simulatedClick = arrival - SwingContactMs + Gauss() * 70;
+                while (_clickedAt == null && ServerNow < arrival + 900)
+                {
+                    if (simulateHumanClicks && ServerNow >= simulatedClick)
                     {
-                        if (simulateHumanClicks && ServerNow >= simulatedClick)
-                        {
-                            _clickedAt = ServerNow;
-                            _clickAim = new Vector2(ClampAim(pitch.target.x + Gauss() * 0.3), ClampAim(pitch.target.y + Gauss() * 0.3));
-                        }
-                        await Task.Yield();
+                        _clickedAt = ServerNow;
+                        _clickAim = new Vector2(ClampAim(pitch.target.x + Gauss() * 0.3), ClampAim(pitch.target.y + Gauss() * 0.3));
                     }
-                    if (_clickedAt is double clicked)
-                    {
-                        swingInputAt = clicked;
-                        swingContact = clicked + SwingContactMs;
-                        swingAim = new { x = (double)_clickAim.x, y = (double)_clickAim.y };
-                        _demo.PlanSwing(swingContact.Value);
-                    }
+                    await Task.Yield();
                 }
-                else
+                if (_clickedAt is double clicked)
                 {
-                    var swing = _rng.NextDouble() < (inZone ? swingChance : swingChance * 0.35);
-                    // Human-like timing and aim error so results vary (misses, fouls, grounders, singles, homers).
-                    var contactMs = arrival + Math.Max(-190, Math.Min(190, Gauss() * 85));
-                    Debug.Log($"ServerPlay pitch #{pitch.id} {pitch.type} {pitch.velocity:0}km/h target=({pitch.target.x:0.00},{pitch.target.y:0.00}) flight={pitch.flightMs:0}ms zone={inZone} swing={swing}");
-                    _status = $"{view.balls}-{view.strikes}  pitch #{pitch.id} {pitch.type} {pitch.velocity:0}km/h  " + (swing ? "swing" : "take");
-                    if (swing)
-                    {
-                        _demo.PlanSwing(contactMs);
-                        await WaitServer(contactMs - SwingContactMs);
-                        swingInputAt = contactMs - SwingContactMs;
-                        swingContact = contactMs;
-                        swingAim = new { x = (double)ClampAim(pitch.target.x + Gauss() * 0.3), y = (double)ClampAim(pitch.target.y + Gauss() * 0.3) };
-                    }
-                }
-                _awaitingInput = false;
-
-                if (swingInputAt is double inputAt)
-                {
-                    view = await _api.Post(new { op = "swing", code, pitchId = pitch.id, inputAt, aim = swingAim });
-                    result = view.pitch?.reaction ?? view.history.LastOrDefault();
-                }
-                else
-                {
-                    await WaitServer(arrival + 900);
-                    view = await _api.Get(code);
-                    Sync(view);
-                    result = view.pitch?.reaction ?? view.history.LastOrDefault();
-                }
-
-                _demo.SetResult(result);
-                _status = $"{view.balls}-{view.strikes}  pitch #{pitch.id}: {result.label} ({result.outcome})" + (result.timing != null ? $"  timing {result.timing:0}ms aim error {result.aimError:0.00}" : "") +
-                          (result.exitSpeed > 0 ? $"  exit {result.exitSpeed:0}km/h launch {result.launchAngle:0}° dist {result.distance:0}m" : "");
-                Debug.Log("ServerPlay result: " + _status);
-                await WaitServer((result.contact?.at ?? arrival) + 3800);
-                if (quitAfterPitches > 0 && ++_pitchesPlayed >= quitAfterPitches)
-                {
-                    Debug.Log("ServerPlay smoke test ok: " + _pitchesPlayed + " pitches");
-                    SmokeExit(0);
-                    return;
+                    swingInputAt = clicked;
+                    swingAim = new { x = (double)_clickAim.x, y = (double)_clickAim.y };
+                    _demo.PlanSwing(clicked + SwingContactMs);
                 }
             }
+            else
+            {
+                var swing = _rng.NextDouble() < (inZone ? swingChance : swingChance * 0.35);
+                // Human-like timing and aim error so results vary (misses, fouls, grounders, singles, homers).
+                var contactMs = arrival + Math.Max(-190, Math.Min(190, Gauss() * 85));
+                _hud.SetStatus($"{pitch.type} {pitch.velocity:0}km/h — " + (swing ? "자동 스윙" : "자동 take"));
+                if (swing)
+                {
+                    _demo.PlanSwing(contactMs);
+                    await WaitServer(contactMs - SwingContactMs);
+                    swingInputAt = contactMs - SwingContactMs;
+                    swingAim = new { x = (double)ClampAim(pitch.target.x + Gauss() * 0.3), y = (double)ClampAim(pitch.target.y + Gauss() * 0.3) };
+                }
+            }
+            _awaitingInput = false;
+
+            ActionView after;
+            if (swingInputAt is double inputAt)
+            {
+                after = await OpSwing(pitch.id, inputAt, swingAim);
+            }
+            else
+            {
+                await WaitServer(arrival + 900);
+                after = await OpPoll();
+            }
+            return await FinishPitch(view, after, arrival);
+        }
+
+        /// <summary>Replays the server's verdict for a pitch, then waits for the play to finish.</summary>
+        async Task<(ActionView view, PitchResult result)> FinishPitch(ActionView before, ActionView after, double arrival)
+        {
+            if (after != null) Sync(after);
+            var result = after?.pitch?.reaction ?? after?.history.LastOrDefault();
+            if (_match != null) PresentState(_match.State);
+
+            if (result == null)
+            {
+                // The server already moved on (for example the half-inning ended); show the play-by-play line instead.
+                var events = _match?.State.RecentEvents(1);
+                if (events != null && events.Length > 0) _hud.ShowBanner(events[0], Color.white, 3f);
+                await WaitServer(arrival + 2500);
+                return (after ?? before, null);
+            }
+
+            _demo.SetResult(result);
+            Announce(result, after);
+            Debug.Log("ServerPlay result: " + result.label + $" ({result.outcome})" + (result.timing != null ? $" timing {result.timing:0}ms aim error {result.aimError:0.00}" : "") +
+                      (result.exitSpeed > 0 ? $" exit {result.exitSpeed:0}km/h launch {result.launchAngle:0}° dist {result.distance:0}m" : ""));
+            await WaitServer((result.contact?.at ?? arrival) + 3800);
+            return (after ?? before, result);
+        }
+
+        void SetPitcherView(bool on)
+        {
+            var gc = Camera.main != null ? Camera.main.GetComponent<GameCamera>() : null;
+            if (gc != null) gc.SetPitcherView(on);
+        }
+
+        /// <summary>
+        /// The user pitches: choose a pitch type, aim on the zone, hold and release the gauge. The server throws the pitch and the AI
+        /// batter decides whether to swing; the replay and the verdict follow as for batting.
+        /// </summary>
+        async Task<MatchState> PlayHumanPitch(MatchState state)
+        {
+            var action = state.Action;
+            ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
+                state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam));
+            PresentState(state);
+            SetPitcherView(true);
+
+            var arsenal = (state.Player(action.pitcher)?["arsenal"] as JArray)?.Select(a => (type: a.Value<string>("type"), velocity: a.Value<double?>("velocity") ?? 0)).ToArray()
+                          ?? new[] { ("fastball", 140.0) };
+            if (arsenal.Length == 0) arsenal = new[] { ("fastball", 140.0) };
+            _pitchTypes = arsenal.Select(a => a.type).ToArray();
+            _pitchMenuLabels = arsenal.Select(a => PitchLabel(a.type, a.velocity)).ToArray();
+            _pitchTypeIndex = 0;
+            RefreshPitchMenu();
+
+            // Hold everyone in the stance while the user prepares the pitch.
+            _demo.ShowStance(ServerNow);
+            _active = true;
+            _pitchSubmitted = false; _charging = false;
+            _awaitingPitchInput = true;
+            _hud.SetStatus("구종을 고르고 존을 조준한 뒤, 마우스를 누르고 있다가 게이지 가운데에서 놓으세요");
+
+            string type; double ax, ay, quality;
+            if (simulateHumanClicks)
+            {
+                await Task.Delay(900);
+                var i = _rng.Next(_pitchTypes.Length);
+                type = _pitchTypes[i];
+                ax = ClampAim(Gauss() * 0.7); ay = ClampAim(Gauss() * 0.7); quality = 0.8 + 0.2 * _rng.NextDouble();
+            }
+            else
+            {
+                while (!_pitchSubmitted) await Task.Yield();
+                type = _pitchTypes[_pitchTypeIndex];
+                ax = _pitchAim.x; ay = _pitchAim.y; quality = _pitchQuality;
+            }
+            _awaitingPitchInput = false;
+            _hud.SetPitchMenu(null, 0);
+            _hud.SetGauge(false, 0);
+
+            var thrown = await _match.Command("pitch", new { previousPitch = action.pitchCount, type, aim = new { x = ax, y = ay }, quality });
+            Sync(thrown.ServerNow);
+            var view = thrown.Action;
+            var pitch = view?.pitch;
+            if (pitch == null) { await Task.Delay(300); return _match.State; }
+
+            // The AI batter's swing was prepared with the pitch: replay it (its contact time) or take.
+            var arrival = pitch.releaseAt + pitch.flightMs;
+            _demo.Play(pitch, pitch.aiBatterSwing != null ? pitch.aiBatterSwing.at : (double?)null);
+            _active = true;
+            _hud.SetStatus($"{PitchLabel(type, pitch.velocity)}  품질 {quality:0.00}");
+            // The server resolves the pitch after the arrival window (or shortly after the batter's contact).
+            await WaitServer(Math.Max(arrival + 260, (pitch.aiBatterSwing?.at ?? 0) + 60) + 250);
+            var after = (await _match.Refresh()).Action;
+            await FinishPitch(view, after, arrival);
+            return _match.State;
+        }
+
+        void Announce(PitchResult r, ActionView view)
+        {
+            Color c;
+            switch (r.outcome)
+            {
+                case "HR": c = new Color(1f, 0.85f, 0.2f); break;
+                case "1B": case "2B": case "3B": case "BB": case "HBP": c = new Color(0.45f, 0.95f, 0.5f); break;
+                case "OUT": case "K": c = new Color(1f, 0.45f, 0.4f); break;
+                default: c = Color.white; break;
+            }
+            var detail = r.timing != null ? $"   타이밍 {r.timing:0}ms · 조준 오차 {r.aimError:0.00}" : "";
+            if (r.exitSpeed > 0) detail += $"   타구 {r.exitSpeed:0}km/h · {r.launchAngle:0}° · {r.distance:0}m";
+            _hud.ShowBanner(r.label, c, 3.2f);
+            _hud.SetStatus($"{view.balls}-{view.strikes}  #{r.id}  {r.label}{detail}");
         }
     }
 }
