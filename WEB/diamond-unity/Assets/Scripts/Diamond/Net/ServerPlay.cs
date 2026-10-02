@@ -340,7 +340,7 @@ namespace Diamond.Net
                 }
 
                 ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
-                    state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam));
+                    state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam), state.BattingTeam == state.HomeTeam);
                 var (_, result) = await PlayPitch(action);
                 state = _match.State;
                 if (QuitReached()) return;
@@ -357,8 +357,11 @@ namespace Diamond.Net
             _hud.SetLog(s.RecentEvents(4));
         }
 
-        void ApplyPlayers(string batterName, string bats, string pitcherName, string throws, string delivery, string batterTeam, string pitcherTeam)
+        void ApplyPlayers(string batterName, string bats, string pitcherName, string throws, string delivery, string batterTeam, string pitcherTeam, bool battingHome = false)
         {
+            var offense = TeamLooks.For(batterTeam, battingHome); var defense = TeamLooks.For(pitcherTeam, !battingHome);
+            _demo.SetLooks(offense, defense);
+            _field?.SetLooks(offense, defense);
             var pitcherLeft = throws == "L";
             // Switch hitters bat from the side opposite the pitcher's throwing hand.
             var batterLeft = bats == "L" || (bats == "S" && !pitcherLeft);
@@ -536,7 +539,7 @@ namespace Diamond.Net
         {
             var action = state.Action;
             ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
-                state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam));
+                state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam), state.BattingTeam == state.HomeTeam);
             PresentState(state);
             SetPitcherView(true);
 

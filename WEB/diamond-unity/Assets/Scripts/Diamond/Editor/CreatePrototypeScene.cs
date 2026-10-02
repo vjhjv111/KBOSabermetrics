@@ -13,6 +13,19 @@ namespace Diamond.EditorTools
     /// </summary>
     public static class CreatePrototypeScene
     {
+        const string BodyPath = "Assets/Motions/Baseball Hit with model.fbx";
+
+        /// <summary>The skinned player body (falls back to the plain mannequin FBX when the textured one is missing).</summary>
+        static GameObject Body() =>
+            AssetDatabase.LoadAssetAtPath<GameObject>(BodyPath) ?? AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Hit.fbx");
+
+        [MenuItem("Diamond/Rebuild prototype (configure motions + scene)")]
+        public static void Rebuild()
+        {
+            ConfigureMotions.Run();
+            Run();
+        }
+
         static AnimationClip Clip(string path) => AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>().First(c => !c.name.StartsWith("__preview__"));
 
         [MenuItem("Diamond/Create prototype scene")]
@@ -46,18 +59,18 @@ namespace Diamond.EditorTools
             var demo = field.AddComponent<PitchReplayDemo>();
             field.AddComponent<Diamond.Net.ServerPlay>();
             var so = new SerializedObject(demo);
-            so.FindProperty("pitcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Pitching_1.fbx");
+            so.FindProperty("pitcherPrefab").objectReferenceValue = Body();
             so.FindProperty("pitchClip").objectReferenceValue = Clip("Assets/Motions/Baseball Pitching_1.fbx");
-            so.FindProperty("batterPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Hit.fbx");
+            so.FindProperty("batterPrefab").objectReferenceValue = Body();
             so.FindProperty("hitClip").objectReferenceValue = Clip("Assets/Motions/Baseball Hit.fbx");
             so.FindProperty("homerunClip").objectReferenceValue = Clip("Assets/Motions/Baseball Hit_homerun.fbx");
-            so.FindProperty("catcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Catcher.fbx");
+            so.FindProperty("catcherPrefab").objectReferenceValue = Body();
             so.FindProperty("catcherClip").objectReferenceValue = Clip("Assets/Motions/Baseball Catcher.fbx");
             so.ApplyModifiedPropertiesWithoutUndo();
             var director = field.AddComponent<FieldPlayDirector>();
             var directorSo = new SerializedObject(director);
             directorSo.FindProperty("demo").objectReferenceValue = demo;
-            directorSo.FindProperty("actorPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Idle.fbx");
+            directorSo.FindProperty("actorPrefab").objectReferenceValue = Body();
             var names = new[] { "Baseball Idle", "Running", "Running Slide", "Picking Up", "Goalkeeper Catch", "Goalkeeper Diving Save", "Goalkeeper Overhand Throw", "Cheering" };
             var clipsProp = directorSo.FindProperty("clips");
             clipsProp.arraySize = names.Length;

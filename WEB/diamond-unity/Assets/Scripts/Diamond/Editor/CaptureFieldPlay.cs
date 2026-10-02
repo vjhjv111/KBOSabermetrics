@@ -1,3 +1,4 @@
+using System.Linq;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -80,6 +81,19 @@ namespace Diamond.EditorTools
                     cam.transform.LookAt(new Vector3(0f, 0f, 36f));
                     cam.fieldOfView = 60;
                     Snap(cam, Path.Combine(dir, $"play_{name}_{dt:0000}.png"));
+                    if (name == "groundout" || name == "single")
+                    {
+                        // Close-ups of the fielder nearest the ball and of the batter-runner.
+                        var ballPos = demo.Ball.position;
+                        var near = director.GetComponentsInChildren<Animator>().Where(a => a.gameObject.activeInHierarchy && a.name.StartsWith("Fielder")).OrderBy(a => (a.transform.position - ballPos).sqrMagnitude).First();
+                        var runner = director.GetComponentsInChildren<Animator>().FirstOrDefault(a => a.gameObject.activeInHierarchy && a.name == "Runner 0");
+                        foreach (var (tag, target) in new[] { ("fielder", near.transform), ("runner", runner != null ? runner.transform : near.transform) })
+                        {
+                            var c = target.position;
+                            cam.transform.position = c + new Vector3(3.5f, 1.6f, -4f); cam.transform.LookAt(c + Vector3.up * 0.9f); cam.fieldOfView = 35;
+                            Snap(cam, Path.Combine(dir, $"close_{name}_{tag}_{dt:0000}.png"));
+                        }
+                    }
                 }
             }
             Debug.Log("FIELDPLAY ok");

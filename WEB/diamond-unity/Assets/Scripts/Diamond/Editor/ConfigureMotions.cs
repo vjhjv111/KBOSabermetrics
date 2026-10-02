@@ -28,6 +28,7 @@ namespace Diamond.EditorTools
                 importer.animationType = ModelImporterAnimationType.Human;
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                 importer.importAnimation = true;
+                importer.isReadable = path.Contains("with model");   // the dressed body is split by bone weights at run time
                 importer.materialImportMode = ModelImporterMaterialImportMode.None;
                 var loop = Loops.Any(path.Contains) || Looping(path);
                 var inPlace = InPlace(path);

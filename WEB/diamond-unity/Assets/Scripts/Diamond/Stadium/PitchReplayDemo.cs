@@ -43,6 +43,7 @@ namespace Diamond.Stadium
             public AnimationMixerPlayable Mixer;
             public AnimationClipPlayable[] Clips;
             public AnimationClip HomerunClip;
+            public PlayerKit Kit;
         }
 
         Actor _pitcher, _batter, _catcher;
@@ -69,6 +70,13 @@ namespace Diamond.Stadium
         public System.Func<double, Vector3?> BallOverride;
         /// <summary>Shows or hides the batter at the plate (hidden once the batter becomes a runner).</summary>
         public void SetBatterVisible(bool visible) { if (_batter != null) _batter.Go.SetActive(visible); }
+        /// <summary>Uniforms: <paramref name="offense"/> for the batter, <paramref name="defense"/> for the pitcher and catcher.</summary>
+        public void SetLooks(PlayerKit.Look offense, PlayerKit.Look defense)
+        {
+            _batter?.Kit?.SetLook(offense); _pitcher?.Kit?.SetLook(defense); _catcher?.Kit?.SetLook(defense);
+        }
+        public PlayerKit BatterKit => _batter?.Kit;
+        public Animator BatterAnimator => _batter != null ? _batter.Go.GetComponent<Animator>() : null;
         public Vector3 BatterPosition => _batter != null ? _batter.Go.transform.position : Vector3.zero;
         public double LastMs => _lastMs;
         public int PitchId => _pitch != null ? _pitch.id : 0;
@@ -96,38 +104,33 @@ namespace Diamond.Stadium
             if (a != null && a.Graph.IsValid()) a.Graph.Destroy();
         }
 
-        Actor Spawn(GameObject prefab, AnimationClip clip, Vector3 position, float yaw)
+        Actor Spawn(GameObject prefab, AnimationClip clip, Vector3 position, float yaw, PlayerKit.Role role)
         {
             var go = Instantiate(prefab, position, Quaternion.Euler(0, yaw, 0), transform);
-            var surface = Resources.Load<Material>("Diamond/Player");
-            var joints = Resources.Load<Material>("Diamond/PlayerJoints");
-            foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>())
-                r.sharedMaterial = r.name.Contains("Joints") ? joints : surface;
             var animator = go.GetComponent<Animator>() ?? go.AddComponent<Animator>();
             animator.applyRootMotion = false;
+            var kit = PlayerKit.Dress(go, role, Resources.Load<Material>("Diamond/Player"));
             var graph = PlayableGraph.Create("Actor " + prefab.name);
             graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
             var output = AnimationPlayableOutput.Create(graph, "anim", animator);
             var playable = AnimationClipPlayable.Create(graph, clip);
             output.SetSourcePlayable(playable);
             graph.Play();
-            return new Actor { Go = go, Clip = clip, Graph = graph, Playable = playable, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand) };
+            return new Actor { Go = go, Kit = kit, Clip = clip, Graph = graph, Playable = playable, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand) };
         }
 
         /// <summary>Batter rig: a mixer over the hit swing, the miss swing and the stance so swings can crossfade and return to the stance.</summary>
         Actor SpawnBatter(GameObject prefab, AnimationClip hit, AnimationClip homerun, Vector3 position, float yaw)
         {
             var go = Instantiate(prefab, position, Quaternion.Euler(0, yaw, 0), transform);
-            var surface = Resources.Load<Material>("Diamond/Player");
-            var joints = Resources.Load<Material>("Diamond/PlayerJoints");
-            foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>())
-                r.sharedMaterial = r.name.Contains("Joints") ? joints : surface;
             var animator = go.GetComponent<Animator>() ?? go.AddComponent<Animator>();
             animator.applyRootMotion = false;
+            var kit = PlayerKit.Dress(go, PlayerKit.Role.Batter, Resources.Load<Material>("Diamond/Player"));
             if (homerun != null)
             {
                 _hrContact = MeasureContact(go, homerun);
                 _hrEnd = System.Math.Min(_hrContact + 1.1, homerun.length - 0.05);
+                animator.Rebind();   // SampleAnimation left the bones posed; let the playable graph drive them from a clean state
             }
             var graph = PlayableGraph.Create("Batter " + prefab.name);
             graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
@@ -145,7 +148,7 @@ namespace Diamond.Stadium
             graph.Play();
             return new Actor
             {
-                Go = go, Clip = hit, HomerunClip = homerun, Graph = graph, Mixer = mixer, Clips = clips,
+                Go = go, Kit = kit, Clip = hit, HomerunClip = homerun, Graph = graph, Mixer = mixer, Clips = clips,
                 Hand = animator.GetBoneTransform(HumanBodyBones.RightHand),
             };
         }
@@ -169,7 +172,7 @@ namespace Diamond.Stadium
                 _trail.material = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = Color.white };
             }
 
-            _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180);
+            _pitcher = Spawn(pitcherPrefab, pitchClip, Field.ToUnity(0, Field.MoundHeight, -Field.MoundDistance), 180, PlayerKit.Role.Pitcher);
             #if UNITY_EDITOR
             // Scenes built before the home-run swing existed have no clip assigned: pick it up from the project.
             if (homerunClip == null)
@@ -188,7 +191,7 @@ namespace Diamond.Stadium
             {
                 // The catcher squats behind the plate facing the pitcher (clip faces model +z = towards the mound with yaw 0).
                 _catcherHome = Field.ToUnity(0, 0, catcherDepth);
-                _catcher = Spawn(catcherPrefab, catcherClip, _catcherHome, 0);
+                _catcher = Spawn(catcherPrefab, catcherClip, _catcherHome, 0, PlayerKit.Role.Catcher);
                 var animator = _catcher.Go.GetComponent<Animator>();
                 _gloveUpper = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
                 _gloveLower = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
@@ -282,6 +285,9 @@ namespace Diamond.Stadium
 
         // --- timing ------------------------------------------------------------------------------------------
 
+        /// <summary>Clip time of the batting stance in "Baseball Hit": its first frames are the walk into the box (feet sunk in the ground for left-handers).</summary>
+        const double StanceSeconds = 0.3;
+
         double BatterClipTime(double ms)
         {
             var arrival = _pitch.releaseAt + _pitch.flightMs;
@@ -293,13 +299,13 @@ namespace Diamond.Stadium
                 // Stop at the end of the follow-through: the rest of the clip is the run to first base.
                 if (ms >= swingStart) return System.Math.Min(MotionTiming.HitSwingEndSeconds, loadClipSeconds + (ms - swingStart) / 1000.0 * swingClipSpeed);
                 // Load during the flight exactly as when taking the pitch, and ease into the swing's first frame so an early click doesn't snap.
-                var pre = loadClipSeconds * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
+                var pre = StanceSeconds + (loadClipSeconds - StanceSeconds) * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
                 return pre + (loadClipSeconds - pre) * Smooth((ms - (swingStart - 140)) / 140.0);
             }
             // Taking the pitch: load slightly during the flight, then relax back after it passes.
             var load = 1.0 * Smooth((ms - loadStart) / (0.85 * _pitch.flightMs));
             var relax = Smooth((ms - (arrival + 250)) / 700.0);
-            return loadClipSeconds * load * (1.0 - relax);
+            return StanceSeconds + (loadClipSeconds - StanceSeconds) * load * (1.0 - relax);
         }
 
         static double Smooth(double t)
@@ -394,7 +400,7 @@ namespace Diamond.Stadium
             }
             b.Clips[0].SetTime(Mathf.Clamp((float)hitT, 0f, b.Clip.length - 0.001f));
             b.Clips[1].SetTime(Mathf.Clamp((float)hrT, 0f, (b.HomerunClip != null ? b.HomerunClip.length : b.Clip.length) - 0.001f));
-            b.Clips[2].SetTime(0);
+            b.Clips[2].SetTime((float)StanceSeconds);
             b.Mixer.SetInputWeight(0, (float)((1 - wHr) * (1 - wStance)));
             b.Mixer.SetInputWeight(1, (float)(wHr * (1 - wStance)));
             b.Mixer.SetInputWeight(2, (float)wStance);

@@ -27,6 +27,10 @@ namespace Diamond.Stadium
         [SerializeField] float throwSpeed = 27f;       // thrown ball, m/s
 
         // ---- rigs -----------------------------------------------------------------------------------------------
+        const float IdleYaw = 0f;   // the ready stance is built from muscles (facing the rig's forward), so no extra yaw
+
+        static Quaternion BaseRotation(Rig rig) => rig.Go.transform.rotation * Quaternion.Euler(0, rig.YawOffset, 0);
+
         double _batterSwapMs;   // server time at which the swinging batter is replaced by his running rig (0 = no swap pending)
 
         sealed class Rig
@@ -37,6 +41,9 @@ namespace Diamond.Stadium
             public AnimationClipPlayable[] Playables;
             public Transform Hand;
             public Animator Animator;
+            public PlayerKit Kit;
+            public HumanPoseHandler PoseHandler;
+            public float YawOffset;   // extra yaw currently applied for the clip in use (see IdleYaw)
             public Vector3 Home;
             public readonly List<Seg> Segments = new List<Seg>();
         }
@@ -83,21 +90,19 @@ namespace Diamond.Stadium
             for (var i = 0; i < _fielders.Length; i++)
             {
                 var spot = Pos(Field.DefensiveSpots[i]);
-                _fielders[i] = CreateRig("Fielder " + Field.DefensiveSlots[i], spot);
+                _fielders[i] = CreateRig("Fielder " + Field.DefensiveSlots[i], spot, PlayerKit.Role.Fielder);
             }
-            for (var i = 0; i < _runners.Length; i++) _runners[i] = CreateRig("Runner " + i, Base(i));
+            for (var i = 0; i < _runners.Length; i++) _runners[i] = CreateRig("Runner " + i, Base(i), PlayerKit.Role.Runner);
             ResetField();
         }
 
-        Rig CreateRig(string name, Vector3 home)
+        Rig CreateRig(string name, Vector3 home, PlayerKit.Role role)
         {
             var go = Instantiate(actorPrefab, home, Quaternion.identity, transform);
             go.name = name;
-            var surface = Resources.Load<Material>("Diamond/Player");
-            var joints = Resources.Load<Material>("Diamond/PlayerJoints");
-            foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>()) r.sharedMaterial = r.name.Contains("Joints") ? joints : surface;
             var animator = go.GetComponent<Animator>() ?? go.AddComponent<Animator>();
             animator.applyRootMotion = false;
+            var kit = PlayerKit.Dress(go, role, Resources.Load<Material>("Diamond/Player"));
             var graph = PlayableGraph.Create(name);
             graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
             var output = AnimationPlayableOutput.Create(graph, "anim", animator);
@@ -110,7 +115,7 @@ namespace Diamond.Stadium
             }
             output.SetSourcePlayable(mixer);
             graph.Play();
-            return new Rig { Go = go, Graph = graph, Mixer = mixer, Playables = playables, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand), Animator = animator, Home = home };
+            return new Rig { Go = go, Graph = graph, Mixer = mixer, Playables = playables, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand), Animator = animator, Kit = kit, Home = home };
         }
 
         void OnDestroy()
@@ -119,6 +124,14 @@ namespace Diamond.Stadium
         }
 
         // ---- public API -----------------------------------------------------------------------------------------
+
+        /// <summary>Uniforms: <paramref name="offense"/> for the runners, <paramref name="defense"/> for the fielders.</summary>
+        public void SetLooks(PlayerKit.Look offense, PlayerKit.Look defense)
+        {
+            if (!_built) Build();
+            foreach (var f in _fielders) f?.Kit?.SetLook(defense);
+            foreach (var r in _runners) r?.Kit?.SetLook(offense);
+        }
 
         /// <summary>Puts every fielder in position and hides the runners; call at the start of each plate appearance.</summary>
         public void ResetField()
@@ -416,7 +429,9 @@ namespace Diamond.Stadium
 
         void Place(Rig rig, Vector3 pos, Quaternion rot, Clip clip, double clipTime, bool loop)
         {
-            rig.Go.transform.SetPositionAndRotation(pos, rot);
+            // The idle clip is a batting stance whose chest faces about +100 degrees of model yaw; turn it so it faces where the rig is aimed.
+            rig.YawOffset = clip == Clip.Idle ? IdleYaw : 0f;
+            rig.Go.transform.SetPositionAndRotation(pos, rot * Quaternion.Euler(0, -rig.YawOffset, 0));
             for (var i = 0; i < rig.Playables.Length; i++) rig.Mixer.SetInputWeight(i, i == (int)clip ? 1f : 0f);
             var p = rig.Playables[(int)clip];
             var length = p.GetAnimationClip().length;
@@ -426,57 +441,67 @@ namespace Diamond.Stadium
         }
 
         /// <summary>
-        /// Overrides the idle (batting-stance) clip with an infielder's ready position: feet wide, knees bent, back leaning forward,
-        /// hands hanging in front of the knees. Works in model space and keeps the feet where the clip planted them.
+        /// Replaces the idle (batting-stance) clip with an infielder's ready position built from humanoid muscle values, so it does not
+        /// depend on the clip's own facing: feet wide, knees bent, back leaning forward, arms hanging in front of the knees.
         /// </summary>
         static void ReadyStance(Rig rig)
         {
             var a = rig.Animator;
             if (a == null || !a.isHuman) return;
+            if (rig.PoseHandler == null) rig.PoseHandler = new HumanPoseHandler(a.avatar, a.transform);
+            var pose = new HumanPose();
+            rig.PoseHandler.GetHumanPose(ref pose);
+            if (MuscleIndex == null)
+            {
+                MuscleIndex = new Dictionary<string, int>();
+                var names = HumanTrait.MuscleName;
+                for (var i = 0; i < names.Length; i++) MuscleIndex[names[i]] = i;
+            }
+            void M(string name, float v) { if (MuscleIndex.TryGetValue(name, out var i)) pose.muscles[i] = v; }
+            foreach (var side in new[] { "Left", "Right" })
+            {
+                M(side + " Upper Leg Front-Back", StanceMuscles[0]);
+                M(side + " Upper Leg In-Out", StanceMuscles[1]);
+                M(side + " Upper Leg Twist In-Out", 0f);
+                M(side + " Lower Leg Stretch", StanceMuscles[2]);
+                M(side + " Lower Leg Twist In-Out", 0f);
+                M(side + " Foot Up-Down", StanceMuscles[3]);
+                M(side + " Foot Twist In-Out", 0f);
+                M(side + " Toes Up-Down", 0f);
+                M(side + " Shoulder Down-Up", 0f);
+                M(side + " Shoulder Front-Back", 0f);
+                M(side + " Arm Down-Up", StanceMuscles[4]);
+                M(side + " Arm Front-Back", StanceMuscles[5]);
+                M(side + " Arm Twist In-Out", 0f);
+                M(side + " Forearm Stretch", StanceMuscles[6]);
+                M(side + " Forearm Twist In-Out", 0f);
+                M(side + " Hand Down-Up", 0f);
+                M(side + " Hand In-Out", 0f);
+            }
+            M("Spine Front-Back", StanceMuscles[7]); M("Spine Left-Right", 0f); M("Spine Twist Left-Right", 0f);
+            M("Chest Front-Back", StanceMuscles[8]); M("Chest Left-Right", 0f); M("Chest Twist Left-Right", 0f);
+            M("UpperChest Front-Back", 0f); M("UpperChest Left-Right", 0f); M("UpperChest Twist Left-Right", 0f);
+            M("Neck Nod Down-Up", 0f); M("Neck Tilt Left-Right", 0f); M("Neck Turn Left-Right", 0f);
+            M("Head Nod Down-Up", StanceMuscles[9]); M("Head Tilt Left-Right", 0f); M("Head Turn Left-Right", 0f);
+            pose.bodyRotation = Quaternion.identity;
+            pose.bodyPosition = new Vector3(0f, pose.bodyPosition.y + StanceMuscles[10], 0f);
+            rig.PoseHandler.SetHumanPose(ref pose);
+
+            // Put the soles on the ground whatever the pose did to the hips.
             var root = a.transform;
-            Transform B(HumanBodyBones id) => a.GetBoneTransform(id);
-            var hips = B(HumanBodyBones.Hips); var spine = B(HumanBodyBones.Spine); var chest = B(HumanBodyBones.Chest); var head = B(HumanBodyBones.Head);
-            var legs = new[]
-            {
-                (up: B(HumanBodyBones.LeftUpperLeg), low: B(HumanBodyBones.LeftLowerLeg), foot: B(HumanBodyBones.LeftFoot)),
-                (up: B(HumanBodyBones.RightUpperLeg), low: B(HumanBodyBones.RightLowerLeg), foot: B(HumanBodyBones.RightFoot)),
-            };
-            if (hips == null || spine == null || head == null) return;
-            foreach (var l in legs) if (l.up == null || l.low == null || l.foot == null) return;
-
-            var before = (root.InverseTransformPoint(legs[0].foot.position) + root.InverseTransformPoint(legs[1].foot.position)) * 0.5f;
-            var hipsBefore = root.InverseTransformPoint(hips.position);
-            foreach (var l in legs)
-            {
-                var side = Mathf.Sign(root.InverseTransformPoint(l.foot.position).x - hipsBefore.x);
-                var thigh = Quaternion.Euler(0, 0, side * 24f) * Quaternion.Euler(-52f, 0, 0);
-                var shin = Quaternion.Euler(64f, 0, 0);
-                BoneMath.RotateInModelSpace(l.up, root, thigh);
-                BoneMath.RotateInModelSpace(l.low, root, shin);
-                BoneMath.RotateInModelSpace(l.foot, root, Quaternion.Inverse(shin * thigh));
-            }
-            var after = (root.InverseTransformPoint(legs[0].foot.position) + root.InverseTransformPoint(legs[1].foot.position)) * 0.5f;
-            hips.position += root.TransformVector(before - after);
-
-            BoneMath.RotateInModelSpace(spine, root, Quaternion.Euler(16f, 0, 0));
-            if (chest != null) BoneMath.RotateInModelSpace(chest, root, Quaternion.Euler(12f, 0, 0));
-            BoneMath.RotateInModelSpace(head, root, Quaternion.Euler(-24f, 0, 0));
-
-            // Hands hang in front of the knees.
-            var knees = new[] { legs[0].low.position, legs[1].low.position };
-            var arms = new[]
-            {
-                (up: B(HumanBodyBones.LeftUpperArm), low: B(HumanBodyBones.LeftLowerArm), hand: B(HumanBodyBones.LeftHand), knee: knees[0]),
-                (up: B(HumanBodyBones.RightUpperArm), low: B(HumanBodyBones.RightLowerArm), hand: B(HumanBodyBones.RightHand), knee: knees[1]),
-            };
-            foreach (var arm in arms)
-            {
-                if (arm.up == null || arm.low == null || arm.hand == null) continue;
-                var k = root.InverseTransformPoint(arm.knee);
-                var target = root.TransformPoint(new Vector3(k.x * 0.8f, k.y + 0.12f, k.z + 0.2f));
-                BoneMath.TwoBoneIk(root, arm.up, arm.low, arm.hand, target, 1f);
-            }
+            var hips = a.GetBoneTransform(HumanBodyBones.Hips);
+            var ground = rig.Go.transform.position.y;
+            var sole = Mathf.Min(
+                Mathf.Min(a.GetBoneTransform(HumanBodyBones.LeftToes).position.y, a.GetBoneTransform(HumanBodyBones.RightToes).position.y),
+                Mathf.Min(a.GetBoneTransform(HumanBodyBones.LeftFoot).position.y, a.GetBoneTransform(HumanBodyBones.RightFoot).position.y) - 0.085f);
+            hips.position += Vector3.up * (ground - sole);
         }
+
+        static Dictionary<string, int> MuscleIndex;
+
+        // Muscle values: 0 upper leg front-back, 1 upper leg in-out, 2 lower leg stretch, 3 foot up-down, 4 arm down-up, 5 arm front-back,
+        // 6 forearm stretch, 7 spine, 8 chest, 9 head nod, 10 hip height offset.
+        public static float[] StanceMuscles = { 0.25f, 0.5f, 0.3f, -0.3f, -0.9f, 0.3f, 0.6f, 0.13f, 0.09f, -0.12f, 0f };
 
         void EvaluateRig(Rig rig, double ms)
         {
@@ -487,7 +512,7 @@ namespace Diamond.Stadium
             {
                 // Before the first segment: stand still at the first position.
                 var first = rig.Segments[0];
-                Place(rig, first.From, rig.Go.transform.rotation, Clip.Idle, ms / 1000.0, true);
+                Place(rig, first.From, BaseRotation(rig), Clip.Idle, ms / 1000.0, true);
                 return;
             }
             var u = seg.End > seg.Start ? Mathf.Clamp01((float)((ms - seg.Start) / (seg.End - seg.Start))) : 1f;
@@ -497,13 +522,13 @@ namespace Diamond.Stadium
             else
             {
                 var d = seg.FaceToward - seg.To; d.y = 0;
-                rot = d.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(d) : rig.Go.transform.rotation;
+                rot = d.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(d)                 : BaseRotation(rig);
             }
             double ct;
             if (seg.Loop) ct = (ms - seg.Start) / 1000.0 * seg.LoopRate;
             else ct = seg.ClipFrom + (seg.ClipTo - seg.ClipFrom) * u;
             // Smooth turns between segments.
-            rot = Quaternion.Slerp(rig.Go.transform.rotation, rot, 0.35f);
+            rot = Quaternion.Slerp(BaseRotation(rig), rot, 0.35f);
             Place(rig, pos, rot, seg.Clip, ct, seg.Loop);
         }
 
