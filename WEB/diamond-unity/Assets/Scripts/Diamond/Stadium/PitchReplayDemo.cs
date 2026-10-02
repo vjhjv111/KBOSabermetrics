@@ -59,6 +59,10 @@ namespace Diamond.Stadium
         bool _released, _sampleMode;
 
         public Transform Ball => _ball;
+        public double LastMs => _lastMs;
+        public int PitchId => _pitch != null ? _pitch.id : 0;
+        /// <summary>Milliseconds since bat contact if the current pitch has been hit and is in flight, otherwise null.</summary>
+        public double? BattedSince => _result?.contact != null && _lastMs >= _result.contact.at ? _lastMs - _result.contact.at : (double?)null;
         public Pitch Pitch => _pitch;
         public PitchResult Result => _result;
         public bool AutoPlaySample { get => autoPlaySample; set => autoPlaySample = value; }

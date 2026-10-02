@@ -32,6 +32,7 @@ namespace Diamond.EditorTools
             // Behind home plate (web z>0 is behind home; Unity z is negated) at eye height, looking at the mound.
             cam.transform.position = new Vector3(0, 1.8f, -4.5f);
             cam.transform.LookAt(new Vector3(0, 1.3f, 18.44f));
+            var gameCamera = cam.AddComponent<GameCamera>();
 
             var light = new GameObject("Directional Light");
             var l = light.AddComponent<Light>();
@@ -53,6 +54,9 @@ namespace Diamond.EditorTools
             so.FindProperty("catcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Catcher.fbx");
             so.FindProperty("catcherClip").objectReferenceValue = Clip("Assets/Motions/Baseball Catcher.fbx");
             so.ApplyModifiedPropertiesWithoutUndo();
+            var cameraSo = new SerializedObject(gameCamera);
+            cameraSo.FindProperty("demo").objectReferenceValue = demo;
+            cameraSo.ApplyModifiedPropertiesWithoutUndo();
 
             const string path = "Assets/Scenes/BattingPrototype.unity";
             EditorSceneManager.SaveScene(scene, path);
