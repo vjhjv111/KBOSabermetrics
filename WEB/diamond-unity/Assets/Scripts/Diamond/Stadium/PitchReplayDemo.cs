@@ -64,6 +64,11 @@ namespace Diamond.Stadium
         bool _released, _sampleMode;
 
         public Transform Ball => _ball;
+        /// <summary>When set and returning a value, the ball is placed there instead of following the pitch/hit path (used by the field play).</summary>
+        public System.Func<double, Vector3?> BallOverride;
+        /// <summary>Shows or hides the batter at the plate (hidden once the batter becomes a runner).</summary>
+        public void SetBatterVisible(bool visible) { if (_batter != null) _batter.Go.SetActive(visible); }
+        public Vector3 BatterPosition => _batter != null ? _batter.Go.transform.position : Vector3.zero;
         public double LastMs => _lastMs;
         public int PitchId => _pitch != null ? _pitch.id : 0;
         /// <summary>Milliseconds since bat contact if the current pitch has been hit and is in flight, otherwise null.</summary>
@@ -324,6 +329,7 @@ namespace Diamond.Stadium
                 world += offset;
             }
             _ball.position = world;
+            if (BallOverride != null) { var o = BallOverride(ms); if (o.HasValue) _ball.position = o.Value; }
         }
 
         // --- analysis helpers (used by editor capture tools) ---------------------------------------------------

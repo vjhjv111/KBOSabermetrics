@@ -54,6 +54,15 @@ namespace Diamond.EditorTools
             so.FindProperty("catcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Catcher.fbx");
             so.FindProperty("catcherClip").objectReferenceValue = Clip("Assets/Motions/Baseball Catcher.fbx");
             so.ApplyModifiedPropertiesWithoutUndo();
+            var director = field.AddComponent<FieldPlayDirector>();
+            var directorSo = new SerializedObject(director);
+            directorSo.FindProperty("demo").objectReferenceValue = demo;
+            directorSo.FindProperty("actorPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Idle.fbx");
+            var names = new[] { "Baseball Idle", "Running", "Running Slide", "Picking Up", "Goalkeeper Catch", "Goalkeeper Diving Save", "Goalkeeper Overhand Throw", "Cheering" };
+            var clipsProp = directorSo.FindProperty("clips");
+            clipsProp.arraySize = names.Length;
+            for (var i = 0; i < names.Length; i++) clipsProp.GetArrayElementAtIndex(i).objectReferenceValue = Clip("Assets/Motions/" + names[i] + ".fbx");
+            directorSo.ApplyModifiedPropertiesWithoutUndo();
             var cameraSo = new SerializedObject(gameCamera);
             cameraSo.FindProperty("demo").objectReferenceValue = demo;
             cameraSo.ApplyModifiedPropertiesWithoutUndo();

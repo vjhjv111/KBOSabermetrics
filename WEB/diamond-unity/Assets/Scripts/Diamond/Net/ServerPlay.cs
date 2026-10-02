@@ -29,6 +29,8 @@ namespace Diamond.Net
         [SerializeField] bool humanPitcher = true;           // full match: pitch yourself when your club is in the field (else the half-inning is simulated)
         [SerializeField] bool simulateHumanClicks = false;   // test hook: click automatically around the arrival time (exercises the human path)
         [SerializeField] int quitAfterPitches = 0;           // >0: exit the editor after N pitches (automated smoke test)
+        [SerializeField] bool captureShots = false;          // test hook: save game-view screenshots (with the HUD) to Captures/
+        int _shotCount;
 
         const double SwingContactMs = 95; // DiamondEngine.SwingContactMs on the server
 
@@ -41,6 +43,8 @@ namespace Diamond.Net
         bool _active;
         int _pitchesPlayed;
         string _shownBatter, _shownPitcher;
+        FieldPlayDirector _field;
+        string _planBatter; string[] _planBasesBefore; int _planRunsBefore;
         readonly System.Random _rng = new System.Random();
 
         double ServerNow => Time.realtimeSinceStartupAsDouble * 1000.0 + _clockOffset;
@@ -50,6 +54,7 @@ namespace Diamond.Net
             _demo = GetComponent<PitchReplayDemo>();
             _demo.AutoPlaySample = false;
             _hud = GetComponent<GameHud>() ?? gameObject.AddComponent<GameHud>();
+            _field = GetComponent<FieldPlayDirector>();
         }
 
         async void Start()
@@ -185,7 +190,18 @@ namespace Diamond.Net
         void Update()
         {
             UpdateAim();
-            if (_active) _demo.Evaluate(ServerNow);
+            if (_active) { _demo.Evaluate(ServerNow); if (_field != null) _field.Evaluate(ServerNow); }
+        }
+
+        async Task Shot(string name)
+        {
+            if (!captureShots || _shotCount >= 10) return;
+            _shotCount++;
+            var dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "../Captures"));
+            System.IO.Directory.CreateDirectory(dir);
+            await Task.Yield();
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"play_{_shotCount:00}_{name}.png"));
+            await Task.Delay(300);
         }
 
         void SmokeExit(int code)
@@ -377,6 +393,7 @@ namespace Diamond.Net
             var inZone = Math.Abs(pitch.target.x) <= 1.0 && Math.Abs(pitch.target.y) <= 1.0;
             _clickedAt = null;
             _awaitingInput = humanBatter;
+            BeginPlay(view);
             _demo.Play(pitch, null);
             _active = true;
             if (_match != null) PresentState(_match.State);
@@ -452,11 +469,41 @@ namespace Diamond.Net
             }
 
             _demo.SetResult(result);
+            var playEnd = PlanField(result);
             Announce(result, after);
+            if (captureShots) { await Task.Delay(400); await Shot("result"); }
             Debug.Log("ServerPlay result: " + result.label + $" ({result.outcome})" + (result.timing != null ? $" timing {result.timing:0}ms aim error {result.aimError:0.00}" : "") +
                       (result.exitSpeed > 0 ? $" exit {result.exitSpeed:0}km/h launch {result.launchAngle:0}° dist {result.distance:0}m" : ""));
-            await WaitServer((result.contact?.at ?? arrival) + 3800);
+            await WaitServer(Math.Max((result.contact?.at ?? arrival) + 3800, playEnd + 800));
             return (after ?? before, result);
+        }
+
+        /// <summary>Starts a plate appearance's pitch: fielders to their spots, runners on their bases, and remember the situation.</summary>
+        void BeginPlay(ActionView view)
+        {
+            var st = _match?.State;
+            _planBatter = view?.batter;
+            _planBasesBefore = st != null && st.HasGame ? st.BaseRunners.ToArray() : null;
+            _planRunsBefore = st != null && st.HasGame ? (st.BattingTeam == st.HomeTeam ? st.HomeRuns : st.AwayRuns) : 0;
+            if (_field == null) return;
+            _field.ResetField();
+            _field.SetRunnersOnBase(_planBasesBefore);
+        }
+
+        /// <summary>Plans the post-hit presentation (fielders, runners, thrown ball) and returns when it ends.</summary>
+        double PlanField(PitchResult result)
+        {
+            if (_field == null) return 0;
+            var st = _match?.State;
+            string[] after = null; var runs = 0;
+            if (st != null && st.HasGame && _planBasesBefore != null)
+            {
+                after = st.BaseRunners.ToArray();
+                // The batting team's runs may have been charged to the other half already if the inning ended; never go negative.
+                var now = st.BattingTeam == st.HomeTeam ? st.HomeRuns : st.AwayRuns;
+                runs = Math.Max(0, now - _planRunsBefore);
+            }
+            return _field.Plan(result, _planBatter, _planBasesBefore != null ? _planBasesBefore : null, after, runs);
         }
 
         void SetPitcherView(bool on)
@@ -491,6 +538,7 @@ namespace Diamond.Net
             _pitchSubmitted = false; _charging = false;
             _awaitingPitchInput = true;
             _hud.SetStatus("구종을 고르고 존을 조준한 뒤, 마우스를 누르고 있다가 게이지 가운데에서 놓으세요");
+            if (captureShots) { await Task.Delay(500); _hud.SetGauge(true, 0.5f); await Shot("pitch_input"); _hud.SetGauge(false, 0); }
 
             string type; double ax, ay, quality;
             if (simulateHumanClicks)
@@ -518,6 +566,7 @@ namespace Diamond.Net
 
             // The AI batter's swing was prepared with the pitch: replay it (its contact time) or take.
             var arrival = pitch.releaseAt + pitch.flightMs;
+            BeginPlay(view);
             _demo.Play(pitch, pitch.aiBatterSwing != null ? pitch.aiBatterSwing.at : (double?)null);
             _active = true;
             _hud.SetStatus($"{PitchLabel(type, pitch.velocity)}  품질 {quality:0.00}");
