@@ -69,6 +69,35 @@ Check(RecordQuestionService.ToRequest(plan with{Metric="ops"},site,[2026],minimu
 Reject(plan with{Team="invalid"},"허용하지 않은 팀 거절");
 try{OpenAiRecordPlanner.Parse("{}");throw new Exception("Missing fields accepted");}catch(JsonException){Check(true,"필수 해석 필드 누락 거절");}
 try{OpenAiRecordPlanner.Parse(JsonSerializer.Serialize(plan,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase})[..^1]+",\"sql\":\"SELECT 1\"}");throw new Exception("Extra fields accepted");}catch(JsonException){Check(true,"추가 모델 필드 거절");}
+var screenshot="2026시즌 타석:10타석 이상/ 포지션:3루수/ 상황:득점권 /기록: ops 알려줘";
+var repaired=QuestionExplicitConditions.Normalize(screenshot,plan with{Metric="ops",Descending=false,StartDate=null,EndDate=null});
+var repairedRequest=RecordQuestionService.ToRequest(repaired,site,[2026]);
+Check(repairedRequest.Position=="3B"&&repairedRequest.Runners=="득점권"&&repaired.MinimumVolume==10&&repaired.Descending,"스크린샷 포지션/득점권/표본/기본 정렬 보존");
+foreach(var position in QuestionExplicitConditions.Positions)
+    Check(QuestionExplicitConditions.Normalize($"2026년 {position.Name} 홈런",plan).Filters.Any(f=>f.Key=="position"&&f.Value==position.Code),"포지션 인식 "+position.Name);
+Check(!QuestionExplicitConditions.Normalize("2026년 주자 3루 OPS",plan).Filters.Any(f=>f.Key=="position"),"주자 3루를 3루수로 오인하지 않음");
+var extra=QuestionExplicitConditions.Normalize("2026년 국내 신인왕 요건 규정타석 50% 토요일 4번타자 홈 경기 최근 10경기 OPS",plan with{StartDate=null,EndDate=null,Team="HH",Metric="ops"});
+var extraRequest=RecordQuestionService.ToRequest(extra,site,[2026]);
+Check(extraRequest.Nationality=="국내"&&extraRequest.RookieEligible&&extraRequest.QualificationPercent==50&&extraRequest.Weekday=="토"&&extraRequest.BatOrder==4&&extraRequest.Venue=="홈"&&extraRequest.RecentGames==10,"페이지 상세 필터 전체 연결");
+foreach(var range in new[]{"1~3회","4~6회","7~9회"})
+{
+    Check(RecordQuestionService.UnsupportedQuestion("2026년 "+range+" OPS") is null,"페이지 이닝 구간 지원 "+range);
+    Check(QuestionExplicitConditions.Normalize("2026년 "+range+" OPS",plan).Inning==range,"이닝 구간 보존 "+range);
+}
+Check(RecordQuestionService.UnsupportedQuestion("2026년 2~8회 OPS") is not null,"미지원 이닝 구간을 단일 이닝으로 축소하지 않음");
+var numeric=RecordQuestionService.ToRequest(plan with{StartDate=null,EndDate=null,Conditions=[new("HomeRuns","gte",10),new("OPS","gte",0.8)]},site,[2026]);
+Check(numeric.Conditions.Count==2&&numeric.Conditions[1].Value==0.8,"복수 스탯 조건 연결");
+Reject(plan with{Conditions=[new("HomeRuns","gte",10),new("OPS","gte",0.8)],MinimumVolume=10},"3개 초과 조건 누락 대신 거절");
+foreach(var view in ViewRegistry.Views.Where(v=>v.Role is "batter" or "pitcher"))
+foreach(var prop in ViewRegistry.Properties(view).Where(ViewRegistry.IsNumber))
+{
+    var mapped=RecordQuestionService.ToRequest(plan with{Role=view.Role,Metric=prop.Name,Filters=[new("view",view.Key)]},site,[2026],minimumWaived:true);
+    Check(mapped.View==view.Key&&mapped.SortBy==prop.Name,"지표 경로 "+view.Role+"/"+view.Key+"/"+prop.Name);
+}
+try{RecordQuestionService.ValidateQuestion("2026년 5월 홈런",plan with{StartDate=null,EndDate=null});throw new Exception("month dropped");}catch(RequestError){Check(true,"월 조건 삭제 차단");}
+try{RecordQuestionService.ValidateQuestion("2025년 홈런",plan);throw new Exception("year changed");}catch(RequestError){Check(true,"연도 변경 차단");}
+var recoveredThreshold=QuestionExplicitConditions.Normalize("2026년 OPS 0.8 이상 홈런 순위",plan with{StartDate=null,EndDate=null});
+Check(recoveredThreshold.Conditions.Any(c=>c.Stat=="OPS"&&c.Operator=="gte"&&c.Value==0.8),"누락된 명시적 스탯 조건 복원");
 var fake=new FakePlanner(plan);
 site.DatabasePath=Environment.GetEnvironmentVariable("SABER_QA_DB")??Path.Combine(site.StateDirectory,"missing.db");
 var db=new DatabaseCacheService(site.DatabasePath,webReadOnly:true);
@@ -101,6 +130,34 @@ if(File.Exists(site.DatabasePath))
         var teamOpsPage=await records.QueryAsync(teamOpsRequest,default);
         Check(teamOpsPage.Rows.Count==1&&teamOpsPage.Rows[0].Cells["TeamCode"]=="WO"&&teamOpsPage.Rows[0].Cells["OPS"]!="-","실제 DB 키움 만루 팀 OPS 한 행 조회");
         Console.WriteLine("KIWOOM BASES LOADED OPS="+teamOpsPage.Rows[0].Cells["OPS"]);
+        var positionPage=await records.QueryAsync(repairedRequest,default);
+        var baselinePosition=await records.QueryAsync(new RecordRequest{Year=2026,Position="3B",PageSize=50},default);
+        var eligibleCodes=baselinePosition.Rows.Select(r=>r.EntityCode).ToHashSet();
+        Check(positionPage.Rows.Count>0&&positionPage.Rows.All(r=>eligibleCodes.Contains(r.EntityCode)),"실제 DB 득점권 OPS에 주 포지션 3루수만 포함");
+        Check(positionPage.Applied.Contains("3루수")&&positionPage.Applied.Contains("득점권")&&positionPage.Warnings.Any(w=>w.Contains("주 포지션")),"적용 조건과 주 포지션 해석 표시");
+        Check(positionPage.Rows.All(r=>int.Parse(r.Cells["PA"])>=10),"실제 DB 득점권 최소 10타석 적용");
+        Console.WriteLine("THIRD BASE RISP OPS "+JsonSerializer.Serialize(positionPage.Rows.Take(10)));
+        var responseSite=new SiteOptions{QuerySeconds=120,DatabasePath=site.DatabasePath,StateDirectory=Path.Combine(site.StateDirectory,"screenshot")};
+        using(var responseGate=new QueryGate(responseSite))
+        {
+            var screenshotService=new RecordQuestionService(new RecordQuestionOptions{Enabled=true},responseSite,db,records,responseGate,new FakePlanner(plan with{Metric="ops",StartDate=null,EndDate=null,Descending=false,Limit=10}));
+            var botResult=await screenshotService.AskAsync(screenshot,"local-validation",default,authenticatedBot:true);
+            var botText=BotQuestionEndpoint.Format(botResult);
+            Check(botText.Contains("3루수")&&botText.Contains("득점권")&&botText.Contains("최소 10타석")&&botText.Contains("OPS 내림차순"),"API 전체 경로에서 누락된 조건 복원 및 봇 응답 표시");
+            Check(!botText.Contains("포지션 -"),"봇에 의미 없는 포지션 빈값 표시하지 않음");
+            Console.WriteLine("SCREENSHOT BOT RESPONSE\n"+botText);
+        }
+        var rangePlays=JsonSerializer.SerializeToElement(await QuestionPlays.QueryAsync(plan with{Metric="play_wpa",Inning="7~9회",StartDate=null,EndDate=null,Limit=20},site,[2026],new DateTime(2026,9,23),default));
+        Check(rangePlays.GetProperty("rows").EnumerateArray().All(r=>int.Parse(r.GetProperty("Cells").GetProperty("Inning").GetString()!) is >=7 and <=9),"WPA 플레이도 7~9회 구간 적용");
+        try{await QuestionPlays.QueryAsync(plan with{Metric="play_wpa",Conditions=[new("OPS","gte",0.8)]},site,[2026],null,default);throw new Exception("WPA condition lost");}catch(RequestError){Check(true,"WPA 미지원 스탯 조건 누락 대신 거절");}
+
+        foreach(var view in ViewRegistry.Views.Where(v=>v.Role is "batter" or "pitcher"))
+        {
+            var viaPlan=RecordQuestionService.ToRequest(plan with{Role=view.Role,Metric=ViewRegistry.Properties(view).First(ViewRegistry.IsNumber).Name,StartDate=null,EndDate=null,Filters=[new("view",view.Key)]},site,[2026],minimumWaived:true);
+            var tab=await records.QueryAsync(viaPlan,default);
+            Check(tab.Rows.Count>0,"실제 DB 기록 탭 조회 "+view.Role+"/"+view.Key);
+        }
+
         Console.WriteLine("9TH INNING "+JsonSerializer.Serialize(ninthPage.Rows[0].Cells.Where(x=>new[]{"Name","ERA","InningsPitched"}.Contains(x.Key)).ToDictionary()));
         var plays=JsonSerializer.SerializeToElement(await QuestionPlays.QueryAsync(plan with{Metric="play_wpa",StartDate=null,EndDate=null},site,[2026],new DateTime(2026,9,23),default));
         Check(plays.GetProperty("rows").GetArrayLength()==1,"실제 DB 시즌 최고 WPA 타석 조회");

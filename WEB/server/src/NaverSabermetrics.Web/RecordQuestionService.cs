@@ -35,6 +35,7 @@ public sealed record QuestionPlan
     public required string? Inning { get; init; }
     public required QuestionFilter[] Filters { get; init; }
     public required int Limit { get; init; }
+    public StatCondition[] Conditions { get; init; } = [];
 }
 public interface IRecordQuestionPlanner
 {
@@ -62,23 +63,24 @@ public sealed class OpenAiRecordPlanner(RecordQuestionOptions options, HttpMessa
             ["team"]=NullableStr("HH HT KT LG LT NC OB SK SS WO 중 하나 또는 전체 null"),["player"]=NullableStr("선수 실명 또는 전체 null"),
             ["metric"]=Str("지표 코드 또는 목록의 속성명. 개별 WPA 플레이는 play_wpa, 절대 변화량은 play_wpa_abs."),["descending"]=new{type="boolean"},
             ["filters"]=new{type="array",items=new{type="object",properties=new{key=new{type="string",@enum=QuestionCapabilities.FilterKeys},value=new{type="string"}},required=new[]{"key","value"},additionalProperties=false}},
-            ["inning"]=NullableStr("특정 회차 1회~9회 또는 연장. 전체는 null. 초/말 구분 요청은 미지원. 초말 무관은 지원."),
+            ["conditions"]=new{type="array",maxItems=2,items=new{type="object",properties=new{stat=Str("정확한 지표 속성명"),@operator=new{type="string",@enum=new[]{"gte","gt","lte","lt","eq"}},value=new{type="number"}},required=new[]{"stat","operator","value"},additionalProperties=false}},
+            ["inning"]=NullableStr("특정 회차 1회~9회, 1~3회/4~6회/7~9회 또는 연장. 전체는 null. 초/말 구분 요청은 미지원. 초말 무관은 지원."),
             ["minimumVolume"]=new{type="number",description="명시된 최소 타석 또는 야구 표기 이닝. 0.1은 한 아웃, 0.2는 두 아웃. 반올림 금지. 팀 합계/선수 개인/타석수 무관이면 최소 기준을 요구하지 말고 명시 없으면 0."},
             ["limit"]=new{type="integer",description="요청한 상위/하위 인원 1~20. 단순 선수 조회는 20. 1위 질문은 1."}
         };
         var prompt=$"""
-            Parse a Korean baseball question into plan_record_query; NEVER invent records or discard constraints.
-            Server-detected explicit team aggregation: {QuestionCapabilities.ExplicitTeamTotals(question)}. If true, MUST use room=team and never require minimum PA/IP. '10개구단 9회 투수평균자책점' means each club's pitching ERA, not individual pitchers. Return all 10 clubs unless a smaller ranking is explicitly requested.
-            Exact team codes (never infer from English initials): {QuestionTeams.Mapping}. Teams explicitly found in question: {string.Join(',',QuestionTeams.Mentions(question))}.
-            Years: {string.Join(',',years)}; Korea date: {BotGamesService.ParseDate(null):yyyy-MM-dd}. Ask for year if absent (올해=current year); career uses latest available year. Dates are inclusive. Month means its full date range.
-            Metric candidates from the actual record registry: {QuestionCapabilities.Describe(question)}
-            Basic aliases: batter hr=홈런,hits=안타,rbi=타점,runs=득점,sb=도루,bb=볼넷,so=삼진,avg=타율,obp=출루율,slg=장타율,ops=OPS; pitcher so=탈삼진,bb=볼넷,ip=이닝,era=평균자책점,whip=WHIP,hra=피홈런,ra=실점. Other metrics use exact property names from candidates.
-            Filters (empty array if absent): room=season/team/career; competition=정규시즌/시범경기/포스트시즌/전체; opponent=team code; venue=홈/원정; stadium=Korean venue name; outs=0/1/2; runners=주자 없음/1루/2루/3루/1·2루/1·3루/2·3루/만루/득점권; score=동점/리드/열세/1점차 이내/2점차 이내/3점차 이내; balls=0..3 plus strikes=0..2; recentGames=5/10/20/30; recentDays=7/14/30/60/90.
-            Team aggregate questions MUST set filters room=team, not individual-player rankings. Example: '타석수 무관 2026기준 키움히어로즈 만루 ops알려줘' => team=WO, room=team, runners=만루, metric=ops, minimumVolume=0, supported=true. A club's OPS/ERA is its aggregate, never the average of player rates. Player rankings explicitly asking 선수/타자/투수/상위 N명 keep room=season.
-            Preserve inning 1회..9회 or 연장. 9회(초 말 안가리고) means 9회. Explicit top/bottom selection or multiple innings unsupported. Preserve baseball IP notation: 0.1=one out, 0.2=two outs; NEVER round to 1. MinimumVolume defaults 0. Only INDIVIDUAL PLAYER ratio RANKINGS require a minimum PA/IP. Team totals/team rankings and single-player lookup do NOT. Explicit '타석수 무관', '이닝 무관', '최소 기준 없음' waives this requirement: minimumVolume=0, do not ask again.
-            Highest/most => descending true, lowest/least false. Explicit highest ERA means true (not best pitching). Best ERA/WHIP means false. Limit 1..20.
-            Individual WPA play => play_wpa (signed batting-side value), biggest absolute swing => play_wpa_abs. Pitcher viewpoint uses role=pitcher and inverted sign. Play query supports year/date/team/player/inning only, filters=[],minimumVolume=0. Aggregate player WPA uses Wpa instead. Never replace play queries with aggregate rankings.
-            All questions are independent. If ANY requested condition cannot be represented, supported=false and clarification in Korean. Do not erase conditions to answer. No arbitrary SQL, external search, predictions or multi-metric comparisons. Always fill every schema field; supported=true => clarification empty.
+            Parse Korean baseball questions into plan_record_query. Never invent records or omit constraints. Questions are independent. Unsupported/ambiguous conditions => supported=false and Korean clarification. supported=true => clarification empty. No SQL, external search or predictions.
+            Available years: {string.Join(',',years)}. Korea date: {BotGamesService.ParseDate(null):yyyy-MM-dd}. Require year (올해=current year, 통산=latest available year). Inclusive dates; a month means its full range.
+            Exact team codes: {QuestionTeams.Mapping}. Explicit mentions: {string.Join(',',QuestionTeams.Mentions(question))}. Never infer English initials.
+            Explicit team aggregation: {QuestionCapabilities.ExplicitTeamTotals(question)}. If true use room=team. A club's OPS/ERA is an aggregate, never an average of player rates. 10개구단 means 10 team rows unless explicitly 선수/개인/상위 N명. Single-club aggregate also room=team. Individual players use room=season.
+            Actual metric candidates: {QuestionCapabilities.Describe(question)}
+            Aliases: hr=홈런,hits=안타,rbi=타점,runs=득점,sb=도루,bb=볼넷,so=삼진/탈삼진,avg=타율,obp=출루율,slg=장타율,ops=OPS,ip=이닝,era=평균자책점,whip=WHIP,hra=피홈런,ra=실점. Otherwise exact candidate property names.
+            Filters: room=season/team/career; competition=정규시즌/시범경기/포스트시즌/올스타전/전체; opponent=team code; venue=홈/원정; stadium=venue name; position=C/1B/2B/3B/SS/LF/CF/RF/DH (포수/1루수/2루수/3루수/유격수/좌익수/중견수/우익수/지명타자); nationality=국내/외국인/아시아쿼터/외국인+아쿼; rookieEligible=true; qualificationPercent=0..100; weekday=월/화/수/목/금/토/일; batOrder=1..9; playerCode=ID.
+            Situation filters: outs=0/1/2; runners=주자 없음/1루/2루/3루/1·2루/1·3루/2·3루/만루/득점권; score=동점/리드/열세/1점 리드/2점 리드/3점 이상 리드/1점 열세/2점 열세/3점 이상 열세/1점차 이내/2점차 이내/3점차 이내; balls=0..3 AND strikes=0..2; recentGames=5/10/20/30 OR recentDays=7/14/30/60/90. Preserve position even with RISP; it means period primary position, not at-bat defensive position.
+            Optional view filter tab keys: basic,advanced,value,extended,clutch,power,team-batting,steal,baserunning,batted-ball,direction,discipline,pitch-types,wp,runner,starter,reliever. Use if a specific tab is requested. conditions: up to 2 additional numeric thresholds using exact stat/operator/value; exclude minimumVolume.
+            inning=1회..9회/1~3회/4~6회/7~9회/연장 or null. 초말 무관 is supported; individual 초/말 unsupported. minimumVolume preserves baseball notation (0.1=one out,0.2=two), never round. Default 0. Only individual AVG/OBP/SLG/OPS/ERA/WHIP rankings need minimum or qualification; waive if 타석수/이닝 무관. Team totals or named player need no minimum.
+            Highest/most descending=true; lowest/least false. Default descending except ERA/WHIP ascending. Explicit highest ERA=true. limit=1..20; 1위=1.
+            Individual WPA play: play_wpa=signed, play_wpa_abs=biggest absolute swing; pitcher viewpoint role=pitcher. Supports year/date/team/player/inning ONLY: filters=[],conditions=[],minimumVolume=0. Aggregate player WPA=Wpa. Never substitute aggregate for plays.
             """;
         using var request=new HttpRequestMessage(HttpMethod.Post,"https://api.openai.com/v1/responses");
         request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
@@ -145,7 +147,10 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             SortBy=metric,Descending=p.Descending,PageSize=Math.Min(50,site.MaxPageSize),
             Conditions=p.MinimumVolume>0?[new(p.Role=="batter"?"PA":"InningsPitched","gte",p.MinimumVolume)]:[]};
         r=QuestionCapabilities.Apply(r,p.Filters);
-        if(r.Room!="team"&&!minimumWaived&&new[]{"AVG","OBP","SLG","OPS","ERA","WHIP"}.Contains(metric)&&p.Player is null&&p.MinimumVolume==0)
+        if(p.Conditions is null || p.Conditions.Length>2 || p.Conditions.Any(c=>c is null||string.IsNullOrWhiteSpace(c.Stat)))throw new RequestError("스탯 조건은 최대 2개입니다.");
+        r=r with{Conditions=r.Conditions.Concat(p.Conditions.Select(c=>c with{Stat=Metrics.GetValueOrDefault(c.Stat,c.Stat)})).Distinct().ToList()};
+        r=r with{View=QuestionCapabilities.ResolveRequest(r,p.Filters.Any(f=>f.Key=="view")).Key};
+        if(r.Room!="team"&&r.QualificationPercent==0&&!minimumWaived&&new[]{"AVG","OBP","SLG","OPS","ERA","WHIP"}.Contains(metric)&&p.Player is null&&p.MinimumVolume==0)
             throw new RequestError("선수별 비율 순위는 최소 타석·이닝을 알려 주시거나 '타석수/이닝 무관'을 명시해 주세요.",400,"AI_FILTER");
         r.Validate(site);return r;
     }
@@ -153,7 +158,9 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
     public static string? UnsupportedQuestion(string question)
     {
         if(Regex.IsMatch(question,@"초에|말에|회\s*[초말]"))return "초말을 나눈 조건은 아직 연결되지 않았습니다. 초·말 합산 결과로 대체하지 않고 조회를 중단합니다.";
-        var innings=Regex.Matches(question,@"(?<!\d)(\d+)\s*회");
+        var remainder=Regex.Replace(question,@"(?<!\d)(?:1\s*[~～\-–]\s*3|4\s*[~～\-–]\s*6|7\s*[~～\-–]\s*9)\s*회","");
+        if(Regex.IsMatch(remainder,@"\d+\s*[~～\-–]\s*\d+\s*회"))return "회차 구간은 1~3회, 4~6회, 7~9회를 지원합니다.";
+        var innings=Regex.Matches(remainder,@"(?<!\d)(\d+)\s*회");
         if(innings.Count>1 || innings.Any(m=>int.Parse(m.Groups[1].Value) is <1 or >9))return "회차는 1~9회 중 하나 또는 연장 전체로 지정해 주세요.";
         return null;
     }
@@ -161,8 +168,15 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
     {
         if(Regex.IsMatch(question,@"플레이|타석별") && !plan.Metric.StartsWith("play_",StringComparison.Ordinal))throw new RequestError("개별 플레이 질문을 선수 합계로 해석하여 조회를 중단했습니다.",400,"AI_FILTER_MISMATCH");
         QuestionCapabilities.ValidateFilters(question,plan);
-        var inning=Regex.Match(question,@"(?<!\d)([1-9])\s*회");
-        var expected=inning.Success?inning.Groups[1].Value+"회":question.Contains("연장")?"연장":null;
+        var explicitYear=Regex.Match(question,@"(?<!\d)(20\d{2})\s*(?:년|시즌)");
+        if(explicitYear.Success && plan.Year!=int.Parse(explicitYear.Groups[1].Value))throw new RequestError("질문의 연도와 조회 연도가 달라 중단했습니다.",400,"AI_FILTER_MISMATCH");
+        var month=Regex.Match(question,@"(?<!\d)(1[0-2]|[1-9])\s*월(?!\s*\d+\s*일)");
+        if(month.Success && Regex.Matches(question,@"\d+\s*월").Count==1 && !Regex.IsMatch(question,@"이후|이전|부터|까지"))
+        {
+            var m=int.Parse(month.Groups[1].Value);var start=new DateTime(plan.Year,m,1);var end=start.AddMonths(1).AddDays(-1);
+            if(plan.StartDate!=start.ToString("yyyy-MM-dd")||plan.EndDate!=end.ToString("yyyy-MM-dd"))throw new RequestError("질문의 월별 기간이 조회 조건과 달라 중단했습니다.",400,"AI_FILTER_MISMATCH");
+        }
+        var expected=QuestionExplicitConditions.Inning(question);
         if(plan.Inning!=expected)throw new RequestError("질문의 회차 조건이 정확히 해석되지 않아 조회를 중단했습니다. 예: 2026년 9회 최소 0.1이닝 ERA 높은 투수 5명",400,"AI_FILTER_MISMATCH");
         var minimum=Regex.Match(question,@"최소\s*(?:이닝|타석)?\s*(?:은|는|:)?\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:이닝|타석)\s*이상");
         if(minimum.Success && Math.Abs(double.Parse(minimum.Groups[1].Success?minimum.Groups[1].Value:minimum.Groups[2].Value,CultureInfo.InvariantCulture)-plan.MinimumVolume)>1e-8)
@@ -196,6 +210,7 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             await ReserveAsync(ip,ct,authenticatedBot);
             var plan=await planner.PlanAsync(question.Trim(),years,ct);
             if(!plan.Supported)return new{answer=string.IsNullOrWhiteSpace(plan.Clarification)?"연도·기간·조회할 기본 지표를 구체적으로 알려 주세요.":plan.Clarification[..Math.Min(500,plan.Clarification.Length)],clarification=true};
+            plan=QuestionExplicitConditions.Normalize(question,plan);
             plan=QuestionTeams.Normalize(question,plan);
             plan=QuestionCapabilities.NormalizeAggregation(question,plan);
             if(MinimumWaived(question))plan=plan with{MinimumVolume=0};
@@ -211,7 +226,7 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
             // Count stats are exact; extend ties at the cutoff without treating rounded rates as equal.
             var isCount=new[]{"hr","hits","rbi","runs","sb","bb","so","hra"}.Contains(plan.Metric);
             if(isCount&&selected.Count>0)selected.AddRange(valid.Skip(selected.Count).TakeWhile(x=>x.Cells[metric]==selected[^1].Cells[metric]));
-            var keys=new[]{"Name","TeamCode",metric,plan.Role=="batter"?"PA":"InningsPitched"}.Distinct().Where(k=>page.Columns.Any(c=>c.Key==k)).ToArray();
+            var keys=new[]{"Name","TeamCode","PrimaryPosition",metric,plan.Role=="batter"?"PA":"InningsPitched"}.Distinct().Where(k=>page.Columns.Any(c=>c.Key==k)).ToArray();
             var columns=keys.Select(k=>page.Columns.First(x=>x.Key==k)).ToArray();
             var rows=selected.Select(x=>new WebRow(x.EntityCode,x.Cells.Where(kv=>keys.Contains(kv.Key)).ToDictionary())).ToArray();
             var period=(plan.StartDate is null?$"{plan.Year}년":$"{plan.StartDate} ~ {plan.EndDate}")+(plan.Inning is null?"":$" · {plan.Inning}(초·말 합산)");

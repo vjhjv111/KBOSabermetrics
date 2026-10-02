@@ -7,7 +7,7 @@ public static class QuestionPlays
 {
     public static async Task<object> QueryAsync(QuestionPlan plan,SiteOptions site,int[] years,DateTime? asOf,CancellationToken ct)
     {
-        if(plan.Filters.Length!=0||plan.MinimumVolume!=0)throw new RequestError("개별 WPA 플레이는 연도·날짜·팀·선수·회차 필터를 지원합니다. 추가 조건은 생략하지 않고 조회를 중단합니다.",400,"AI_FILTER");
+        if(plan.Filters.Length!=0||plan.MinimumVolume!=0||plan.Conditions.Length!=0)throw new RequestError("개별 WPA 플레이는 연도·날짜·팀·선수·회차 필터를 지원합니다. 추가 조건은 생략하지 않고 조회를 중단합니다.",400,"AI_FILTER");
         var validated=RecordQuestionService.ToRequest(plan with{Metric="so"},site,years);
         var start=validated.StartDate??new DateTime(plan.Year,1,1);var end=validated.EndDate??new DateTime(plan.Year,12,31);
         await using var connection=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=site.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());
@@ -26,13 +26,15 @@ public static class QuestionPlays
               AND p.IsOfficial=1 AND p.WpaByPlate IS NOT NULL
               AND ($team IS NULL OR (CASE WHEN $pitcher=1 THEN CASE WHEN p.BattingTeamCode=g.HomeTeamCode THEN g.AwayTeamCode ELSE g.HomeTeamCode END ELSE p.BattingTeamCode END)=$team)
               AND ($player IS NULL OR INSTR(CASE WHEN $pitcher=1 THEN p.PitcherName ELSE p.BatterName END,$player)>0)
-              AND ($inning IS NULL OR ($inning=10 AND p.Inning>=10) OR p.Inning=$inning)
+              AND ($inningFrom IS NULL OR p.Inning BETWEEN $inningFrom AND $inningTo)
             ORDER BY {order} {(plan.Descending?"DESC":"ASC")},g.GameId,p.SequenceNumber LIMIT $limit
             """;
         cmd.Parameters.AddWithValue("$start",start.ToString("yyyy-MM-dd"));cmd.Parameters.AddWithValue("$end",end.ToString("yyyy-MM-dd"));
         cmd.Parameters.AddWithValue("$team",(object?)plan.Team??DBNull.Value);cmd.Parameters.AddWithValue("$player",(object?)plan.Player??DBNull.Value);
         cmd.Parameters.AddWithValue("$pitcher",plan.Role=="pitcher"?1:0);
-        cmd.Parameters.AddWithValue("$inning",plan.Inning is null?DBNull.Value:plan.Inning=="연장"?10:int.Parse(plan.Inning.TrimEnd('회'),CultureInfo.InvariantCulture));
+        var bounds=plan.Inning?.TrimEnd('회').Split('~');
+        cmd.Parameters.AddWithValue("$inningFrom",plan.Inning is null?DBNull.Value:plan.Inning=="연장"?10:int.Parse(bounds![0],CultureInfo.InvariantCulture));
+        cmd.Parameters.AddWithValue("$inningTo",plan.Inning is null?DBNull.Value:plan.Inning=="연장"?int.MaxValue:int.Parse(bounds![^1],CultureInfo.InvariantCulture));
         cmd.Parameters.AddWithValue("$limit",plan.Limit);
         using var cancel=ct.Register(cmd.Cancel);await using var reader=await cmd.ExecuteReaderAsync(ct);
         var rows=new List<WebRow>();

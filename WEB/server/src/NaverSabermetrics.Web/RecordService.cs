@@ -88,8 +88,6 @@ public sealed partial class RecordService
         // Do not silently show whole-game ER/WAR on event-only queries.
         if (query.HasSituationFilters && (request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever"))
             throw new RequestError("이 탭은 경기 최종 기록이 필요합니다. 이닝·아웃·주자·카운트 조건을 해제하세요.");
-        if (query.HasSituationFilters && request.Role == "batter" && !string.IsNullOrEmpty(request.Position))
-            throw new RequestError("상황별 타석에는 정확한 수비 포지션 이닝이 없습니다. 포지션을 전체로 바꾸세요.");
         if (query.HasSituationFilters && request.Role == "pitcher" && request.QualificationPercent > 0)
             throw new RequestError("상황별 조회에서는 공식 투구이닝을 분해할 수 없습니다. 규정이닝을 전체로 바꾸세요.");
 
@@ -107,7 +105,7 @@ public sealed partial class RecordService
             if (sort is null || PublicHidden(sort, request.Role, request.Room) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
-        var key = $"web-v3-result-v7|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
+        var key = $"web-v3-result-v8|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
         var cached = TryRead(key, definition.RowType);
         var hit = cached is not null;
         var rows = cached ?? await ComputeAsync(request, query, definition, token).ConfigureAwait(false);
@@ -229,6 +227,7 @@ public sealed partial class RecordService
             display.Add(new(Convert.ToString(codeProperty?.GetValue(row)), cells));
         }
         var warnings = new List<string>();
+        if(query.HasSituationFilters && !string.IsNullOrEmpty(request.Position))warnings.Add("포지션은 조회 기간의 주 포지션 기준입니다. 해당 타석 당시 수비 위치를 뜻하지 않습니다.");
         if(properties.Any(p=>p.Name.Contains("Wpa",StringComparison.OrdinalIgnoreCase)))
             warnings.Add("2016~2023년 WPA는 교체 완료 경기부터 FanGraphs WE 표(득점환경 4.5)로 계산합니다. 표 밖 점수차·불완전한 상태·무승부 종료 타석은 합계에서 제외됩니다. 다른 연도는 수집값을 사용합니다.");
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
@@ -403,6 +402,14 @@ public sealed partial class RecordService
                 default: throw new RequestError("알 수 없는 투수 탭입니다.");
             }
         }
+        // Position eligibility is determined from the period's complete defensive
+        // sample; situational offense remains restricted to the requested events.
+        var eligibilitySnapshot=snapshot;
+        if(r.Role=="batter" && q.HasSituationFilters && (!string.IsNullOrEmpty(r.Position)||r.QualificationPercent>0))
+            eligibilitySnapshot=await _analytics.GetWebRoleSnapshotAsync(q with {
+                InningFilter=null,OutsBefore=null,RunnerState=null,ScoreSituation=null,
+                BallsBefore=null,StrikesBefore=null,BatOrder=null
+            },league,false,cancellationToken:token).ConfigureAwait(false);
         var rows=((IEnumerable)result).Cast<object>().ToList();
         if (rows.Count > 50000) throw new RequestError("집계 결과가 너무 큽니다. 연도/팀을 지정하세요.", 422, "RESULT_TOO_LARGE");
         if (r.Room != "team" && (r.QualificationPercent>0 || !string.IsNullOrEmpty(r.Position)))
@@ -410,18 +417,18 @@ public sealed partial class RecordService
             var eligible=new HashSet<string>(StringComparer.Ordinal);
             if(r.Role=="batter")
             {
-                foreach(var x in snapshot.BatterClassic)
+                foreach(var x in eligibilitySnapshot.BatterClassic)
                 {
                     var key=RecordRoomRowFactory.Key(x.Pcode,x.TeamCode);
-                    if(!string.IsNullOrEmpty(r.Position) && snapshot.PrimaryPositions.GetValueOrDefault(key,"-") != r.Position) continue;
-                    var teamGames=snapshot.TeamGames.GetValueOrDefault(x.TeamCode??"",x.Games);
+                    if(!string.IsNullOrEmpty(r.Position) && eligibilitySnapshot.PrimaryPositions.GetValueOrDefault(key,"-") != r.Position) continue;
+                    var teamGames=eligibilitySnapshot.TeamGames.GetValueOrDefault(x.TeamCode??"",x.Games);
                     if(x.PA+1e-7 >= teamGames*3.1*r.QualificationPercent/100) eligible.Add(key);
                 }
             }
             else foreach(var x in snapshot.PitcherClassic)
             {
                 var key=RecordRoomRowFactory.Key(x.Pcode,x.TeamCode);
-                var teamGames=snapshot.TeamGames.GetValueOrDefault(x.TeamCode??"",x.Games);
+                var teamGames=eligibilitySnapshot.TeamGames.GetValueOrDefault(x.TeamCode??"",x.Games);
                 if(snapshot.PitcherIp.GetValueOrDefault(key,0)+1e-7 >= teamGames*r.QualificationPercent/100) eligible.Add(key);
             }
             var p=def.RowType.GetProperty("Pcode"); var team=def.RowType.GetProperty("TeamCode");
@@ -580,7 +587,7 @@ public sealed partial class RecordService
     {
         var parts=new List<string> { r.Room=="career" ? "통산" : r.Year?.ToString()??"전체 연도", r.Competition };
         if(!string.IsNullOrEmpty(r.Team))parts.Add("팀 "+r.Team);
-        if(!string.IsNullOrEmpty(r.Position))parts.Add(r.Position);
+        if(!string.IsNullOrEmpty(r.Position))parts.Add("주 포지션 "+(QuestionExplicitConditions.Positions.FirstOrDefault(p=>p.Code==r.Position).Name??r.Position));
         if(!string.IsNullOrEmpty(r.Nationality))parts.Add(r.Nationality);
         if(r.RookieEligible)parts.Add("신인왕 요건");
         if(r.QualificationPercent>0)parts.Add($"규정 {r.QualificationPercent:0.#}%");

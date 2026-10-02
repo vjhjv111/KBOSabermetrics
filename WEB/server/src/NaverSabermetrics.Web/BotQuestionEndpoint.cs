@@ -65,7 +65,7 @@ public static class BotQuestionEndpoint
                     {
                         var key=column.GetProperty("key").GetString()!;
                         if(key is "Name" or "TeamCode")continue;
-                        var value=Cell(key);if(value.Length==0)continue;
+                        var value=Cell(key);if(value.Length==0||value is "-" or "—")continue;
                         stats.Add(key=="PA"?value+"타석":key=="InningsPitched"?value+"이닝":(column.GetProperty("label").GetString()??key)+" "+value);
                     }
                     lines.Add(prefix+identity+" · "+string.Join(" · ",stats));
@@ -76,6 +76,7 @@ public static class BotQuestionEndpoint
                 lines.Add("WPA: "+(applied.Contains("투수 시점")?"투수":"타자")+" 시점"+(applied.Contains("절댓값")?" · 절댓값 순위":"")+" · 산출 가능한 타석 기준");
         }
         if(data.TryGetProperty("warnings",out var warnings)&&warnings.EnumerateArray().Any(w=>(w.GetString()??"").Contains("근사치")))lines.Add("* 상황별 기록은 근사치");
+        if(data.TryGetProperty("warnings",out var positionWarnings)&&positionWarnings.EnumerateArray().Any(w=>(w.GetString()??"").Contains("조회 기간의 주 포지션")))lines.Add("* 조회 기간의 주 포지션 기준");
         if(data.TryGetProperty("asOf",out var asOf))lines.Add("기준 "+asOf.GetString());
         var text=string.Join("\n",lines);
         return text.Length>3500?text[..3450]+"\n(이하 생략)":text;
