@@ -27,6 +27,8 @@
 .home-page .home-upcoming-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .home-page .home-upcoming-row .home-team-link{flex-direction:column;gap:2px;font-size:12px;line-height:18px;min-width:0;letter-spacing:0}
 .home-page .home-upcoming-time{font-weight:700;color:#a7401d;font-size:13px;white-space:nowrap}
+.home-page .home-upcoming-starter{font-size:11px;line-height:16px;color:#34465d;font-weight:500;overflow-wrap:anywhere;white-space:normal;text-align:center}
+.home-page .home-starter-delayed{color:#9a4b16}
 .home-page #home-results,.home-page #home-upcoming{display:flex;flex-direction:column}
 .home-page .home-results-list{display:grid;grid-template-rows:repeat(5,minmax(84px,1fr));gap:0;flex:1}
 .home-page .home-game{display:flex;flex-flow:column nowrap;align-items:stretch;justify-content:center;gap:4px;padding:5px 0;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
