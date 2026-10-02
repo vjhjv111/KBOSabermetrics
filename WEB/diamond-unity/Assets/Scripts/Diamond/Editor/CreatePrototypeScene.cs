@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,6 +13,8 @@ namespace Diamond.EditorTools
     /// </summary>
     public static class CreatePrototypeScene
     {
+        static AnimationClip Clip(string path) => AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>().First(c => !c.name.StartsWith("__preview__"));
+
         [MenuItem("Diamond/Create prototype scene")]
         public static void Run()
         {
@@ -39,7 +42,13 @@ namespace Diamond.EditorTools
 
             var field = new GameObject("Field");
             field.AddComponent<StadiumBuilder>();
-            field.AddComponent<PitchReplayDemo>();
+            var demo = field.AddComponent<PitchReplayDemo>();
+            var so = new SerializedObject(demo);
+            so.FindProperty("pitcherPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Pitching_1.fbx");
+            so.FindProperty("pitchClip").objectReferenceValue = Clip("Assets/Motions/Baseball Pitching_1.fbx");
+            so.FindProperty("batterPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Motions/Baseball Hit.fbx");
+            so.FindProperty("hitClip").objectReferenceValue = Clip("Assets/Motions/Baseball Hit.fbx");
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             const string path = "Assets/Scenes/BattingPrototype.unity";
             EditorSceneManager.SaveScene(scene, path);
