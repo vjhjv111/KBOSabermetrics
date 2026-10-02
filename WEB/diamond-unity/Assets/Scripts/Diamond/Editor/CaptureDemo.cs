@@ -39,7 +39,7 @@ namespace Diamond.EditorTools
             var times = new (string name, double ms)[]
             {
                 ("a_windup", release - 900), ("b_release", release), ("c_flight", release + 700),
-                ("d_precontact", contact - 250), ("e_contact", contact), ("f_after", contact + 600),
+                ("d_precontact", contact - 250), ("e_contact", contact), ("f_after", contact + 600), ("g_late", contact + 2500),
             };
             foreach (var (name, ms) in times)
             {

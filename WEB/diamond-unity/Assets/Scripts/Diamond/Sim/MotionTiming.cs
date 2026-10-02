@@ -25,5 +25,10 @@ namespace Diamond.Sim
         /// <summary>Hands reach the hitting zone at their peak speed around 1.47 s.</summary>
         public const double HitContactSeconds = 1.47;
         public const double HitLengthSeconds = 2.900;
+        /// <summary>
+        /// The Mixamo "Baseball Hit" clip continues into a sprint to first base: hip ground speed jumps from 0.4 to 1.5 m/s
+        /// after about 2.5 s (measured by AnalyzeRun). Hold the pose at the end of the follow-through instead.
+        /// </summary>
+        public const double HitSwingEndSeconds = 2.40;
     }
 }

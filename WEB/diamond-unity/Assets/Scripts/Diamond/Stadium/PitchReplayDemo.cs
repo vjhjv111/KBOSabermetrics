@@ -175,7 +175,8 @@ namespace Diamond.Stadium
             {
                 // Swing: the clip's contact (HitContactSeconds) meets the contact time; the load phase before it is spread over the flight.
                 var swingStart = contact - (MotionTiming.HitContactSeconds - loadClipSeconds) / swingClipSpeed * 1000.0;
-                if (ms >= swingStart) return loadClipSeconds + (ms - swingStart) / 1000.0 * swingClipSpeed;
+                // Stop at the end of the follow-through: the rest of the clip is the run to first base.
+                if (ms >= swingStart) return System.Math.Min(MotionTiming.HitSwingEndSeconds, loadClipSeconds + (ms - swingStart) / 1000.0 * swingClipSpeed);
                 return loadClipSeconds * Smooth((ms - loadStart) / (swingStart - loadStart));
             }
             // Taking the pitch: load slightly during the flight, then relax back after it passes.
