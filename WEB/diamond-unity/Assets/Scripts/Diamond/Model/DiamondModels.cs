@@ -36,6 +36,7 @@ namespace Diamond.Model
     [Serializable]
     public class PitchResult
     {
+        [NonSerialized] public bool directionFitted;
         public int id;
         public string label = "";
         public string kind = "ball";      // strike | ball | foul | hit | out | walk | hbp

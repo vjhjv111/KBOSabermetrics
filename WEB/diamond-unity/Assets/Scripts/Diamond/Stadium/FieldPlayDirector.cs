@@ -34,6 +34,7 @@ namespace Diamond.Stadium
             public AnimationMixerPlayable Mixer;
             public AnimationClipPlayable[] Playables;
             public Transform Hand;
+            public Animator Animator;
             public Vector3 Home;
             public readonly List<Seg> Segments = new List<Seg>();
         }
@@ -107,7 +108,7 @@ namespace Diamond.Stadium
             }
             output.SetSourcePlayable(mixer);
             graph.Play();
-            return new Rig { Go = go, Graph = graph, Mixer = mixer, Playables = playables, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand), Home = home };
+            return new Rig { Go = go, Graph = graph, Mixer = mixer, Playables = playables, Hand = animator.GetBoneTransform(HumanBodyBones.RightHand), Animator = animator, Home = home };
         }
 
         void OnDestroy()
@@ -391,6 +392,60 @@ namespace Diamond.Stadium
             var length = p.GetAnimationClip().length;
             p.SetTime(loop ? clipTime % Math.Max(0.01, length) : Math.Min(clipTime, length - 0.001));
             rig.Graph.Evaluate();
+            if (clip == Clip.Idle) ReadyStance(rig);
+        }
+
+        /// <summary>
+        /// Overrides the idle (batting-stance) clip with an infielder's ready position: feet wide, knees bent, back leaning forward,
+        /// hands hanging in front of the knees. Works in model space and keeps the feet where the clip planted them.
+        /// </summary>
+        static void ReadyStance(Rig rig)
+        {
+            var a = rig.Animator;
+            if (a == null || !a.isHuman) return;
+            var root = a.transform;
+            Transform B(HumanBodyBones id) => a.GetBoneTransform(id);
+            var hips = B(HumanBodyBones.Hips); var spine = B(HumanBodyBones.Spine); var chest = B(HumanBodyBones.Chest); var head = B(HumanBodyBones.Head);
+            var legs = new[]
+            {
+                (up: B(HumanBodyBones.LeftUpperLeg), low: B(HumanBodyBones.LeftLowerLeg), foot: B(HumanBodyBones.LeftFoot)),
+                (up: B(HumanBodyBones.RightUpperLeg), low: B(HumanBodyBones.RightLowerLeg), foot: B(HumanBodyBones.RightFoot)),
+            };
+            if (hips == null || spine == null || head == null) return;
+            foreach (var l in legs) if (l.up == null || l.low == null || l.foot == null) return;
+
+            var before = (root.InverseTransformPoint(legs[0].foot.position) + root.InverseTransformPoint(legs[1].foot.position)) * 0.5f;
+            var hipsBefore = root.InverseTransformPoint(hips.position);
+            foreach (var l in legs)
+            {
+                var side = Mathf.Sign(root.InverseTransformPoint(l.foot.position).x - hipsBefore.x);
+                var thigh = Quaternion.Euler(0, 0, side * 24f) * Quaternion.Euler(-52f, 0, 0);
+                var shin = Quaternion.Euler(64f, 0, 0);
+                BoneMath.RotateInModelSpace(l.up, root, thigh);
+                BoneMath.RotateInModelSpace(l.low, root, shin);
+                BoneMath.RotateInModelSpace(l.foot, root, Quaternion.Inverse(shin * thigh));
+            }
+            var after = (root.InverseTransformPoint(legs[0].foot.position) + root.InverseTransformPoint(legs[1].foot.position)) * 0.5f;
+            hips.position += root.TransformVector(before - after);
+
+            BoneMath.RotateInModelSpace(spine, root, Quaternion.Euler(16f, 0, 0));
+            if (chest != null) BoneMath.RotateInModelSpace(chest, root, Quaternion.Euler(12f, 0, 0));
+            BoneMath.RotateInModelSpace(head, root, Quaternion.Euler(-24f, 0, 0));
+
+            // Hands hang in front of the knees.
+            var knees = new[] { legs[0].low.position, legs[1].low.position };
+            var arms = new[]
+            {
+                (up: B(HumanBodyBones.LeftUpperArm), low: B(HumanBodyBones.LeftLowerArm), hand: B(HumanBodyBones.LeftHand), knee: knees[0]),
+                (up: B(HumanBodyBones.RightUpperArm), low: B(HumanBodyBones.RightLowerArm), hand: B(HumanBodyBones.RightHand), knee: knees[1]),
+            };
+            foreach (var arm in arms)
+            {
+                if (arm.up == null || arm.low == null || arm.hand == null) continue;
+                var k = root.InverseTransformPoint(arm.knee);
+                var target = root.TransformPoint(new Vector3(k.x * 0.8f, k.y + 0.12f, k.z + 0.2f));
+                BoneMath.TwoBoneIk(root, arm.up, arm.low, arm.hand, target, 1f);
+            }
         }
 
         void EvaluateRig(Rig rig, double ms)

@@ -146,15 +146,15 @@ namespace Diamond.Stadium
             DrawBase(c + new Vector2(-34, 0), _bases[2]);   // third
             DrawBase(c + new Vector2(0, 34), false, true);  // home
             // Count
-            DrawCount(x + 16, y + 56, "B", _balls, 4, new Color(0.3f, 0.8f, 0.4f));
-            DrawCount(x + 16, y + 86, "S", _strikes, 3, new Color(1f, 0.8f, 0.2f));
-            DrawCount(x + 16, y + 116, "O", _outs, 3, new Color(1f, 0.35f, 0.3f));
+            DrawCount(x + 16, y + 56, "B", _balls, 3, new Color(0.3f, 0.8f, 0.4f));
+            DrawCount(x + 16, y + 86, "S", _strikes, 2, new Color(1f, 0.8f, 0.2f));
+            DrawCount(x + 16, y + 116, "O", _outs, 2, new Color(1f, 0.35f, 0.3f));
         }
 
         void DrawBase(Vector2 centre, bool occupied, bool home = false)
         {
             var old = GUI.matrix;
-            GUIUtility.RotateAroundPivot(45, centre);
+            GUI.matrix = old * Matrix4x4.TRS(centre, Quaternion.Euler(0, 0, 45), Vector3.one) * Matrix4x4.TRS(-centre, Quaternion.identity, Vector3.one);
             Fill(new Rect(centre.x - 13, centre.y - 13, 26, 26), occupied ? new Color(1f, 0.85f, 0.2f) : home ? new Color(1, 1, 1, 0.35f) : new Color(1, 1, 1, 0.22f));
             GUI.matrix = old;
         }
@@ -184,38 +184,45 @@ namespace Diamond.Stadium
             for (var i = 0; i < _log.Length; i++) Text(new Rect(width - w - 12, 26 + i * 28, w - 24, 28), _log[i], _small, new Color(1, 1, 1, 0.85f));
         }
 
-        /// <summary>
-        /// Hit test for the in-game pitch menu (screen pixels, y up as in Input.mousePosition). Returns true when the point is over
-        /// the menu panel; <paramref name="index"/> is the item under it or -1 for the panel's header.
-        /// </summary>
+        const float ItemW = 236, ItemH = 40, ItemGap = 6;
+
+        /// <summary>World point the pitch buttons hang beside (the pitcher).</summary>
+        public Vector3 PitchMenuAnchor { get; set; }
+
+        Vector2 PitchMenuOrigin(float scale, float width, float height)
+        {
+            var cam = Camera.main;
+            var sp = cam != null ? cam.WorldToScreenPoint(PitchMenuAnchor) : new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 1);
+            var total = _pitchItems.Length * (ItemH + ItemGap);
+            var x = Mathf.Clamp(sp.x / scale + 150, 10, width - ItemW - 10);
+            var y = Mathf.Clamp((Screen.height - sp.y) / scale - total / 2f, 10, height - total - 10);
+            return new Vector2(x, y);
+        }
+
+        /// <summary>Hit test for the pitch buttons beside the pitcher (screen pixels, y up). True when over a button.</summary>
         public bool OverPitchMenu(Vector2 screen, out int index)
         {
             index = -1;
             if (_pitchItems.Length == 0) return false;
             var scale = Screen.height / 1080f;
             var p = new Vector2(screen.x / scale, (Screen.height - screen.y) / scale);
-            var height = Screen.height / scale;
-            var h = 44 + _pitchItems.Length * 34;
-            var y = (height - h) / 2;
-            if (!new Rect(24, y, 300, h).Contains(p)) return false;
+            var o = PitchMenuOrigin(scale, Screen.width / scale, Screen.height / scale);
             for (var i = 0; i < _pitchItems.Length; i++)
-                if (new Rect(30, y + 40 + i * 34, 288, 32).Contains(p)) { index = i; break; }
-            return true;
+                if (new Rect(o.x, o.y + i * (ItemH + ItemGap), ItemW, ItemH).Contains(p)) { index = i; return true; }
+            return false;
         }
 
         void DrawPitchControls(float width, float height)
         {
             if (_pitchItems.Length > 0)
             {
-                var h = 44 + _pitchItems.Length * 34;
-                var y = (height - h) / 2;
-                Fill(new Rect(24, y, 300, h), new Color(0.05f, 0.1f, 0.16f, 0.85f));
-                Text(new Rect(36, y + 6, 270, 30), "구종 선택 (클릭 / 숫자키)", _small, new Color(1, 1, 1, 0.6f));
+                var o = PitchMenuOrigin(Screen.height / 1080f, width, height);
                 for (var i = 0; i < _pitchItems.Length; i++)
                 {
+                    var r = new Rect(o.x, o.y + i * (ItemH + ItemGap), ItemW, ItemH);
                     var selected = i == _pitchSelected;
-                    if (selected) Fill(new Rect(30, y + 40 + i * 34, 288, 32), new Color(1f, 0.85f, 0.2f, 0.25f));
-                    Text(new Rect(40, y + 40 + i * 34, 270, 32), $"{i + 1}  {_pitchItems[i]}", _small, selected ? new Color(1f, 0.9f, 0.4f) : Color.white);
+                    Fill(r, selected ? new Color(0.95f, 0.75f, 0.15f, 0.92f) : new Color(0.05f, 0.1f, 0.16f, 0.82f));
+                    Text(new Rect(r.x + 10, r.y, r.width - 12, r.height), $"{i + 1}  {_pitchItems[i]}", _small, selected ? new Color(0.1f, 0.1f, 0.1f) : Color.white);
                 }
             }
             if (_gaugeVisible)

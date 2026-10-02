@@ -16,9 +16,9 @@ namespace Diamond.Stadium
         [SerializeField] Vector3 pitchLookAt = new Vector3(0f, 1.3f, 12f);
         [SerializeField] float pitchFov = 45f;
         [Header("Pitcher view (behind the mound, when the user pitches)")]
-        [SerializeField] Vector3 pitcherViewPosition = new Vector3(0f, 3.4f, 24.5f);
-        [SerializeField] Vector3 pitcherViewLookAt = new Vector3(0f, 1.0f, 0f);
-        [SerializeField] float pitcherViewFov = 30f;
+        Vector3 pitcherViewPosition = new Vector3(0f, 4.3f, 31f);
+        Vector3 pitcherViewLookAt = new Vector3(0f, 0.9f, 6f);
+        float pitcherViewFov = 30f;
         [Header("Ball tracking view")]
         [SerializeField] Vector3 followPosition = new Vector3(0f, 3.8f, -10.5f);
         [SerializeField] float frameWidthMetres = 14f;    // height of the field window kept around the ball

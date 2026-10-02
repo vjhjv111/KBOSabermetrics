@@ -468,6 +468,7 @@ namespace Diamond.Net
                 return (after ?? before, null);
             }
 
+            FitToFairTerritory(result);
             _demo.SetResult(result);
             var playEnd = PlanField(result);
             Announce(result, after);
@@ -506,6 +507,17 @@ namespace Diamond.Net
             return _field.Plan(result, _planBatter, _planBasesBefore != null ? _planBasesBefore : null, after, runs);
         }
 
+        /// <summary>
+        /// The server spreads balls in play over +-75 degrees but fair territory is +-45, so plays it scores as outs or hits could land
+        /// in foul ground. The replay shows them squeezed into the fair wedge (the order of pull and opposite-field balls is kept).
+        /// </summary>
+        static void FitToFairTerritory(PitchResult r)
+        {
+            if (r == null || r.directionFitted || r.contact == null || r.kind == "foul" || r.trajectory == "foul") return;
+            r.directionFitted = true;
+            r.direction = r.direction * 0.74 / 1.3;
+        }
+
         void SetPitcherView(bool on)
         {
             var gc = Camera.main != null ? Camera.main.GetComponent<GameCamera>() : null;
@@ -531,6 +543,7 @@ namespace Diamond.Net
             _pitchMenuLabels = arsenal.Select(a => PitchLabel(a.type, a.velocity)).ToArray();
             _pitchTypeIndex = 0;
             RefreshPitchMenu();
+            _hud.PitchMenuAnchor = new Vector3(0f, 1.1f, 18.44f);
 
             // Hold everyone in the stance while the user prepares the pitch.
             _demo.ShowStance(ServerNow);
