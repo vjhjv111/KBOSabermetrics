@@ -194,10 +194,11 @@ namespace Diamond.Stadium
             // --- batter becomes a runner ---
             // The batter keeps swinging until his follow-through is over, then the base-running rig takes over (Evaluate swaps them).
             var runStart = walk ? t0 + 400 : t0 + demo.SwingFollowThroughMs(r.outcome == "HR") + 60;
-            _batterSwapMs = inPlay ? runStart : 0;
+            // Walks and hit-by-pitches too: the batter at the plate is replaced by his runner rig when he sets off (no second batter in the box).
+            _batterSwapMs = runStart;
             var batterRunner = _runners[0];
-            batterRunner.Go.SetActive(!inPlay);
-            var batterStart = inPlay ? demo.BatterPosition : Base(0) + new Vector3(-1.15f, 0, 0);
+            batterRunner.Go.SetActive(false);
+            var batterStart = demo.BatterPosition;
             batterStart.y = 0;
             var batterDest = out_ ? 1 : destination;
             var runnerEnd = BuildRun(batterRunner, batterStart, 0, batterDest, runStart, walk ? 3.2f : runSpeed, afterOut: out_, jogToStop: out_ && r.trajectory != "ground");

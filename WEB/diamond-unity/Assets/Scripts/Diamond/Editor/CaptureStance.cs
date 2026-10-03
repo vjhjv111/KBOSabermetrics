@@ -77,6 +77,12 @@ namespace Diamond.EditorTools
             demo.Evaluate(sample.releaseAt + 900);
             Shot(cam, Path.Combine(dir, "catcher.png"), new Vector3(0f, 1.4f, -3.4f), new Vector3(0f, 0.8f, 1f), 35);
 
+            demo.Evaluate(sample.releaseAt - 500);
+            Shot(cam, Path.Combine(dir, "catcher_front.png"), new Vector3(0f, 1.2f, 2.2f), new Vector3(0f, 0.85f, -1.5f), 30);
+            Shot(cam, Path.Combine(dir, "pitcher_front.png"), mound + new Vector3(0f, 1.4f, -4.5f), mound + new Vector3(0f, 1.2f, 0f), 30);
+            demo.SetBatter(true);
+            demo.ShowStance(0); for (var k = 0; k < 3; k++) demo.Evaluate(k * 16);
+            Shot(cam, Path.Combine(dir, "batter_front.png"), new Vector3(1.15f, 1.3f, 3.2f), new Vector3(1.15f, 1.15f, 0f), 30);
             if (director != null)
             {
                 director.ResetField();

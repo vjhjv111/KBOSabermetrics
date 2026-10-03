@@ -612,6 +612,7 @@ namespace Diamond.Net
                 default: c = Color.white; break;
             }
             var detail = r.timing != null ? $"   타이밍 {r.timing:0}ms · 조준 오차 {r.aimError:0.00}" : "";
+            if (r.plateLocation != null) detail += $"   실제 코스 {r.plateLocation.x:0.0}, {r.plateLocation.y:0.0}";
             if (r.exitSpeed > 0) detail += $"   타구 {r.exitSpeed:0}km/h · {r.launchAngle:0}° · {r.distance:0}m";
             _hud.ShowBanner(r.label, c, 3.2f);
             _hud.SetStatus($"{view.balls}-{view.strikes}  #{r.id}  {r.label}{detail}");
