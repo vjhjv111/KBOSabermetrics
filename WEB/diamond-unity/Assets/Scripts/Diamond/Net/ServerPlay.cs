@@ -339,7 +339,8 @@ namespace Diamond.Net
                     continue;
                 }
 
-                ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
+                var upBatter = state.UpcomingBatter ?? action.batter; var upPitcher = state.UpcomingPitcher ?? action.pitcher;
+                ApplyPlayers(state.PlayerName(upBatter), state.Bats(upBatter), state.PlayerName(upPitcher), state.Throws(upPitcher), state.Delivery(upPitcher),
                     state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam), state.BattingTeam == state.HomeTeam);
                 var (_, result) = await PlayPitch(action);
                 state = _match.State;
@@ -538,12 +539,14 @@ namespace Diamond.Net
         async Task<MatchState> PlayHumanPitch(MatchState state)
         {
             var action = state.Action;
-            ApplyPlayers(state.PlayerName(action.batter), state.Bats(action.batter), state.PlayerName(action.pitcher), state.Throws(action.pitcher), state.Delivery(action.pitcher),
+            // The action still names the previous batter after a plate appearance ended; the lineup knows who is up.
+            var batterId = state.UpcomingBatter ?? action.batter; var pitcherId = state.UpcomingPitcher ?? action.pitcher;
+            ApplyPlayers(state.PlayerName(batterId), state.Bats(batterId), state.PlayerName(pitcherId), state.Throws(pitcherId), state.Delivery(pitcherId),
                 state.TeamName(state.BattingTeam), state.TeamName(state.BattingTeam == state.HomeTeam ? state.AwayTeam : state.HomeTeam), state.BattingTeam == state.HomeTeam);
             PresentState(state);
             SetPitcherView(true);
 
-            var arsenal = (state.Player(action.pitcher)?["arsenal"] as JArray)?.Select(a => (type: a.Value<string>("type"), velocity: a.Value<double?>("velocity") ?? 0)).ToArray()
+            var arsenal = (state.Player(pitcherId)?["arsenal"] as JArray)?.Select(a => (type: a.Value<string>("type"), velocity: a.Value<double?>("velocity") ?? 0)).ToArray()
                           ?? new[] { ("fastball", 140.0) };
             if (arsenal.Length == 0) arsenal = new[] { ("fastball", 140.0) };
             _pitchTypes = arsenal.Select(a => a.type).ToArray();

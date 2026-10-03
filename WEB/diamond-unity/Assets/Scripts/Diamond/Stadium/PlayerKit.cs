@@ -165,10 +165,21 @@ namespace Diamond.Stadium
             if (head != null)
             {
                 var helmet = role == Role.Batter || role == Role.Runner || role == Role.Catcher;
-                Piece(PrimitiveType.Sphere, head, rootRotation, CrownOffset, new Vector3(0.2f, helmet ? 0.17f : 0.15f, 0.225f), Quaternion.identity, _capMaterial);
-                // Brim: a short flat disc pointing forward.
-                Piece(PrimitiveType.Cylinder, head, rootRotation, CrownOffset + new Vector3(0f, -0.04f, helmet ? 0.1f : 0.12f), new Vector3(0.17f, 0.004f, helmet ? 0.1f : 0.15f), Quaternion.identity, _capMaterial);
-                if (helmet) Piece(PrimitiveType.Sphere, head, rootRotation, CrownOffset + new Vector3(role == Role.Batter ? -0.09f : 0.09f, -0.09f, 0.0f), new Vector3(0.05f, 0.1f, 0.09f), Quaternion.identity, _capMaterial);
+                var skull = HeadBounds(go, head);   // actor-local bounds of the head mesh in the T-pose
+                var headLocal = go.transform.InverseTransformPoint(head.position);
+                Vector3 Off(Vector3 actorLocal) => actorLocal - headLocal;
+                var crownHeight = helmet ? 0.15f : 0.13f;
+                var crown = new Vector3(skull.center.x, skull.max.y - crownHeight * 0.38f, skull.center.z + 0.005f);
+                Piece(PrimitiveType.Sphere, head, rootRotation, Off(crown), new Vector3(skull.size.x * 1.12f, crownHeight, skull.size.z * 1.1f), Quaternion.identity, _capMaterial);
+                // Brim: a short flat disc over the forehead, pointing forward (+z of the actor in the T-pose).
+                var brim = new Vector3(skull.center.x, skull.max.y - crownHeight * 0.75f, skull.max.z + 0.01f);
+                Piece(PrimitiveType.Cylinder, head, rootRotation, Off(brim), new Vector3(skull.size.x * 0.85f, 0.004f, helmet ? 0.09f : 0.13f), Quaternion.identity, _capMaterial);
+                if (helmet)
+                {
+                    // Ear flap on the batting side's far ear (model +x for right-handers is the model's left side).
+                    var ear = new Vector3(role == Role.Batter ? skull.min.x : skull.max.x, skull.center.y + 0.02f, skull.center.z);
+                    Piece(PrimitiveType.Sphere, head, rootRotation, Off(ear), new Vector3(0.03f, 0.08f, 0.09f), Quaternion.identity, _capMaterial);
+                }
             }
             if (role == Role.Batter && right != null)
             {
@@ -182,6 +193,34 @@ namespace Diamond.Stadium
                 var size = role == Role.Catcher ? 0.2f : 0.15f;
                 Piece(PrimitiveType.Sphere, left, rootRotation, GloveOffset, new Vector3(size, 0.07f, size), Quaternion.identity, _gloveMaterial);
             }
+        }
+
+        /// <summary>Bounds (actor-local) of the vertices weighted mostly to the head bone, in the current (T-)pose.</summary>
+        static Bounds HeadBounds(GameObject go, Transform head)
+        {
+            var renderer = go.GetComponentInChildren<SkinnedMeshRenderer>();
+            var fallback = go.transform.InverseTransformPoint(head.position) + new Vector3(0f, 0.11f, 0f);
+            if (renderer == null || !renderer.sharedMesh.isReadable) return new Bounds(fallback, new Vector3(0.16f, 0.22f, 0.2f));
+            var baked = new Mesh();
+            renderer.BakeMesh(baked);
+            var vertices = baked.vertices;
+            var weights = renderer.sharedMesh.boneWeights;
+            var bones = renderer.bones;
+            var index = System.Array.IndexOf(bones, head);
+            var bounds = new Bounds(fallback, Vector3.zero); var any = false;
+            for (var v = 0; v < vertices.Length && v < weights.Length; v++)
+            {
+                var w = weights[v];
+                var best = w.boneIndex0; var bestW = w.weight0;
+                if (w.weight1 > bestW) { best = w.boneIndex1; bestW = w.weight1; }
+                if (w.weight2 > bestW) { best = w.boneIndex2; bestW = w.weight2; }
+                if (w.weight3 > bestW) { best = w.boneIndex3; }
+                if (best != index) continue;
+                var p = go.transform.InverseTransformPoint(renderer.transform.TransformPoint(vertices[v]));
+                if (!any) { bounds = new Bounds(p, Vector3.zero); any = true; } else bounds.Encapsulate(p);
+            }
+            Object.DestroyImmediate(baked);
+            return any ? bounds : new Bounds(fallback, new Vector3(0.16f, 0.22f, 0.2f));
         }
 
         public static Vector3 GloveOffset = new Vector3(0f, -0.07f, 0.02f);

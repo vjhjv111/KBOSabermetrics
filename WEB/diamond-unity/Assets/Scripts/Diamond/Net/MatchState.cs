@@ -50,6 +50,21 @@ namespace Diamond.Net
         public string AwayTeam => _game?.Value<string>("awayTeam") ?? "";
         public int Inning => _game?.Value<int?>("inning") ?? 1;
         public bool TopHalf => (_game?.Value<string>("half") ?? "top") == "top";
+        /// <summary>Id of the batter due up (from the lineup and batting order). The action view keeps the previous batter until the next pitch is created.</summary>
+        public string UpcomingBatter
+        {
+            get
+            {
+                var side = TopHalf ? "away" : "home";
+                var lineup = _game?[side + "Lineup"] as JArray;
+                var order = _game?.Value<int?>(side + "Order") ?? 0;
+                return lineup != null && lineup.Count > 0 ? lineup[order % lineup.Count].Value<string>() : null;
+            }
+        }
+
+        /// <summary>Id of the pitcher on the mound for the defending club.</summary>
+        public string UpcomingPitcher => _game?.Value<string>(TopHalf ? "homePitcher" : "awayPitcher");
+
         public int Outs => _game?.Value<int?>("outs") ?? 0;
         public int HomeRuns => _game?.Value<int?>("homeRuns") ?? 0;
         public int AwayRuns => _game?.Value<int?>("awayRuns") ?? 0;
