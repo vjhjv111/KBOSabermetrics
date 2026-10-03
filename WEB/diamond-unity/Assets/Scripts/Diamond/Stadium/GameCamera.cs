@@ -75,7 +75,7 @@ namespace Diamond.Stadium
                 // Keep the ball in the upper part of the frame so the field stays visible, and enlarge it with distance.
                 var windowHeight = 2f * dist * Mathf.Tan(wantFov * 0.5f * Mathf.Deg2Rad);
                 wantLook -= Vector3.up * (0.22f * windowHeight);
-                demo.Ball.localScale = Vector3.one * (BallBaseScale * Mathf.Clamp(dist / 12f, 1f, 5f));
+                demo.Ball.localScale = Vector3.one * (BallBaseScale * Mathf.Clamp(dist / 30f, 1f, 1.8f));
             }
             else
             {

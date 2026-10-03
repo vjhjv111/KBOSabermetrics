@@ -59,6 +59,7 @@ namespace Diamond.EditorTools
                 ("groundout", Make("OUT", "out", "ground", 125, 4, -0.5), null, null, 0),
                 ("flyout", Make("OUT", "out", "fly", 140, 38, 0.1), null, null, 0),
                 ("single", Make("1B", "hit", "line", 150, 13, -0.45), new[] { "r1", null, null }, new[] { "b", "r1", null }, 0),
+                ("groundsingle", Make("1B", "hit", "ground", 118, 3, -0.05), null, new[] { "b", null, null }, 0),
                 ("homerun", Make("HR", "hit", "fly", 172, 28, 0.2), new[] { "r1", "r2", null }, new string[] { null, null, null }, 3),
             };
 
@@ -81,7 +82,7 @@ namespace Diamond.EditorTools
                     cam.transform.LookAt(new Vector3(0f, 0f, 36f));
                     cam.fieldOfView = 60;
                     Snap(cam, Path.Combine(dir, $"play_{name}_{dt:0000}.png"));
-                    if (name == "groundout" || name == "single")
+                    if (name == "groundout" || name == "single" || name == "groundsingle")
                     {
                         // Close-ups of the fielder nearest the ball and of the batter-runner.
                         var ballPos = demo.Ball.position;

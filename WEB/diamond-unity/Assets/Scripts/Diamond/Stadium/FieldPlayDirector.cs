@@ -223,7 +223,7 @@ namespace Diamond.Stadium
 
             if (inPlay && r.outcome != "HR")
             {
-                end = Math.Max(end, BuildFielding(r, t0, destination, out_));
+                end = Math.Max(end, BuildFielding(r, t0, destination, out_, runnerEnd));
             }
             else if (r.outcome == "HR")
             {
@@ -341,7 +341,7 @@ namespace Diamond.Stadium
             return false;
         }
 
-        double BuildFielding(PitchResult r, double t0, int destination, bool outPlay)
+        double BuildFielding(PitchResult r, double t0, int destination, bool outPlay, double batterAtFirst)
         {
             if (!FindIntercept(r, t0, r.trajectory != "ground" && outPlay, out var fi, out var tI, out var pI)) return t0;
             var fielder = _fielders[fi];
@@ -376,13 +376,23 @@ namespace Diamond.Stadium
             _ballSegs.Add(new BallSeg { Start = tP, End = tP + 900, Held = fielder });
 
             // Where does the throw go? Outs on grounders go to first; hits are thrown in to the base ahead of the runner.
-            var targetBase = outPlay ? 1 : Mathf.Clamp(destination + 1, 1, 3);
+            // A grounder that is a single is still thrown to first, just too late (the batter beats it).
+            var lateThrowToFirst = !outPlay && r.trajectory == "ground" && destination == 1;
+            var targetBase = outPlay || lateThrowToFirst ? 1 : Mathf.Clamp(destination + 1, 1, 3);
             var receiverIndex = targetBase == 1 ? 0 : targetBase == 2 ? 1 : 3;
             var target = Base(targetBase);
             var receiver = _fielders[receiverIndex];
             // The fielder who gathered it is also the receiver when he is the first baseman covering his own bag.
-            var throwStart = tP;
             var windup = 900.0;
+            var delay = 0.0;
+            if (lateThrowToFirst && batterAtFirst > 0)
+            {
+                var arriveIfNow = tP + windup + Vector3.Distance(pI, target) / throwSpeed * 1000.0;
+                delay = Math.Max(0.0, batterAtFirst + 250.0 - arriveIfNow);   // the fielder fumbles the pick-up a moment
+                if (delay > 0) fielder.Segments.Add(new Seg { Start = tP, End = tP + delay, Clip = Clip.PickUp, ClipFrom = 2.25, ClipTo = 2.25, From = pI, To = pI, FaceToward = target });
+            }
+            var throwStart = tP + delay;
+            if (delay > 0) _ballSegs.Add(new BallSeg { Start = tP + 900, End = throwStart + windup, Held = fielder });
             var releaseAt = throwStart + windup;
             fielder.Segments.Add(new Seg { Start = throwStart, End = releaseAt, Clip = Clip.Throw, ClipFrom = 0.35, ClipTo = 1.5, From = pI, To = pI, FaceToward = target });
             fielder.Segments.Add(new Seg { Start = releaseAt, End = releaseAt + 600, Clip = Clip.Throw, ClipFrom = 1.5, ClipTo = 2.2, From = pI, To = pI, FaceToward = target });
