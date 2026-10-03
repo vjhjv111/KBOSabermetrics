@@ -441,8 +441,9 @@ namespace Diamond.Stadium
             var arrival = _pitch.releaseAt + _pitch.flightMs;
             var mitt = Field.ToUnity(BallFlight.PitchedVisual(_pitch, arrival + 1000));
             // Body first (starts early: the catcher reads the pitch), then the glove (IK) on arrival.
-            var body = Smooth((ms - (arrival - 650)) / 450.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 600.0));
-            var glove = Smooth((ms - (arrival - 350)) / 300.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 500.0));
+            // The catcher reacts late so his movement does not give the pitch location away to the person aiming.
+            var body = Smooth((ms - (arrival - 260)) / 220.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 600.0));
+            var glove = Smooth((ms - (arrival - 140)) / 140.0) * (1.0 - Smooth((ms - (arrival + 1100)) / 500.0));
             if (_result?.contact != null && ms >= _result.contact.at - 50)
             {
                 // Ball was hit: no catch, relax back to the crouch.

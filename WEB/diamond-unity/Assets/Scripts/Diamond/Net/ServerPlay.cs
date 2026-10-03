@@ -75,6 +75,11 @@ namespace Diamond.Net
         // --- human batter input ---------------------------------------------------------------------------------
         // Aim space matches the web game: zone edges at +/-1, mapped to the regulation-sized zone (see StrikeZone).
         const float ZoneHalfWidth = Diamond.Sim.StrikeZone.HalfWidth, ZoneCentreY = Diamond.Sim.StrikeZone.CenterY, ZoneHalfHeight = Diamond.Sim.StrikeZone.HalfHeight;
+        static readonly Vector3[] ZoneCorners =
+        {
+            new Vector3(-ZoneHalfWidth, ZoneCentreY - ZoneHalfHeight, 0), new Vector3(ZoneHalfWidth, ZoneCentreY - ZoneHalfHeight, 0),
+            new Vector3(ZoneHalfWidth, ZoneCentreY + ZoneHalfHeight, 0), new Vector3(-ZoneHalfWidth, ZoneCentreY + ZoneHalfHeight, 0),
+        };
         Transform _reticle;
         LineRenderer _zoneBox;
         Vector2 _aim;
@@ -167,9 +172,10 @@ namespace Diamond.Net
         {
             if (_reticle == null) return;
             var aiming = (humanBatter && _awaitingInput) || _awaitingPitchInput;
-            _reticle.gameObject.SetActive(aiming);
-            if (_zoneBox != null) _zoneBox.enabled = aiming;
-            if (!aiming) return;
+            // The zone and reticle are drawn by the HUD on top of everything; the 3D copies stay off.
+            _reticle.gameObject.SetActive(false);
+            if (_zoneBox != null) _zoneBox.enabled = false;
+            if (!aiming) { _hud.SetAimOverlay(false, null, Vector3.zero); return; }
             var cam = Camera.main;
             if (cam == null) return;
             var ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -179,6 +185,7 @@ namespace Diamond.Net
                 _aim = new Vector2(Mathf.Clamp((float)Diamond.Sim.StrikeZone.AimX(hit.x), -2f, 2f), Mathf.Clamp((hit.y - ZoneCentreY) / ZoneHalfHeight, -2f, 2f));
             }
             _reticle.position = new Vector3((float)Diamond.Sim.StrikeZone.X(_aim.x), ZoneCentreY + _aim.y * ZoneHalfHeight, 0);
+            _hud.SetAimOverlay(true, ZoneCorners, _reticle.position);
             if (_awaitingInput && _clickedAt == null && Input.GetMouseButtonDown(0))
             {
                 _clickedAt = ServerNow;

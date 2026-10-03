@@ -232,8 +232,11 @@ namespace Diamond.Stadium
             }
             if ((role == Role.Fielder || role == Role.Pitcher || role == Role.Catcher) && left != null)
             {
-                var size = role == Role.Catcher ? 0.2f : 0.15f;
-                Piece(PrimitiveType.Sphere, left, rootRotation, GloveOffset, new Vector3(size, 0.07f, size), Quaternion.identity, _gloveMaterial);
+                // The mitt covers the palm and fingers: centred along the finger direction, on the palm side (down in the T-pose).
+                var middle = animator.GetBoneTransform(HumanBodyBones.LeftMiddleProximal);
+                var fingers = middle != null ? (Local(middle) - Local(left)).normalized : Vector3.left;
+                var size = role == Role.Catcher ? 0.27f : 0.21f;
+                Piece(PrimitiveType.Sphere, left, rootRotation, fingers * (role == Role.Catcher ? 0.12f : 0.1f) + Vector3.down * 0.05f, new Vector3(size, 0.11f, size), Quaternion.FromToRotation(Vector3.right, fingers), _gloveMaterial);
             }
         }
 

@@ -12,9 +12,11 @@ namespace Diamond.Stadium
     {
         [SerializeField] PitchReplayDemo demo;
         [Header("Pitch view (behind home plate)")]
-        [SerializeField] Vector3 pitchPosition = new Vector3(0f, 1.9f, -6.6f);
-        [SerializeField] Vector3 pitchLookAt = new Vector3(0f, 1.3f, 12f);
-        [SerializeField] float pitchFov = 45f;
+        // Higher and further back than a real behind-the-plate view so the crouching catcher does not hide the zone. These three are
+        // not serialized: the scene keeps no stale copy.
+        Vector3 pitchPosition = new Vector3(0f, 3.4f, -8.2f);
+        Vector3 pitchLookAt = new Vector3(0f, 1.0f, 10f);
+        float pitchFov = 36f;
         [Header("Pitcher view (behind the mound, when the user pitches)")]
         Vector3 pitcherViewPosition = new Vector3(0f, 4.3f, 31f);
         Vector3 pitcherViewLookAt = new Vector3(0f, 0.9f, 6f);

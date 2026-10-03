@@ -62,6 +62,23 @@ namespace Diamond.Stadium
         /// <summary>Release gauge: <paramref name="pos"/> runs 0..1; the sweet spot is the centre.</summary>
         public void SetGauge(bool visible, float pos) { _gaugeVisible = visible; _gaugePos = pos; }
 
+        // Strike zone and aim reticle drawn on top of everything (the catcher can stand in front of them).
+        Vector3[] _zoneCorners; Vector3 _reticle; bool _aimVisible;
+        public void SetAimOverlay(bool visible, Vector3[] zoneCornersWorld, Vector3 reticleWorld) { _aimVisible = visible; _zoneCorners = zoneCornersWorld; _reticle = reticleWorld; }
+
+        void DrawAim(float scale)
+        {
+            var cam = Camera.main;
+            if (!_aimVisible || cam == null || _zoneCorners == null) return;
+            Vector2 P(Vector3 w) { var sp = cam.WorldToScreenPoint(w); return new Vector2(sp.x / scale, (Screen.height - sp.y) / scale); }
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (var c in _zoneCorners) { var p = P(c); x0 = Mathf.Min(x0, p.x); x1 = Mathf.Max(x1, p.x); y0 = Mathf.Min(y0, p.y); y1 = Mathf.Max(y1, p.y); }
+            var line = new Color(1f, 1f, 1f, 0.9f); const float t = 2f;
+            Fill(new Rect(x0, y0, x1 - x0, t), line); Fill(new Rect(x0, y1 - t, x1 - x0, t), line);
+            Fill(new Rect(x0, y0, t, y1 - y0), line); Fill(new Rect(x1 - t, y0, t, y1 - y0), line);
+            Dot(P(_reticle), 14f, new Color(1f, 0.25f, 0.2f));
+        }
+
         public void SetLog(string[] lines) { _log = lines ?? new string[0]; }
 
         public void ShowBanner(string text, Color color, float seconds)
@@ -105,6 +122,7 @@ namespace Diamond.Stadium
             DrawPlayers(width, height);
             DrawLog(width, height);
             DrawBanner(width);
+            DrawAim(scale);
             DrawPitchControls(width, height);
             if (_status.Length > 0) Text(new Rect(24, height - 36, 900, 28), _status, _small, new Color(1, 1, 1, 0.7f));
             GUI.matrix = previous;
