@@ -35,6 +35,7 @@ namespace Diamond.Stadium
         public double VerdictMs => _verdictMs;
         double _verdictMs;
         Rig _batterRig; Vector3 _batterStart; double _runStart; float _batterSpeed;
+        Vector3 _focus = Vector3.zero;   // where the ball ends up / is caught: idle fielders turn towards it
         double _batterSwapMs;   // server time at which the swinging batter is replaced by his running rig (0 = no swap pending)
 
         sealed class Rig
@@ -46,6 +47,8 @@ namespace Diamond.Stadium
             public Transform Hand;
             public Animator Animator;
             public PlayerKit Kit;
+            public double RelaxAt = double.MaxValue;   // server time from which the ready stance relaxes to standing
+            public double Ms;                           // server time of the last evaluation
             public HumanPoseHandler PoseHandler;
             public float YawOffset;   // extra yaw currently applied for the clip in use (see IdleYaw)
             public Vector3 Home;
@@ -150,6 +153,7 @@ namespace Diamond.Stadium
             foreach (var f in _fielders)
             {
                 f.Segments.Clear();
+                f.RelaxAt = double.MaxValue; f.Ms = 0;
                 f.Go.SetActive(true);
                 Place(f, f.Home, Quaternion.LookRotation(Base(0) - f.Home), Clip.Idle, 0, true);
             }
@@ -237,7 +241,17 @@ namespace Diamond.Stadium
             {
                 // Fielders watch the ball leave the park.
                 foreach (var f in _fielders) f.Segments.Clear();
+                var gone = BallFlight.Batted(r, t0 + 2500);
+                if (gone != null) _focus = Pos(gone);
                 _verdictMs = t0 + 2500;
+            }
+
+            // Fielders with nothing to do follow the ball with their body and straighten up out of the ready stance.
+            foreach (var f in _fielders)
+            {
+                if (f.Segments.Count > 0) continue;
+                f.Segments.Add(new Seg { Start = t0, End = t0 + 1e7, Clip = Clip.Idle, Loop = true, From = f.Home, To = f.Home, FaceToward = _focus });
+                f.RelaxAt = t0 + 250;
             }
 
             if (_ballSegs.Count > 0) demo.BallOverride = BallPath;
@@ -353,6 +367,7 @@ namespace Diamond.Stadium
         double BuildFielding(PitchResult r, double t0, int destination, bool outPlay, double batterAtFirst)
         {
             if (!FindIntercept(r, t0, r.trajectory != "ground" && outPlay, out var fi, out var tI, out var pI)) return t0;
+            _focus = pI;
             var fielder = _fielders[fi];
             var flyBall = r.trajectory != "ground";
             var from = fielder.Home;
@@ -488,34 +503,36 @@ namespace Diamond.Stadium
                 var names = HumanTrait.MuscleName;
                 for (var i = 0; i < names.Length; i++) MuscleIndex[names[i]] = i;
             }
+            var relax = rig.RelaxAt == double.MaxValue ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((float)((rig.Ms - rig.RelaxAt) / 600.0)));
+            float Mu(int k) => Mathf.Lerp(StanceMuscles[k], RelaxMuscles[k], relax);
             void M(string name, float v) { if (MuscleIndex.TryGetValue(name, out var i)) pose.muscles[i] = v; }
             foreach (var side in new[] { "Left", "Right" })
             {
-                M(side + " Upper Leg Front-Back", StanceMuscles[0]);
-                M(side + " Upper Leg In-Out", StanceMuscles[1]);
+                M(side + " Upper Leg Front-Back", Mu(0));
+                M(side + " Upper Leg In-Out", Mu(1));
                 M(side + " Upper Leg Twist In-Out", 0f);
-                M(side + " Lower Leg Stretch", StanceMuscles[2]);
+                M(side + " Lower Leg Stretch", Mu(2));
                 M(side + " Lower Leg Twist In-Out", 0f);
-                M(side + " Foot Up-Down", StanceMuscles[3]);
+                M(side + " Foot Up-Down", Mu(3));
                 M(side + " Foot Twist In-Out", 0f);
                 M(side + " Toes Up-Down", 0f);
                 M(side + " Shoulder Down-Up", 0f);
                 M(side + " Shoulder Front-Back", 0f);
-                M(side + " Arm Down-Up", StanceMuscles[4]);
-                M(side + " Arm Front-Back", StanceMuscles[5]);
+                M(side + " Arm Down-Up", Mu(4));
+                M(side + " Arm Front-Back", Mu(5));
                 M(side + " Arm Twist In-Out", 0f);
-                M(side + " Forearm Stretch", StanceMuscles[6]);
+                M(side + " Forearm Stretch", Mu(6));
                 M(side + " Forearm Twist In-Out", 0f);
                 M(side + " Hand Down-Up", 0f);
                 M(side + " Hand In-Out", 0f);
             }
-            M("Spine Front-Back", StanceMuscles[7]); M("Spine Left-Right", 0f); M("Spine Twist Left-Right", 0f);
-            M("Chest Front-Back", StanceMuscles[8]); M("Chest Left-Right", 0f); M("Chest Twist Left-Right", 0f);
+            M("Spine Front-Back", Mu(7)); M("Spine Left-Right", 0f); M("Spine Twist Left-Right", 0f);
+            M("Chest Front-Back", Mu(8)); M("Chest Left-Right", 0f); M("Chest Twist Left-Right", 0f);
             M("UpperChest Front-Back", 0f); M("UpperChest Left-Right", 0f); M("UpperChest Twist Left-Right", 0f);
             M("Neck Nod Down-Up", 0f); M("Neck Tilt Left-Right", 0f); M("Neck Turn Left-Right", 0f);
-            M("Head Nod Down-Up", StanceMuscles[9]); M("Head Tilt Left-Right", 0f); M("Head Turn Left-Right", 0f);
+            M("Head Nod Down-Up", Mu(9)); M("Head Tilt Left-Right", 0f); M("Head Turn Left-Right", 0f);
             pose.bodyRotation = Quaternion.identity;
-            pose.bodyPosition = new Vector3(0f, pose.bodyPosition.y + StanceMuscles[10], 0f);
+            pose.bodyPosition = new Vector3(0f, pose.bodyPosition.y + Mu(10), 0f);
             rig.PoseHandler.SetHumanPose(ref pose);
 
             // Put the soles on the ground whatever the pose did to the hips.
@@ -532,11 +549,15 @@ namespace Diamond.Stadium
 
         // Muscle values: 0 upper leg front-back, 1 upper leg in-out, 2 lower leg stretch, 3 foot up-down, 4 arm down-up, 5 arm front-back,
         // 6 forearm stretch, 7 spine, 8 chest, 9 head nod, 10 hip height offset.
+        // Standing at ease: legs straight, feet a little apart, arms hanging.
+        public static float[] RelaxMuscles = { 0.6f, 0.12f, 0.6f, 0f, -0.9f, 0.1f, 0.6f, 0f, 0f, 0f, 0f };
         public static float[] StanceMuscles = { 0.25f, 0.5f, 0.3f, -0.3f, -0.9f, 0.3f, 0.6f, 0.13f, 0.09f, -0.12f, 0f };
 
         void EvaluateRig(Rig rig, double ms)
         {
-            if (rig == null || !rig.Go.activeSelf || rig.Segments.Count == 0) return;
+            if (rig == null || !rig.Go.activeSelf) return;
+            rig.Ms = ms;
+            if (rig.Segments.Count == 0) return;
             Seg seg = null;
             foreach (var s in rig.Segments) if (s.Start <= ms) seg = s; else break;
             if (seg == null)

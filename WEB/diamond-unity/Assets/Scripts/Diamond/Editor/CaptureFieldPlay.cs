@@ -88,7 +88,8 @@ namespace Diamond.EditorTools
                         var ballPos = demo.Ball.position;
                         var near = director.GetComponentsInChildren<Animator>().Where(a => a.gameObject.activeInHierarchy && a.name.StartsWith("Fielder")).OrderBy(a => (a.transform.position - ballPos).sqrMagnitude).First();
                         var runner = director.GetComponentsInChildren<Animator>().FirstOrDefault(a => a.gameObject.activeInHierarchy && a.name == "Runner 0");
-                        foreach (var (tag, target) in new[] { ("fielder", near.transform), ("runner", runner != null ? runner.transform : near.transform) })
+                        var far = director.GetComponentsInChildren<Animator>().Where(a => a.gameObject.activeInHierarchy && a.name.StartsWith("Fielder")).OrderByDescending(a => (a.transform.position - ballPos).sqrMagnitude).First();
+                        foreach (var (tag, target) in new[] { ("fielder", near.transform), ("far", far.transform), ("runner", runner != null ? runner.transform : near.transform) })
                         {
                             var c = target.position;
                             cam.transform.position = c + new Vector3(3.5f, 1.6f, -4f); cam.transform.LookAt(c + Vector3.up * 0.9f); cam.fieldOfView = 35;
