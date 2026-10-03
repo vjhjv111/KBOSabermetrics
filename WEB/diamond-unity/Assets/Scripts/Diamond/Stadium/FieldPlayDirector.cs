@@ -403,6 +403,20 @@ namespace Diamond.Stadium
             var from = fielder.Home;
             var reaction = t0 + 250;
             var home = Base(0);
+            if (!outPlay && r.trajectory == "ground" && destination == 1 && batterAtFirst > 0)
+            {
+                // A grounder that is a single: if a throw to first would beat the batter, the fielder simply gets to the ball later (it keeps
+                // rolling) instead of standing bent over with it.
+                var estimate = tI + 900.0 + Vector3.Distance(pI, Base(1)) / throwSpeed * 1000.0;
+                var late = batterAtFirst + 250.0 - estimate;
+                if (late > 0)
+                {
+                    tI += late;
+                    var rolled = BallFlight.Batted(r, tI);
+                    if (rolled != null) { var q = Pos(rolled); pI = new Vector3(q.x, 0, q.z); }
+                    _focus = pI;
+                }
+            }
 
             if (flyBall && outPlay)
             {
@@ -440,12 +454,6 @@ namespace Diamond.Stadium
             // The fielder who gathered it is also the receiver when he is the first baseman covering his own bag.
             var windup = 900.0;
             var delay = 0.0;
-            if (lateThrowToFirst && batterAtFirst > 0)
-            {
-                var arriveIfNow = tP + windup + Vector3.Distance(pI, target) / throwSpeed * 1000.0;
-                delay = Math.Max(0.0, batterAtFirst + 250.0 - arriveIfNow);   // the fielder fumbles the pick-up a moment
-                if (delay > 0) fielder.Segments.Add(new Seg { Start = tP, End = tP + delay, Clip = Clip.PickUp, ClipFrom = 2.25, ClipTo = 2.25, From = pI, To = pI, FaceToward = target });
-            }
             var throwStart = tP + delay;
             if (delay > 0) _ballSegs.Add(new BallSeg { Start = tP + 900, End = throwStart + windup, Held = fielder });
             var releaseAt = throwStart + windup;
