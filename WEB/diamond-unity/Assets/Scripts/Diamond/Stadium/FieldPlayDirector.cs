@@ -295,11 +295,26 @@ namespace Diamond.Stadium
 
         // ---- fielding -------------------------------------------------------------------------------------------
 
+        /// <summary>Server time at which a batted ball first touches the ground (0 if it never leaves it).</summary>
+        static double LandingMs(PitchResult r, double t0)
+        {
+            var airborne = false;
+            for (var dt = 100; dt <= 7000; dt += 20)
+            {
+                var p = BallFlight.Batted(r, t0 + dt);
+                if (p == null) continue;
+                if (p.y > 0.5) airborne = true;
+                else if (airborne) return t0 + dt;
+            }
+            return 0;
+        }
+
         /// <summary>Finds the fielder who gets to the ball first and the time/place of the interception.</summary>
         bool FindIntercept(PitchResult r, double t0, bool inAir, out int fielder, out double tI, out Vector3 pI)
         {
             fielder = -1; tI = 0; pI = Vector3.zero;
-            var ground = r.trajectory == "ground";
+            // A ball that drops in for a hit is played after it lands (never "caught" and dropped): treat it like a grounder.
+            var ground = r.trajectory == "ground" || !inAir && r.outcome != "OUT" && r.outcome != "K";
             if (inAir)
             {
                 // A fly-ball out is caught before the ball lands: the first moment it is descending through catching height.
@@ -343,7 +358,22 @@ namespace Diamond.Stadium
                     var d = Vector2.Distance(new Vector2(_fielders[i].Home.x, _fielders[i].Home.z), new Vector2(p.x, p.z));
                     if (d / fielderSpeed + 0.25f <= dt / 1000f && d < bestDist) { best = i; bestDist = d; }
                 }
-                if (best >= 0) { fielder = best; tI = t; pI = new Vector3(p.x, 0, p.z); return true; }
+                if (best >= 0)
+                {
+                    fielder = best; tI = t; pI = new Vector3(p.x, 0, p.z);
+                    if (r.trajectory != "ground" && r.outcome != "OUT")
+                    {
+                        // Even a fielder who was waiting nearby only gets to the ball a moment after it lands and rolls.
+                        var landed = LandingMs(r, t0);
+                        if (landed > 0 && tI < landed + 450)
+                        {
+                            tI = landed + 450;
+                            var later = BallFlight.Batted(r, tI);
+                            if (later != null) { var lp = Pos(later); pI = new Vector3(lp.x, 0, lp.z); }
+                        }
+                    }
+                    return true;
+                }
             }
             // Nobody can get there in time physically: send the nearest fielder to the landing spot anyway.
             for (var dt = 400; dt <= 7000; dt += 40)

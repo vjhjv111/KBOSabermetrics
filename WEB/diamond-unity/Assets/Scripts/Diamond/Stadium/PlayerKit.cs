@@ -40,7 +40,7 @@ namespace Diamond.Stadium
 
         // ---- batting equipment placement, tuned from renders (rotation of the bat in the world-aligned T-pose frame) ----
         public static Vector3 BatEuler = new Vector3(0f, 0f, 0f);
-        public static Vector3 BatOffset = new Vector3(0f, -0.07f, 0f);
+        public static Vector3 BatOffset = new Vector3(0f, 0f, 0f);
 
         public static PlayerKit Dress(GameObject go, Role role, Material baseMaterial)
         {
@@ -226,9 +226,13 @@ namespace Diamond.Stadium
             if (role == Role.Batter && right != null)
             {
                 // Handle and barrel along the hand's grip axis; BatEuler/BatOffset were tuned against the swing clip.
+                // The grip is in the fist, a little beyond the wrist bone along the fingers; the knob sits just below it.
                 var rot = Quaternion.Euler(BatEuler);
-                Piece(PrimitiveType.Cylinder, right, rootRotation, BatOffset + rot * new Vector3(0f, 0.2f, 0f), new Vector3(0.032f, 0.2f, 0.032f), rot, _batMaterial);
-                Piece(PrimitiveType.Cylinder, right, rootRotation, BatOffset + rot * new Vector3(0f, 0.52f, 0f), new Vector3(0.068f, 0.17f, 0.068f), rot, _batMaterial);
+                var middleR = animator.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
+                var fingersR = middleR != null ? (Local(middleR) - Local(right)).normalized : Vector3.right;
+                var grip = fingersR * 0.085f + BatOffset;
+                Piece(PrimitiveType.Cylinder, right, rootRotation, grip + rot * new Vector3(0f, 0.1f, 0f), new Vector3(0.032f, 0.2f, 0.032f), rot, _batMaterial);
+                Piece(PrimitiveType.Cylinder, right, rootRotation, grip + rot * new Vector3(0f, 0.42f, 0f), new Vector3(0.068f, 0.17f, 0.068f), rot, _batMaterial);
             }
             if ((role == Role.Fielder || role == Role.Pitcher || role == Role.Catcher) && left != null)
             {
