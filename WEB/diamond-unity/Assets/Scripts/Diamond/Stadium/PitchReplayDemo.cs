@@ -178,7 +178,7 @@ namespace Diamond.Stadium
             if (homerunClip == null)
                 homerunClip = System.Linq.Enumerable.FirstOrDefault(System.Linq.Enumerable.OfType<AnimationClip>(UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Motions/Baseball Hit_homerun.fbx")), c => !c.name.StartsWith("__preview__"));
 #endif
-            _batter = SpawnBatter(batterPrefab, hitClip, homerunClip, Field.ToUnity(-1.15, 0, 0), 0);
+            _batter = SpawnBatter(batterPrefab, hitClip, homerunClip, Field.ToUnity(-StrikeZone.BatterX, 0, 0), 0);
             var pitcherAnimator = _pitcher.Go.GetComponent<Animator>();
             _pArm = new[]
             {
@@ -473,7 +473,7 @@ namespace Diamond.Stadium
         public void SetBatter(bool leftHanded)
         {
             if (_batter == null) return;
-            _batter.Go.transform.position = Field.ToUnity(leftHanded ? 1.15 : -1.15, 0, 0);
+            _batter.Go.transform.position = Field.ToUnity(leftHanded ? StrikeZone.BatterX : -StrikeZone.BatterX, 0, 0);
             _batter.Go.transform.localScale = new Vector3(leftHanded ? -1f : 1f, 1f, 1f);
         }
 

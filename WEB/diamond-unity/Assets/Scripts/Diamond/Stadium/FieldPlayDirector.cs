@@ -31,6 +31,10 @@ namespace Diamond.Stadium
 
         static Quaternion BaseRotation(Rig rig) => rig.Go.transform.rotation * Quaternion.Euler(0, rig.YawOffset, 0);
 
+        /// <summary>Server time at which the play's verdict is visibly decided (catch, ball into the first baseman's glove, batter safe, ball out of the park); 0 = immediately.</summary>
+        public double VerdictMs => _verdictMs;
+        double _verdictMs;
+        Rig _batterRig; Vector3 _batterStart; double _runStart; float _batterSpeed;
         double _batterSwapMs;   // server time at which the swinging batter is replaced by his running rig (0 = no swap pending)
 
         sealed class Rig
@@ -181,6 +185,7 @@ namespace Diamond.Stadium
             if (!_built || r == null) return 0;
             ResetField();
             _ballSegs.Clear();
+            _verdictMs = 0;
 
             var walk = r.outcome == "BB" || r.outcome == "HBP";
             var inPlay = r.contact != null && r.trajectory != "foul" && r.kind != "foul" && !walk;
@@ -201,7 +206,8 @@ namespace Diamond.Stadium
             var batterStart = demo.BatterPosition;
             batterStart.y = 0;
             var batterDest = out_ ? 1 : destination;
-            var runnerEnd = BuildRun(batterRunner, batterStart, 0, batterDest, runStart, walk ? 3.2f : runSpeed, afterOut: out_, jogToStop: out_ && r.trajectory != "ground");
+            _batterRig = batterRunner; _batterStart = batterStart; _runStart = runStart; _batterSpeed = walk ? 3.2f : runSpeed;
+            var runnerEnd = BuildRun(batterRunner, batterStart, 0, batterDest, runStart, _batterSpeed, afterOut: out_, jogToStop: out_ && r.trajectory != "ground");
             var end = runnerEnd;
 
             // --- runners already on base ---
@@ -225,11 +231,13 @@ namespace Diamond.Stadium
             if (inPlay && r.outcome != "HR")
             {
                 end = Math.Max(end, BuildFielding(r, t0, destination, out_, runnerEnd));
+                if (_verdictMs <= 0) _verdictMs = isHit ? Math.Min(runnerEnd, t0 + 5000) : t0 + 1500;
             }
             else if (r.outcome == "HR")
             {
                 // Fielders watch the ball leave the park.
                 foreach (var f in _fielders) f.Segments.Clear();
+                _verdictMs = t0 + 2500;
             }
 
             if (_ballSegs.Count > 0) demo.BallOverride = BallPath;
@@ -364,6 +372,7 @@ namespace Diamond.Stadium
                 fielder.Segments.Add(catchSeg);
                 fielder.Segments.Add(new Seg { Start = catchSeg.End, End = catchSeg.End + 1e7, Clip = Clip.Idle, Loop = true, From = pI, To = pI, FaceToward = home });
                 _ballSegs.Add(new BallSeg { Start = tI, End = tI + 1e7, Held = fielder });
+                _verdictMs = tI;
                 return catchSeg.End;
             }
 
@@ -401,6 +410,17 @@ namespace Diamond.Stadium
 
             var flight = Vector3.Distance(pI, target) / throwSpeed * 1000.0;
             var arrival = releaseAt + flight;
+            if (outPlay)
+            {
+                _verdictMs = arrival;
+                // The out has to look like an out: if the batter would be on the bag first, he starts a little later.
+                if (batterAtFirst > 0 && arrival > batterAtFirst - 200 && _batterRig != null)
+                {
+                    _runStart += arrival - batterAtFirst + 200;
+                    _batterSwapMs = _runStart;
+                    BuildRun(_batterRig, _batterStart, 0, 1, _runStart, _batterSpeed, afterOut: true, jogToStop: false);
+                }
+            }
             var catchPoint = target + new Vector3(0, 1.2f, 0);
             _ballSegs.Add(new BallSeg { Start = releaseAt, End = arrival, From = pI + Vector3.up * 1.6f, To = catchPoint, Arc = Mathf.Clamp(Vector3.Distance(pI, target) * 0.08f, 0.3f, 3f) });
 

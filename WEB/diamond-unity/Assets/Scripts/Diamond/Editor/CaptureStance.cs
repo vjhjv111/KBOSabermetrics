@@ -55,7 +55,7 @@ namespace Diamond.EditorTools
             {
                 demo.SetBatter(left);
                 var tag = left ? "L" : "R";
-                var bx = left ? 1.15f : -1.15f;
+                var bx = left ? 0.65f : -0.65f;
                 demo.ShowStance(0);
                 for (var k = 0; k < 3; k++) demo.Evaluate(k * 16);
                 Shot(cam, Path.Combine(dir, $"batter_{tag}_stance_catcher.png"), new Vector3(0f, 1.6f, -4.5f), new Vector3(bx * 0.5f, 0.9f, 0f), 30);
@@ -82,7 +82,7 @@ namespace Diamond.EditorTools
             Shot(cam, Path.Combine(dir, "pitcher_front.png"), mound + new Vector3(0f, 1.4f, -4.5f), mound + new Vector3(0f, 1.2f, 0f), 30);
             demo.SetBatter(true);
             demo.ShowStance(0); for (var k = 0; k < 3; k++) demo.Evaluate(k * 16);
-            Shot(cam, Path.Combine(dir, "batter_front.png"), new Vector3(1.15f, 1.3f, 3.2f), new Vector3(1.15f, 1.15f, 0f), 30);
+            Shot(cam, Path.Combine(dir, "batter_front.png"), new Vector3(0.65f, 1.3f, 3.2f), new Vector3(0.65f, 0.65f, 0f), 30);
             if (director != null)
             {
                 director.ResetField();

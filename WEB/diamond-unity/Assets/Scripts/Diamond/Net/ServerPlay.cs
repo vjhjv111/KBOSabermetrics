@@ -176,9 +176,9 @@ namespace Diamond.Net
             if (new Plane(Vector3.forward, Vector3.zero).Raycast(ray, out var distance))
             {
                 var hit = ray.GetPoint(distance);
-                _aim = new Vector2(Mathf.Clamp(hit.x / ZoneHalfWidth, -2f, 2f), Mathf.Clamp((hit.y - ZoneCentreY) / ZoneHalfHeight, -2f, 2f));
+                _aim = new Vector2(Mathf.Clamp((float)Diamond.Sim.StrikeZone.AimX(hit.x), -2f, 2f), Mathf.Clamp((hit.y - ZoneCentreY) / ZoneHalfHeight, -2f, 2f));
             }
-            _reticle.position = new Vector3(_aim.x * ZoneHalfWidth, ZoneCentreY + _aim.y * ZoneHalfHeight, 0);
+            _reticle.position = new Vector3((float)Diamond.Sim.StrikeZone.X(_aim.x), ZoneCentreY + _aim.y * ZoneHalfHeight, 0);
             if (_awaitingInput && _clickedAt == null && Input.GetMouseButtonDown(0))
             {
                 _clickedAt = ServerNow;
@@ -481,11 +481,11 @@ namespace Diamond.Net
                 Sync(after);
                 result = Verdict(after);
             }
-            if (_match != null) PresentState(_match.State);
 
             if (result == null)
             {
                 // The server already moved on (for example the half-inning ended); show the play-by-play line instead.
+                if (_match != null) PresentState(_match.State);
                 var events = _match?.State.RecentEvents(1);
                 if (events != null && events.Length > 0) _hud.ShowBanner(events[0], Color.white, 3f);
                 await WaitServer(arrival + 2500);
@@ -495,6 +495,10 @@ namespace Diamond.Net
             FitToFairTerritory(result);
             _demo.SetResult(result);
             var playEnd = PlanField(result);
+            // The verdict (banner, outs, score, log) appears when the play visibly decides it, not at the moment of contact.
+            var verdictAt = _field != null ? _field.VerdictMs : 0;
+            if (verdictAt > 0) await WaitServer(verdictAt);
+            if (_match != null) PresentState(_match.State);
             Announce(result, after);
             if (captureShots) { await Task.Delay(400); await Shot("result"); }
             Debug.Log("ServerPlay result: " + result.label + $" ({result.outcome})" + (result.timing != null ? $" timing {result.timing:0}ms aim error {result.aimError:0.00}" : "") +

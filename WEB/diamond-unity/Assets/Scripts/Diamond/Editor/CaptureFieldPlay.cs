@@ -71,7 +71,7 @@ namespace Diamond.EditorTools
                 demo.Evaluate(t0 - 600);
                 demo.SetResult(r);
                 var end = director.Plan(r, "b", before, after, runs);
-                Debug.Log($"FIELDPLAY {name} planned end={(end - t0) / 1000.0:0.0}s after contact");
+                Debug.Log($"FIELDPLAY {name} planned end={(end - t0) / 1000.0:0.0}s after contact, verdict at {(director.VerdictMs - t0) / 1000.0:0.0}s");
                 foreach (var dt in new[] { 400, 1200, 2200, 3400, 5200, 7600 })
                 {
                     var ms = t0 + dt;
