@@ -168,12 +168,13 @@ namespace Diamond.Stadium
                 var skull = HeadBounds(go, head);   // actor-local bounds of the head mesh in the T-pose
                 var headLocal = go.transform.InverseTransformPoint(head.position);
                 Vector3 Off(Vector3 actorLocal) => actorLocal - headLocal;
-                var crownHeight = helmet ? 0.15f : 0.13f;
-                var crown = new Vector3(skull.center.x, skull.max.y - crownHeight * 0.38f, skull.center.z + 0.005f);
-                Piece(PrimitiveType.Sphere, head, rootRotation, Off(crown), new Vector3(skull.size.x * 1.12f, crownHeight, skull.size.z * 1.1f), Quaternion.identity, _capMaterial);
+                // Dome: a slightly taller sphere than the skull, centred below the top so its rim meets the head around the forehead line.
+                var crownHeight = helmet ? 0.2f : 0.19f;
+                var crown = new Vector3(skull.center.x, skull.max.y - 0.08f, skull.center.z - 0.004f);
+                Piece(PrimitiveType.Sphere, head, rootRotation, Off(crown), new Vector3(skull.size.x * 1.05f, crownHeight, skull.size.z * 1.05f), Quaternion.identity, _capMaterial);
                 // Brim: a short flat disc over the forehead, pointing forward (+z of the actor in the T-pose).
-                var brim = new Vector3(skull.center.x, skull.max.y - crownHeight * 0.75f, skull.max.z + 0.01f);
-                Piece(PrimitiveType.Cylinder, head, rootRotation, Off(brim), new Vector3(skull.size.x * 0.85f, 0.004f, helmet ? 0.09f : 0.13f), Quaternion.identity, _capMaterial);
+                var brim = new Vector3(skull.center.x, skull.max.y - 0.095f, skull.max.z + 0.005f);
+                Piece(PrimitiveType.Cylinder, head, rootRotation, Off(brim), new Vector3(skull.size.x * 0.95f, 0.005f, helmet ? 0.17f : 0.24f), Quaternion.Euler(14f, 0f, 0f), _capMaterial);
                 if (helmet)
                 {
                     // Ear flap on the batting side's far ear (model +x for right-handers is the model's left side).

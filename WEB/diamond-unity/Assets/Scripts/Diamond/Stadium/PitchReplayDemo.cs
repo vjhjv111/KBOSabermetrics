@@ -491,8 +491,8 @@ namespace Diamond.Stadium
             float side, lean;
             switch (_pitchStyle)
             {
-                case "sidearm": side = 22f; lean = 6f; break;
-                case "underhand": side = 38f; lean = 16f; break;
+                case "sidearm": side = 22f; lean = 14f; break;
+                case "underhand": side = 30f; lean = 50f; break;
                 default: side = 0f; lean = 0f; break;
             }
             var release = Field.ToUnity(_pitch.releaseX ?? -0.33, _pitch.releaseY ?? 1.84, _pitch.releaseZ ?? -18.32);
@@ -521,9 +521,19 @@ namespace Diamond.Stadium
         void TiltTorso(Transform root, float side, float lean, float w)
         {
             if (side <= 0f && lean <= 0f) return;
-            var tilt = Quaternion.AngleAxis(-side * w * 0.5f * sideBendSign, Vector3.forward) * Quaternion.AngleAxis(lean * w * 0.5f, Vector3.right);
-            if (_pSpine != null) BoneMath.RotateInModelSpace(_pSpine, root, tilt);
-            if (_pChest != null) BoneMath.RotateInModelSpace(_pChest, root, tilt);
+            var sideBend = Quaternion.AngleAxis(-side * w * 0.5f * sideBendSign, Vector3.forward);
+            if (_pSpine != null) BoneMath.RotateInModelSpace(_pSpine, root, sideBend * Quaternion.AngleAxis(lean * w * 0.2f, Vector3.right));
+            if (_pChest != null) BoneMath.RotateInModelSpace(_pChest, root, sideBend * Quaternion.AngleAxis(lean * w * 0.2f, Vector3.right));
+            // Most of the forward bow comes from the waist: pitch the hips and swing the legs back so the feet stay planted.
+            var animator = _pitcher.Go.GetComponent<Animator>();
+            var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            if (hips == null || lean <= 0f) return;
+            BoneMath.RotateInModelSpace(hips, root, Quaternion.AngleAxis(lean * w * 0.6f, Vector3.right));
+            foreach (var leg in new[] { HumanBodyBones.LeftUpperLeg, HumanBodyBones.RightUpperLeg })
+            {
+                var t = animator.GetBoneTransform(leg);
+                if (t != null) BoneMath.RotateInModelSpace(t, root, Quaternion.AngleAxis(-lean * w * 0.6f, Vector3.right));
+            }
         }
 
         public Vector3 ThrowingHandPosition => _pArm != null && _pArm[2] != null ? _pArm[2].position : Vector3.zero;
