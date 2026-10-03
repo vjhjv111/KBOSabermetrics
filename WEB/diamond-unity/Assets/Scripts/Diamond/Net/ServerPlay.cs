@@ -464,7 +464,23 @@ namespace Diamond.Net
         async Task<(ActionView view, PitchResult result)> FinishPitch(ActionView before, ActionView after, double arrival)
         {
             if (after != null) Sync(after);
-            var result = after?.pitch?.reaction ?? after?.history.LastOrDefault();
+            // Only this pitch's own verdict counts: the history's last entry can belong to an earlier pitch (for example a previous
+            // hit-by-pitch) while this pitch is still being resolved, which showed a wrong result for a pitch down the middle.
+            var wanted = before?.pitch?.id ?? 0;
+            PitchResult Verdict(ActionView v)
+            {
+                if (v?.pitch?.reaction != null && (wanted == 0 || v.pitch.reaction.id == wanted || v.pitch.id == wanted)) return v.pitch.reaction;
+                var last = v?.history.LastOrDefault();
+                return last != null && (wanted == 0 || last.id == wanted) ? last : null;
+            }
+            var result = Verdict(after);
+            for (var retry = 0; result == null && _match != null && after?.pitch != null && wanted != 0 && after.pitch.id == wanted && retry < 5; retry++)
+            {
+                await Task.Delay(350);
+                after = (await _match.Refresh()).Action;
+                Sync(after);
+                result = Verdict(after);
+            }
             if (_match != null) PresentState(_match.State);
 
             if (result == null)
