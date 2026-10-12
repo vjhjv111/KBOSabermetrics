@@ -51,6 +51,9 @@ public sealed record GameQuery
     public DateTime? StartDate { get; init; }
     public DateTime? EndDate { get; init; }
     public int? RecentGameCount { get; init; }
+    // Optional web team nationality selection, applied before aggregation.
+    public string[]? SelectedPlayerCodes { get; init; }
+    public bool SelectedPlayersArePitchers { get; init; }
 
     // 타석/투구 단위 상황 필터. 값이 있으면 BatterGameStats/PitcherGameStats의 시즌 합계를
     // 그대로 쓰지 않고 PlateAppearances/Pitches에서 조건에 맞는 이벤트를 다시 집계합니다.
@@ -85,7 +88,9 @@ public sealed record GameQuery
         ScoreSituation ?? "ALL",
         BallsBefore?.ToString() ?? "ALL",
         StrikesBefore?.ToString() ?? "ALL",
-        BatOrder?.ToString() ?? "ALL");
+        BatOrder?.ToString() ?? "ALL",
+        SelectedPlayerCodes is null ? "ALL" : string.Join(',', SelectedPlayerCodes),
+        SelectedPlayersArePitchers);
 }
 
 public sealed record DatabaseCatalog

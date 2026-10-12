@@ -482,6 +482,17 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
         if (query.RecentGameCount.HasValue)
             parameters.Add(("$recentLimit", Math.Max(1, query.RecentGameCount.Value)));
         var cte = $"WITH FilteredGames AS (SELECT * FROM Games {where}{limit})";
+        if (query.SelectedPlayerCodes is not null)
+        {
+            // Local CTEs shadow source tables for this statement only. Every record
+            // tab therefore selects the same players before computing team rates.
+            parameters.Add(("$selectedPlayers", System.Text.Json.JsonSerializer.Serialize(query.SelectedPlayerCodes)));
+            var sources = query.SelectedPlayersArePitchers
+                ? new[] { ("PitcherGameStats", "Pcode"), ("PitchingGameLines", "Pcode"), ("PlateAppearances", "PitcherPcode"), ("Pitches", "PitcherPcode") }
+                : new[] { ("BatterGameStats", "Pcode"), ("BattingGameLines", "Pcode"), ("PlateAppearances", "BatterPcode"), ("Pitches", "BatterPcode"), ("RunnerEvents", "RunnerPcode") };
+            foreach (var (table, player) in sources)
+                cte += $", {table} AS (SELECT * FROM main.{table} WHERE {player} IN (SELECT value FROM json_each($selectedPlayers)))";
+        }
         return new SqlFilter(cte, parameters);
     }
 

@@ -44,10 +44,11 @@ public sealed record RecordRequest
     {
         if (!new[] { "season", "career", "team", "constants" }.Contains(Room)) throw new RequestError("기록실 구분이 잘못되었습니다.");
         if (Room != "season" && !string.IsNullOrEmpty(Position)) throw new RequestError("포지션 조건은 시즌 선수 기록에서만 사용합니다.");
-        if (Role == "pitcher" && !string.IsNullOrEmpty(Position)) throw new RequestError("투수 조회에서는 포지션 조건을 해제하세요.");
-        if (Room != "season" && !string.IsNullOrEmpty(Nationality)) throw new RequestError("국적 조건은 시즌 선수 기록에서만 사용합니다.");
+        if (Role != "batter" && !string.IsNullOrEmpty(Position)) throw new RequestError("타자 조회에서만 포지션 조건을 사용합니다.");
+        if (Room is not ("season" or "team") && !string.IsNullOrEmpty(Nationality)) throw new RequestError("국적 조건은 시즌·팀 기록에서 사용합니다.");
+        if (Role == "combined" && (RookieEligible || QualificationPercent > 0)) throw new RequestError("종합 조회에서는 규정·신인왕 조건을 해제하세요.");
         if (RookieEligible && (Room != "season" || !Year.HasValue)) throw new RequestError("신인왕 요건 필터는 연도를 지정한 시즌 기록에서만 사용합니다.");
-        if (Role is not ("batter" or "pitcher")) throw new RequestError("타자/투수를 선택하세요.");
+        if (Role is not ("batter" or "pitcher" or "combined")) throw new RequestError("타자/투수/종합을 선택하세요.");
         if (Year is < 1900 or > 2200) throw new RequestError("연도 범위가 잘못되었습니다.");
         if (!new[] { "정규시즌", "전체", "시범경기", "포스트시즌", "올스타전" }.Contains(Competition)) throw new RequestError("경기 구분이 잘못되었습니다.");
         if (Page < 1 || PageSize < 1 || PageSize > options.MaxPageSize || (long)(Page - 1) * PageSize >= options.MaxAccessibleRows)

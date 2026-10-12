@@ -85,8 +85,19 @@ public sealed partial class RecordService
             var bounds = await _db.GetWebDateBoundsAsync(query with { StartDate=null, EndDate=null, RecentGameCount=null }, token).ConfigureAwait(false);
             if (bounds.Max.HasValue) query = query with { EndDate=bounds.Max, StartDate=bounds.Max.Value.AddDays(1-request.RecentDays.Value) };
         }
+        if (request.Room == "team" && !string.IsNullOrEmpty(request.Nationality))
+        {
+            var drafts = await _db.GetPlayerDraftTextsAsync(token).ConfigureAwait(false);
+            var players = await _db.GetWebPlayerIdentitiesAsync(token).ConfigureAwait(false);
+            query = query with {
+                SelectedPlayerCodes = players.Where(x => MatchesNationality(request.Nationality,
+                    PlayerNationalityRegistry.Resolve(x.Name, x.Team, drafts.GetValueOrDefault(x.Code))))
+                    .Select(x=>x.Code).OrderBy(x=>x,StringComparer.Ordinal).ToArray(),
+                SelectedPlayersArePitchers = request.Role == "pitcher"
+            };
+        }
         // Do not silently show whole-game ER/WAR on event-only queries.
-        if (query.HasSituationFilters && (request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever"))
+        if (query.HasSituationFilters && (request.Role == "combined" || request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever"))
             throw new RequestError("이 탭은 경기 최종 기록이 필요합니다. 이닝·아웃·주자·카운트 조건을 해제하세요.");
         if (query.HasSituationFilters && request.Role == "batter" && !string.IsNullOrEmpty(request.Position))
             throw new RequestError("상황별 타석에는 정확한 수비 포지션 이닝이 없습니다. 포지션을 전체로 바꾸세요.");
@@ -107,7 +118,7 @@ public sealed partial class RecordService
             if (sort is null || PublicHidden(sort, request.Role, request.Room) || WarHidden(sort) || ContextHidden(sort, query, request.Role)) throw new RequestError("허용되지 않은 정렬 열입니다.");
         }
         var dataVersion = await _db.GetWebSourceVersionAsync(token).ConfigureAwait(false);
-        var key = $"web-v3-result-v7|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
+        var key = $"web-v3-result-v8|{dataVersion}|{definition.Role}|{definition.Key}|{JsonSerializer.Serialize(query)}|{request.Nationality}|{request.Position}|{request.QualificationPercent.ToString(CultureInfo.InvariantCulture)}";
         var cached = TryRead(key, definition.RowType);
         var hit = cached is not null;
         var rows = cached ?? await ComputeAsync(request, query, definition, token).ConfigureAwait(false);
@@ -131,7 +142,7 @@ public sealed partial class RecordService
             filtered = filtered.Where(r => Convert.ToString(pc.GetValue(r)) == request.PlayerCode);
         }
         Dictionary<string, string>? draftTexts = null;
-        if (!string.IsNullOrEmpty(request.Nationality))
+        if (request.Room != "team" && !string.IsNullOrEmpty(request.Nationality))
         {
             var name = definition.RowType.GetProperty("Name");
             var team = definition.RowType.GetProperty("TeamCode");
@@ -232,7 +243,9 @@ public sealed partial class RecordService
         if(properties.Any(p=>p.Name.Contains("Wpa",StringComparison.OrdinalIgnoreCase)))
             warnings.Add("2016~2023년 WPA는 교체 완료 경기부터 FanGraphs WE 표(득점환경 4.5)로 계산합니다. 표 밖 점수차·불완전한 상태·무승부 종료 타석은 합계에서 제외됩니다. 다른 연도는 수집값을 사용합니다.");
         if (!_options.ShowWar) warnings.Add("운영자 설정으로 WAR 표시를 껐습니다.");
-        else warnings.Add(request.Role == "pitcher"
+        else warnings.Add(request.Role == "combined"
+            ? "종합 WAR는 야수 WAR와 팬그래프 공식 투수 WAR의 합입니다. 팀 기록은 소속 선수 WAR를 합산합니다. 사이트 자체 추정치입니다."
+            : request.Role == "pitcher"
             ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
@@ -245,7 +258,7 @@ public sealed partial class RecordService
         if (query.HasSituationFilters) warnings.Add("상황별 재집계: 타격은 타석 시작 상태, 카운트는 도달 타석 기준입니다. 점수는 공격팀 관점입니다. * 표시된 IP·ERA·RA9·WHIP·FIP·xFIP·K/9·BB/9·HR/9 등 이닝 기반 스탯은 상황 조건에 해당하는 타석만으로 다시 계산한 근사치입니다. 그중 ERA*는 진짜 자책점이 아니라(타석 단위 데이터에는 자책·비자책 구분이 없음) 그 투수의 시즌 전체 자책점/실점 비율을 상황별 실점(RA9*)에 곱한 추정치입니다. WAR·득점/주루 관련 지표는 표시하지 않습니다.");
         if (total > accessible) warnings.Add($"대량 수집 제한으로 정렬 결과 상위 {accessible}행까지만 열람할 수 있습니다.");
         if (_options.Demo) warnings.Insert(0,"샘플 DB입니다. 전체 시즌 기록이 아닙니다.");
-        var leagueOverview = request.Room == "team"
+        var leagueOverview = request.Room == "team" && request.Role != "combined"
             ? await BuildLeagueOverviewAsync(request, query, token).ConfigureAwait(false)
             : null;
         return new(Columns(definition, sort, request.Descending, request.Room),display,total,accessible,request.Page,request.PageSize,applied,warnings,watch.ElapsedMilliseconds,hit,FormulaVersion,leagueOverview);
@@ -302,6 +315,28 @@ public sealed partial class RecordService
 
     private async Task<List<object>> ComputeAsync(RecordRequest r, GameQuery q, ViewDefinition def, CancellationToken token)
     {
+        if (r.Role == "combined" && r.Room != "constants")
+        {
+            // Sum player WAR, including both contributions of two-way players.
+            // Team WAR is the sum of its players, never a recalculated team FIP WAR.
+            var playerQuery = r.Room == "team" ? q with { Grouping = AnalyticsGrouping.PlayerByTeam } : q;
+            var batterRequest = r with { Role = "batter", View = "value" };
+            var pitcherRequest = r with { Role = "pitcher", View = "value" };
+            var batters = (await ComputeAsync(batterRequest, playerQuery, ViewRegistry.Get("batter", "value"), token)).Cast<BatterValueRecordRow>();
+            var pitchers = (await ComputeAsync(pitcherRequest, playerQuery, ViewRegistry.Get("pitcher", "value"), token)).Cast<PitcherDetailedValueRecordRow>();
+            var contributions = batters.Select(x => new CombinedWarRecordRow { Pcode=x.Pcode, Name=x.Name, TeamCode=x.TeamCode, BatterWar=x.War, PitcherWar=0, TotalWar=x.War })
+                .Concat(pitchers.Select(x => new CombinedWarRecordRow { Pcode=x.Pcode, Name=x.Name, TeamCode=x.TeamCode, BatterWar=0, PitcherWar=x.FanGraphsWar, TotalWar=x.FanGraphsWar }));
+            return contributions.GroupBy(x => r.Room == "team" ? x.TeamCode : RecordRoomRowFactory.Key(x.Pcode,x.TeamCode))
+                .Select(g => new CombinedWarRecordRow {
+                    Pcode=r.Room == "team" ? null : g.First().Pcode,
+                    Name=r.Room == "team" ? g.First().TeamCode : g.First().Name, TeamCode=g.First().TeamCode,
+                    BatterWar=g.Any(x=>!x.BatterWar.HasValue) ? null : g.Sum(x=>x.BatterWar),
+                    PitcherWar=g.Any(x=>!x.PitcherWar.HasValue) ? null : g.Sum(x=>x.PitcherWar),
+                    TotalWar=g.Any(x=>!x.TotalWar.HasValue) ? null : g.Sum(x=>x.TotalWar)
+                }).OrderByDescending(x=>x.TotalWar).Cast<object>().ToList();
+        }
+        if (q.SelectedPlayerCodes is not null)
+            q = q with { SelectedPlayersArePitchers=r.Role=="pitcher" };
         if (r.Room == "constants")
         {
             if (r.View == "parks-detail")
@@ -429,6 +464,15 @@ public sealed partial class RecordService
         }
         return rows;
     }
+
+    private static bool MatchesNationality(string nationality, PlayerNationalityCategory? category) => nationality switch
+    {
+        "국내" => category is null,
+        "외국인" => category == PlayerNationalityCategory.Foreign,
+        "아시아쿼터" => category == PlayerNationalityCategory.AsianQuota,
+        "외국인+아쿼" => category is not null,
+        _ => true
+    };
 
     private async Task<IReadOnlyList<LeagueConstantGridRow>> SeasonConstantsAsync(LeagueReference lg, CancellationToken token)
     {

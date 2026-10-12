@@ -20,6 +20,7 @@ public static class ViewRegistry
 {
     public static readonly IReadOnlyList<ViewDefinition> Views = new ViewDefinition[]
     {
+        new("combined", "basic", "종합 WAR", typeof(CombinedWarRecordRow)),
         new("batter", "basic", "기본", typeof(BatterBasicRecordRow)),
         new("batter", "advanced", "심화", typeof(BatterAdvancedRecordRow)),
         new("batter", "value", "가치", typeof(BatterValueRecordRow)),
