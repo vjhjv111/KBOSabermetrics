@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.Data.Sqlite;
 using NaverRelay.Infrastructure.Sqlite;
+using NaverRelay.Application.Queries;
+using NaverRelay.Application.Statistics;
 using NaverSabermetrics.Web;
 
 var path = Path.Combine(Path.GetTempPath(), "record-room-" + Guid.NewGuid() + ".db");
@@ -36,12 +38,14 @@ try
             Insert("BatterGameStats",new() { ["GameId"]="20261001LGHH",["Pcode"]=code,["Name"]="선수"+i,["TeamCode"]="LG",["PA"]=4*i,["AB"]=4*i,["H"]=i,["Singles"]=i,["TB"]=i,["Runs"]=i,["OutsRecorded"]=3*i,["DhPa"]=4*i });
             Insert("PitcherGameStats",new() { ["GameId"]="20261001LGHH",["Pcode"]=code,["Name"]="선수"+i,["TeamCode"]="LG",["TBF"]=4*i,["HasFinalLine"]=1,["InningsOuts"]=3*i,["FinalSO"]=i,["EarnedRuns"]=i,["RunsAllowed"]=i,["IsStarter"]=1,["PaOuts"]=3*i,["PaSO"]=i });
         }
+        Insert("Games", new() { ["GameId"]="20261002LGHH", ["SeasonYear"]=2026, ["GameDate"]="2026-10-02", ["RoundCode"]="kbo_r", ["HomeTeamCode"]="LG", ["AwayTeamCode"]="HH", ["HomeScore"]=4, ["AwayScore"]=2 });
+        Insert("PitcherGameStats",new() { ["GameId"]="20261002LGHH",["Pcode"]="2",["Name"]="선수2",["TeamCode"]="LG",["TBF"]=12,["HasFinalLine"]=1,["InningsOuts"]=9,["FinalSO"]=10,["EarnedRuns"]=0,["RunsAllowed"]=0,["IsReliever"]=1,["PaOuts"]=9,["PaSO"]=10 });
     }
     var service = new RecordService(db,new SiteOptions());
     var request = new RecordRequest { Room="team", Year=2026, Team="LG" };
     void Check(bool ok,string label) { if(!ok)throw new Exception(label); Console.WriteLine("PASS "+label); }
     async Task<TablePage> Query(RecordRequest r) => await service.QueryAsync(r,default);
-    foreach(var (nationality,pa,so) in new[] { ("",24,6),("국내",4,1),("외국인",8,2),("아시아쿼터",12,3),("외국인+아쿼",20,5) })
+    foreach(var (nationality,pa,so) in new[] { ("",24,16),("국내",4,1),("외국인",8,12),("아시아쿼터",12,3),("외국인+아쿼",20,15) })
     {
         var batting = await Query(request with { Nationality=nationality });
         var pitching = await Query(request with { Role="pitcher",Nationality=nationality });
@@ -58,6 +62,26 @@ try
     Check(foreign.Rows.Single().EntityCode=="2","season combined nationality");
     var hidden = await new RecordService(db,new SiteOptions { ShowWar=false }).QueryAsync(request with { Role="combined" },default);
     Check(hidden.Rows.Single().Cells["TotalWar"]=="-","WAR visibility policy");
+    var analytics = new DatabaseAnalyticsService(db);
+    var league = await db.GetLeagueReferenceAsync();
+    foreach(var room in new[] { "season", "career", "team" })
+    foreach(var nationality in room=="team" ? new[] { "", "외국인" } : new[] { "" })
+    {
+        var scope = request with { Room=room,Role="pitcher",Nationality=nationality };
+        var q=scope.ToQuery(await db.GetCatalogAsync());
+        if(nationality!="") q=q with { SelectedPlayerCodes=["2"],SelectedPlayersArePitchers=true };
+        foreach(var starts in new[] { true,false })
+        {
+            var expectedSnapshot=await analytics.GetWebRoleSnapshotAsync(q with { PitcherStartsOnly=starts },league,true);
+            var expected=PitcherRecordRoomRowFactory.BuildValue(expectedSnapshot,league)
+                .Single(x=>room=="team" || x.Pcode=="2");
+            var result=await Query(scope with { View=starts?"starter":"reliever" });
+            var actual=result.Rows.Single(x=>room=="team" || x.EntityCode=="2").Cells[starts?"StarterWar":"ReliefWar"];
+            Check(actual==expected.FanGraphsWar!.Value.ToString("0.00",CultureInfo.InvariantCulture),$"{room} {nationality} {(starts?"starter":"relief")} WAR uses selected appearances");
+            var full=await Query(scope with { View="value" });
+            Check(actual!=full.Rows.Single(x=>room=="team" || x.EntityCode=="2").Cells["FanGraphsWar"],"mixed-role WAR differs from full WAR");
+        }
+    }
 }
 finally
 {

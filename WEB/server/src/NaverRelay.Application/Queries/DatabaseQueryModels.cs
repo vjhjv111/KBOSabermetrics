@@ -54,6 +54,8 @@ public sealed record GameQuery
     // Optional web team nationality selection, applied before aggregation.
     public string[]? SelectedPlayerCodes { get; init; }
     public bool SelectedPlayersArePitchers { get; init; }
+    // null: all appearances; true: starts; false: relief appearances.
+    public bool? PitcherStartsOnly { get; init; }
 
     // 타석/투구 단위 상황 필터. 값이 있으면 BatterGameStats/PitcherGameStats의 시즌 합계를
     // 그대로 쓰지 않고 PlateAppearances/Pitches에서 조건에 맞는 이벤트를 다시 집계합니다.
@@ -90,7 +92,8 @@ public sealed record GameQuery
         StrikesBefore?.ToString() ?? "ALL",
         BatOrder?.ToString() ?? "ALL",
         SelectedPlayerCodes is null ? "ALL" : string.Join(',', SelectedPlayerCodes),
-        SelectedPlayersArePitchers);
+        SelectedPlayersArePitchers,
+        PitcherStartsOnly?.ToString() ?? "ALL");
 }
 
 public sealed record DatabaseCatalog

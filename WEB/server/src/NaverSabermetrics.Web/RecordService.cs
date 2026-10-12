@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.12";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.13";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -420,14 +420,16 @@ public sealed partial class RecordService
                 case "starter":
                 {
                     var starts=(await _pitchers.GetStarterAsync(q,token).ConfigureAwait(false)).ToList();
-                    var values=PitcherRecordRoomRowFactory.BuildValue(snapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
+                    var startsSnapshot=await _analytics.GetWebRoleSnapshotAsync(q with { PitcherStartsOnly=true },league,true,cancellationToken:token).ConfigureAwait(false);
+                    var values=PitcherRecordRoomRowFactory.BuildValue(startsSnapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
                     foreach(var x in starts) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.StarterWar=v.FanGraphsWar;
                     result=starts; break;
                 }
                 case "reliever":
                 {
                     var relievers=(await _pitchers.GetRelieverAsync(q,league,token).ConfigureAwait(false)).ToList();
-                    var values=PitcherRecordRoomRowFactory.BuildValue(snapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
+                    var reliefSnapshot=await _analytics.GetWebRoleSnapshotAsync(q with { PitcherStartsOnly=false },league,true,cancellationToken:token).ConfigureAwait(false);
+                    var values=PitcherRecordRoomRowFactory.BuildValue(reliefSnapshot,league).ToDictionary(v=>PitcherRecordRoomRowFactory.Key(v.Pcode,v.TeamCode));
                     foreach(var x in relievers) if(values.TryGetValue(PitcherRecordRoomRowFactory.Key(x.Pcode,x.TeamCode),out var v)) x.ReliefWar=v.FanGraphsWar;
                     result=relievers; break;
                 }

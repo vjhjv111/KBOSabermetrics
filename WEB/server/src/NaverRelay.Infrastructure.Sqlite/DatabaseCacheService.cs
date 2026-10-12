@@ -491,8 +491,15 @@ public sealed partial class DatabaseCacheService : IWarehouseReadService
                 ? new[] { ("PitcherGameStats", "Pcode"), ("PitchingGameLines", "Pcode"), ("PlateAppearances", "PitcherPcode"), ("Pitches", "PitcherPcode") }
                 : new[] { ("BatterGameStats", "Pcode"), ("BattingGameLines", "Pcode"), ("PlateAppearances", "BatterPcode"), ("Pitches", "BatterPcode"), ("RunnerEvents", "RunnerPcode") };
             foreach (var (table, player) in sources)
-                cte += $", {table} AS (SELECT * FROM main.{table} WHERE {player} IN (SELECT value FROM json_each($selectedPlayers)))";
+            {
+                var appearance = table == "PitcherGameStats" && query.PitcherStartsOnly.HasValue
+                    ? query.PitcherStartsOnly.Value ? " AND IsStarter=1" : " AND IsReliever=1"
+                    : string.Empty;
+                cte += $", {table} AS (SELECT * FROM main.{table} WHERE {player} IN (SELECT value FROM json_each($selectedPlayers)){appearance})";
+            }
         }
+        if (query.PitcherStartsOnly.HasValue && !(query.SelectedPlayerCodes is not null && query.SelectedPlayersArePitchers))
+            cte += $", PitcherGameStats AS (SELECT * FROM main.PitcherGameStats WHERE {(query.PitcherStartsOnly.Value ? "IsStarter=1" : "IsReliever=1")})";
         return new SqlFilter(cte, parameters);
     }
 
