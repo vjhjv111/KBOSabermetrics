@@ -10,7 +10,8 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed record ScheduledGamePlaceholder(
     string DatabaseGameId, int SeasonYear, string GameDate, string? GameDateTime,
-    string HomeTeamCode, string AwayTeamCode, string? Stadium, string StatusCode);
+    string HomeTeamCode, string AwayTeamCode, string? Stadium, string StatusCode,
+    GameCompetitionType CompetitionType = GameCompetitionType.RegularSeason);
 
 public sealed partial class DatabaseCacheService
 {
@@ -24,7 +25,7 @@ public sealed partial class DatabaseCacheService
     public const string ScheduledPlaceholderRoundCode = "kbo_scheduled";
 
     /// <summary>
-    /// 예정된 정규시즌 경기를 Games 테이블에 자리표시자 행으로 기록합니다. 이미 존재하는
+    /// 예정된 정규시즌·포스트시즌 경기를 Games 테이블에 자리표시자 행으로 기록합니다. 이미 존재하는
     /// GameId(끝난 실제 경기 또는 이전에 기록한 자리표시자)는 건드리지 않습니다 — 실제
     /// 경기 반영은 항상 DeleteExistingGameAsync + InsertGameAsync 경로(완전한 박스스코어)를
     /// 거치므로, 같은 GameId가 나중에 그 경로로 들어오면 이 자리표시자는 자동으로
@@ -69,7 +70,7 @@ public sealed partial class DatabaseCacheService
             Add(command, "$gameDate", NormalizeDate(game.GameDate));
             Add(command, "$gameDateTime", game.GameDateTime);
             Add(command, "$roundCode", ScheduledPlaceholderRoundCode);
-            Add(command, "$competitionType", (int)GameCompetitionType.RegularSeason);
+            Add(command, "$competitionType", (int)game.CompetitionType);
             Add(command, "$stadium", game.Stadium);
             Add(command, "$statusCode", game.StatusCode);
             Add(command, "$awayTeamCode", game.AwayTeamCode);

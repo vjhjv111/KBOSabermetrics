@@ -720,7 +720,7 @@ namespace NaverRelay.Parsing
         }
 
 
-        private static GameCompetitionType ClassifyCompetition(GameInfo? game)
+        public static GameCompetitionType ClassifyCompetition(GameInfo? game)
         {
             var text = string.Join(" ", new[]
             {

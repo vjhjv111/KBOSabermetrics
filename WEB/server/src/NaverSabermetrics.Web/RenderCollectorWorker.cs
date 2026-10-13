@@ -375,7 +375,7 @@ public sealed class RenderCollectorWorker : BackgroundService
     }
 
     /// <summary>
-    /// 아직 시작하지 않은 남은 정규시즌 경기를 경기일정 화면에 표시할 수 있도록 자리표시자
+    /// 아직 시작하지 않은 남은 정규시즌·포스트시즌 경기를 경기일정 화면에 표시할 수 있도록 자리표시자
     /// 행으로 DB에 반영합니다. 팀·통계 페이지가 쓰는 RoundCode='kbo_r' 실제 경기와는
     /// 완전히 분리된 값(<see cref="DatabaseCacheService.ScheduledPlaceholderRoundCode"/>)을
     /// 쓰므로 WAR·순위·리그 평균 등 기존 계산에는 영향이 없습니다. 실제로 경기가 열리면
@@ -406,7 +406,7 @@ public sealed class RenderCollectorWorker : BackgroundService
         await writer.InitializeAsync(token);
 
         var placeholders = new List<ScheduledGamePlaceholder>();
-        var usedHomeGames = new Dictionary<(string Home, string Away), int>();
+
         foreach (var game in candidates)
         {
             GameRequest parsed;
@@ -417,31 +417,30 @@ public sealed class RenderCollectorWorker : BackgroundService
             var away = game.AwayTeamCode!.ToUpperInvariant();
             var year = int.Parse(parsed.Year, CultureInfo.InvariantCulture);
 
-            int quota;
-            try { quota = PlayoffSchedule2026.HomeGames(home, away); }
-            catch (ArgumentException) { continue; } // 알 수 없는 팀 코드 — 안전하게 건너뜀
-
-            var key = (home, away);
-            if (!usedHomeGames.TryGetValue(key, out var used))
+            // 목록에는 roundCode가 없으므로 상세 메타데이터로 시즌을 확인합니다.
+            NaverRelay.Models.GameInfo? metadata;
+            try
             {
-                used = await writer.CountRegularSeasonHomeGamesAsync(year, home, away, token);
-                usedHomeGames[key] = used;
+                var url = $"https://api-gw.sports.naver.com/schedule/games/{Uri.EscapeDataString(game.GameId!)}/game-polling?isHighlight=false";
+                var json = await http.GetStringAsync(url, token);
+                var response = JsonSerializer.Deserialize<NaverRelay.Models.NaverRelayResponse>(json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                metadata = response is { Success: true, Code: 200 } ? response.Result?.Game : null;
             }
-            // 정규시즌 홈/원정 공식 배정 한도를 넘으면 포스트시즌(또는 그 밖의 비정규 라운드)
-            // 경기로 간주해 제외합니다 — 이 목록 API에는 roundCode가 없어 직접 구분할 수
-            // 없기 때문입니다.
-            if (used >= quota) continue;
-            usedHomeGames[key] = used + 1;
-
+            catch (HttpRequestException ex) { Log($"예정 경기 {game.GameId} 시즌 확인 실패: {ex.Message}"); continue; }
+            catch (JsonException ex) { Log($"예정 경기 {game.GameId} 응답 오류: {ex.Message}"); continue; }
+            if (metadata is null || metadata.GameId != game.GameId || metadata.Cancel == true || metadata.Suspended == true || metadata.StatusCode != "BEFORE") continue;
+            var competition = RelayParser.ClassifyCompetition(metadata);
+            if (competition is not (GameCompetitionType.RegularSeason or GameCompetitionType.Postseason)) continue;
             placeholders.Add(new ScheduledGamePlaceholder(
                 RenderCollectionPolicy.DatabaseGameId(parsed), year,
                 game.GameDate ?? parsed.GameId[..8], game.GameDateTime,
-                home, away, null, game.StatusCode ?? "BEFORE"));
+                home, away, metadata.Stadium, "BEFORE", competition));
         }
 
         if (placeholders.Count == 0)
         {
-            logger.LogInformation("[schedule] {From}~{To} 반영할 정규시즌 예정 경기 없음 (포스트시즌 등 제외)", from, to);
+            logger.LogInformation("[schedule] {From}~{To} 반영할 정규시즌·포스트시즌 예정 경기 없음", from, to);
             return;
         }
 

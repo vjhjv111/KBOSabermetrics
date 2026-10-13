@@ -146,7 +146,7 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
                 // 세어 구합니다. DB에 실제로 저장된 잔여 일정이라 우천취소·순연 반영분까지 정확합니다.
                 // 이미 종료된 과거 시즌은 이런 행이 없으므로 자연히 0(맞대결 보정 없음)이 됩니다.
                 var remainingMatches=new Dictionary<(string,string),int>();
-                await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText="SELECT HomeTeamCode,AwayTeamCode FROM HomeGames WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
+                await using(var remCmd=c.CreateCommand()){remCmd.CommandTimeout=options.QuerySeconds;remCmd.CommandText=$"SELECT HomeTeamCode,AwayTeamCode FROM HomeGames WHERE SeasonYear=$year AND CompetitionType={(int)NaverRelay.Parsing.GameCompetitionType.RegularSeason} AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";remCmd.Parameters.AddWithValue("$year",r.Year);using var cancelRem=ct.Register(remCmd.Cancel);
                     await using var remReader=await remCmd.ExecuteReaderAsync(ct);while(await remReader.ReadAsync(ct)){var ra=remReader.GetString(0);var rb=remReader.GetString(1);remainingMatches[(ra,rb)]=remainingMatches.GetValueOrDefault((ra,rb))+1;}
                 }
                 var remainingBetween=(Func<string,string,int>)((x,y)=>remainingMatches.GetValueOrDefault((x,y))+remainingMatches.GetValueOrDefault((y,x)));
