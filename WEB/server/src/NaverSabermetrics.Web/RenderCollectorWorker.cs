@@ -63,6 +63,25 @@ public static class RenderCollectionPolicy
         playing ? cycleStart.AddMinutes(1) : now.AddMinutes(idleMinutes);
 
     public static string DatabaseGameId(GameRequest game) => game.GameId + game.Year;
+    public static ScheduledGamePlaceholder? ScheduledPlaceholder(NaverRelay.Models.GameInfo game)
+    {
+        var competition = RelayParser.ClassifyCompetition(game);
+        if (competition is not (GameCompetitionType.RegularSeason or GameCompetitionType.Postseason) ||
+            game.CategoryId != "kbo" || game.Cancel == true || game.Suspended == true || game.StatusCode != "BEFORE" ||
+            game.GameId is not { } id || !System.Text.RegularExpressions.Regex.IsMatch(id, @"^\d{8}[A-Za-z]{4}\d(?:\d{4})?$") ||
+            !DateTime.TryParseExact(game.GameDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ||
+            game.SeasonYear != date.Year ||
+            !string.Equals(id.Substring(4,4), date.ToString("MMdd", CultureInfo.InvariantCulture), StringComparison.Ordinal) ||
+            (id.Length == 17 && id[13..] != date.Year.ToString(CultureInfo.InvariantCulture)) ||
+            string.IsNullOrWhiteSpace(game.HomeTeamCode) || string.IsNullOrWhiteSpace(game.AwayTeamCode) ||
+            !string.Equals(id.Substring(8,2),game.AwayTeamCode,StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(id.Substring(10,2),game.HomeTeamCode,StringComparison.OrdinalIgnoreCase) ||
+            game.HomeTeamCode.ToUpperInvariant() is "EA" or "WE" || game.AwayTeamCode.ToUpperInvariant() is "EA" or "WE") return null;
+        // 포스트시즌 ID의 4444 접두사는 연도가 아닙니다. 네이버 원본 ID를 보존합니다.
+        return new(id.Length == 17 ? id : id + date.Year.ToString(CultureInfo.InvariantCulture),
+            date.Year, game.GameDate!, game.GameDateTime, game.HomeTeamCode.ToUpperInvariant(),
+            game.AwayTeamCode.ToUpperInvariant(), game.Stadium, "BEFORE", competition);
+    }
 
     public static bool TryConsumeManualTrigger(string path)
     {
@@ -77,9 +96,9 @@ public static class RenderCollectionPolicy
 
     public static string? GameDateKey(ScheduleGame game)
     {
-        if (game.GameId is { Length: >= 8 } id && id.Take(8).All(char.IsDigit)) return id[..8];
-        return DateTime.TryParse(game.GameDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
-            ? date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) : null;
+        if (DateTime.TryParseExact(game.GameDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            return date.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        return game.GameId is { Length: >= 8 } id && id.Take(8).All(char.IsDigit) ? id[..8] : null;
     }
 
     public static bool ReconciliationDue(RenderReconciliationState? state, int year, string dateKey,
@@ -409,14 +428,6 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         foreach (var game in candidates)
         {
-            GameRequest parsed;
-            try { parsed = GameRequest.Parse(game.GameId!); }
-            catch (FormatException) { continue; }
-
-            var home = game.HomeTeamCode!.ToUpperInvariant();
-            var away = game.AwayTeamCode!.ToUpperInvariant();
-            var year = int.Parse(parsed.Year, CultureInfo.InvariantCulture);
-
             // 목록에는 roundCode가 없으므로 상세 메타데이터로 시즌을 확인합니다.
             NaverRelay.Models.GameInfo? metadata;
             try
@@ -430,12 +441,8 @@ public sealed class RenderCollectorWorker : BackgroundService
             catch (HttpRequestException ex) { Log($"예정 경기 {game.GameId} 시즌 확인 실패: {ex.Message}"); continue; }
             catch (JsonException ex) { Log($"예정 경기 {game.GameId} 응답 오류: {ex.Message}"); continue; }
             if (metadata is null || metadata.GameId != game.GameId || metadata.Cancel == true || metadata.Suspended == true || metadata.StatusCode != "BEFORE") continue;
-            var competition = RelayParser.ClassifyCompetition(metadata);
-            if (competition is not (GameCompetitionType.RegularSeason or GameCompetitionType.Postseason)) continue;
-            placeholders.Add(new ScheduledGamePlaceholder(
-                RenderCollectionPolicy.DatabaseGameId(parsed), year,
-                game.GameDate ?? parsed.GameId[..8], game.GameDateTime,
-                home, away, metadata.Stadium, "BEFORE", competition));
+            var placeholder = RenderCollectionPolicy.ScheduledPlaceholder(metadata);
+            if (placeholder is not null) placeholders.Add(placeholder);
         }
 
         if (placeholders.Count == 0)

@@ -31,6 +31,16 @@ var start=DateTimeOffset.UtcNow;
 Check(RenderCollectionPolicy.NextCollectionAt(true,start,start.AddSeconds(20),10)==start.AddMinutes(1),"진행 중 수집 시작 간격 1분");
 Check(RenderCollectionPolicy.NextCollectionAt(false,start,start.AddSeconds(20),10)==start.AddMinutes(10).AddSeconds(20),"비진행 기존 수집 간격 유지");
 Check(!RenderCollectionPolicy.AllGamesFinal([new(){StatusCode="ENDED"},new(){StatusCode="PLAY"}]),"일부 경기 종료 시 통계 DB 편입 차단 유지");
+var postseasonMetadata = new NaverRelay.Models.GameInfo { GameId="44441014OBLG02026", GameDate="2026-10-14", SeasonYear=2026, CategoryId="kbo", RoundCode="kbo_ps_wd", StatusCode="BEFORE", HomeTeamCode="LG", AwayTeamCode="OB", Stadium="잠실" };
+var postseasonPlaceholder=RenderCollectionPolicy.ScheduledPlaceholder(postseasonMetadata);
+Check(postseasonPlaceholder is {DatabaseGameId:"44441014OBLG02026",SeasonYear:2026,GameDate:"2026-10-14",CompetitionType:NaverRelay.Parsing.GameCompetitionType.Postseason},"네이버 4444 포스트시즌 ID 보존·실제 날짜 및 시즌 사용");
+Check(RenderCollectionPolicy.GameDateKey(new NaverRelayUI.Models.ScheduleGame{GameId="44441014OBLG02026",GameDate="2026-10-14"})=="20261014","포스트시즌 일정·선발 조회에서 응답 날짜 우선");
+postseasonMetadata.SeasonYear=2025;
+Check(RenderCollectionPolicy.ScheduledPlaceholder(postseasonMetadata) is null,"포스트시즌 응답 시즌 불일치 제외");
+postseasonMetadata.SeasonYear=2026;postseasonMetadata.RoundCode="kbo_allstar";
+Check(RenderCollectionPolicy.ScheduledPlaceholder(postseasonMetadata) is null,"올스타 예정 일정 제외");
+postseasonMetadata.GameId="20261014OBLG02026";postseasonMetadata.RoundCode="kbo_r";
+Check(RenderCollectionPolicy.ScheduledPlaceholder(postseasonMetadata) is {CompetitionType:NaverRelay.Parsing.GameCompetitionType.RegularSeason},"정규시즌 일정 ID 호환 유지");
 var temp=Path.Combine(Path.GetTempPath(),"home-live-validation-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temp);
 try{
     var db=Path.Combine(temp,"stats.db");

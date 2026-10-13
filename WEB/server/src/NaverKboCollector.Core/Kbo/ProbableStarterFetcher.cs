@@ -14,7 +14,7 @@ public static class ProbableStarterFetcher
         if (!System.Text.RegularExpressions.Regex.IsMatch(gameId, @"^\d{8}[A-Z]{4}\d(?:\d{4})?$"))
             throw new ArgumentException("Invalid game ID", nameof(gameId));
         var shortId = gameId[..13];
-        foreach (var id in new[] { shortId + shortId[..4], shortId })
+        foreach (var id in new[] { gameId.Length == 17 ? gameId : shortId + shortId[..4], shortId })
         {
             using var response = await http.GetAsync($"https://api-gw.sports.naver.com/schedule/games/{id}/game-polling?isHighlight=false", ct);
             if (response.StatusCode == HttpStatusCode.NotFound) continue;
