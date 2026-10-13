@@ -101,7 +101,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     public static async Task PrepareHomeGamesAsync(SqliteConnection c,int year,HomeLiveSnapshot snapshot,CancellationToken ct)
     {
         await using var cmd=c.CreateCommand();
-        cmd.CommandText="DROP TABLE IF EXISTS temp.HomeGames; CREATE TEMP TABLE HomeGames AS SELECT GameId,SeasonYear,GameDate,GameDateTime,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors,RoundCode,StatusCode FROM main.Games WHERE SeasonYear=$year; CREATE UNIQUE INDEX temp.HomeGamesId ON HomeGames(GameId);";
+        cmd.CommandText="DROP TABLE IF EXISTS temp.HomeGames; CREATE TEMP TABLE HomeGames AS SELECT GameId,SeasonYear,GameDate,GameDateTime,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors,RoundCode,CompetitionType,StatusCode FROM main.Games WHERE SeasonYear=$year; CREATE UNIQUE INDEX temp.HomeGamesId ON HomeGames(GameId);";
         cmd.Parameters.AddWithValue("$year",year);await cmd.ExecuteNonQueryAsync(ct);
         foreach(var g in snapshot.Games.Where(g=>g.Final&&g.AwayScore>=0&&g.HomeScore>=0))
         {

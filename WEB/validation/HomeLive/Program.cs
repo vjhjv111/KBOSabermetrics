@@ -36,10 +36,21 @@ try{
     var db=Path.Combine(temp,"stats.db");
     await using(var c=new SqliteConnection("Data Source="+db)){
         await c.OpenAsync();await using var cmd=c.CreateCommand();
-        cmd.CommandText="CREATE TABLE Games(GameId TEXT PRIMARY KEY,SeasonYear INTEGER,GameDate TEXT,GameDateTime TEXT,Stadium TEXT,AwayTeamCode TEXT,HomeTeamCode TEXT,AwayScore INTEGER,HomeScore INTEGER,AwayHits INTEGER,HomeHits INTEGER,AwayErrors INTEGER,HomeErrors INTEGER,RoundCode TEXT,StatusCode TEXT); INSERT INTO Games(GameId,SeasonYear,RoundCode,StatusCode,AwayTeamCode,HomeTeamCode) VALUES($id,$year,'kbo_scheduled','BEFORE','HH','SS')";
+        cmd.CommandText="CREATE TABLE Games(GameId TEXT PRIMARY KEY,SeasonYear INTEGER,GameDate TEXT,GameDateTime TEXT,Stadium TEXT,AwayTeamCode TEXT,HomeTeamCode TEXT,AwayScore INTEGER,HomeScore INTEGER,AwayHits INTEGER,HomeHits INTEGER,AwayErrors INTEGER,HomeErrors INTEGER,RoundCode TEXT,CompetitionType INTEGER,StatusCode TEXT); INSERT INTO Games(GameId,SeasonYear,CompetitionType,RoundCode,StatusCode,AwayTeamCode,HomeTeamCode) VALUES($id,$year,0,'kbo_scheduled','BEFORE','HH','SS')";
         cmd.Parameters.AddWithValue("$id",id);cmd.Parameters.AddWithValue("$year",year);await cmd.ExecuteNonQueryAsync();
     }
     async Task<long> Query(HomeLiveGame[] games,string sql){await using var c=new SqliteConnection("Data Source="+db+";Mode=ReadOnly");await c.OpenAsync();await HomeLiveService.PrepareHomeGamesAsync(c,year,new("test",games),default);await using var cmd=c.CreateCommand();cmd.CommandText=sql;return Convert.ToInt64(await cmd.ExecuteScalarAsync());}
+    await using(var c=new SqliteConnection("Data Source="+db)){
+        await c.OpenAsync();await using var cmd=c.CreateCommand();
+        cmd.CommandText="UPDATE Games SET CompetitionType=$regular; INSERT INTO Games(GameId,SeasonYear,CompetitionType,RoundCode,StatusCode,AwayTeamCode,HomeTeamCode) VALUES($postId,$year,$post,'kbo_scheduled','BEFORE','HH','SS')";
+        cmd.Parameters.AddWithValue("$regular",(int)NaverRelay.Parsing.GameCompetitionType.RegularSeason);
+        cmd.Parameters.AddWithValue("$post",(int)NaverRelay.Parsing.GameCompetitionType.Postseason);
+        cmd.Parameters.AddWithValue("$postId",date+"HHSS1"+year);cmd.Parameters.AddWithValue("$year",year);
+        await cmd.ExecuteNonQueryAsync();
+    }
+    Check(await Query([],"SELECT COUNT(*) FROM HomeGames WHERE RoundCode='kbo_scheduled' AND StatusCode='BEFORE'")==2,"정규시즌·포스트시즌 예정 일정 모두 유지");
+    Check(await Query([],$"SELECT COUNT(*) FROM HomeGames WHERE CompetitionType={(int)NaverRelay.Parsing.GameCompetitionType.RegularSeason} AND RoundCode='kbo_scheduled' AND StatusCode='BEFORE'")==1,"홈 임시 테이블 시즌 구분 열 보존·잔여 맞대결에서 포스트시즌 제외");
+    await using(var c=new SqliteConnection("Data Source="+db)){await c.OpenAsync();await using var cmd=c.CreateCommand();cmd.CommandText="DELETE FROM Games WHERE CompetitionType=$post";cmd.Parameters.AddWithValue("$post",(int)NaverRelay.Parsing.GameCompetitionType.Postseason);await cmd.ExecuteNonQueryAsync();}
     Check(await Query([playing],"SELECT COUNT(*) FROM HomeGames WHERE StatusCode IN ('RESULT','ENDED')")==0,"진행 경기 점수는 순위에 미반영");
     Check(await Query([ended],"SELECT COUNT(*) FROM HomeGames WHERE StatusCode IN ('RESULT','ENDED')")==1,"먼저 종료된 경기만 홈 순위 반영");
     Check(await Query([ended],"SELECT COUNT(*) FROM main.Games WHERE StatusCode='BEFORE'")==1,"실제 통계 DB는 그대로 유지");
