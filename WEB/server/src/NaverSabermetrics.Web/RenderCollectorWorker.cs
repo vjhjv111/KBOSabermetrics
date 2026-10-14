@@ -242,6 +242,33 @@ public sealed class RenderCollectorWorker : BackgroundService
 
         var summary = await RelayCollector.CollectAllAsync(http, games, options.JsonDirectory,
             delayMs: 500, log: Log, ct: token);
+        // The schedule endpoint can briefly remain BEFORE while a playoff game has already
+        // started. Inspect the freshly written Naver files as well, otherwise the worker falls
+        // back to the idle interval and the home page can stay stale for ten minutes.
+        if (to == TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, korea).ToString("yyyy-MM-dd"))
+        {
+            var jsonPlaying = false;
+            foreach (var game in games.Where(g => RenderCollectionPolicy.GameDateKey(g) == to.Replace("-", "")))
+            {
+                try
+                {
+                    var parsed = GameRequest.Parse(game.GameId!);
+                    var path = Path.Combine(options.JsonDirectory, RenderCollectionPolicy.DatabaseGameId(parsed) + ".json");
+                    if (File.Exists(path))
+                    {
+                        var live = HomeLiveService.Parse(await File.ReadAllTextAsync(path, token), Path.GetFileNameWithoutExtension(path));
+                        if (live?.Playing == true) { jsonPlaying = true; break; }
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException or FormatException)
+                {
+                    logger.LogDebug(ex, "실시간 상태 판독 보류: {GameId}", game.GameId);
+                }
+            }
+            if (jsonPlaying && !liveGamesInProgress)
+                logger.LogInformation("Render 수집 주기 전환: 네이버 경기 파일에서 진행 중 경기 확인, 간격=1분");
+            liveGamesInProgress |= jsonPlaying;
+        }
         logger.LogInformation("Render JSON 수집 {From}~{To}: 완료={Complete} 부분={Partial} 기존/취소={Skipped} 제외={Excluded} 실패={Failed}",
             from, to, summary.Complete, summary.Partial, summary.Skipped, summary.Excluded, summary.Failed);
 

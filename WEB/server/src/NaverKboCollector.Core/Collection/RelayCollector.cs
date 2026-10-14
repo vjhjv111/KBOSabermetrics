@@ -105,14 +105,12 @@ public static class RelayCollector
                     continue;
                 }
 
-                if (naver?.RoundCode is { } round && round != "kbo_r")
-                {
-                    // Do not request seriesId=0 for All-Star/exhibition/postseason games.
-                    log?.Invoke($"제외 {naverGameId} (roundCode={round}, 정규시즌만 지원)");
-                    excludedGameIds.Add(naverGameId);
-                    excluded++;
-                    continue;
-                }
+                // KBO 목록의 roundCode가 정규시즌이 아니어도 네이버 중계는 홈 화면의
+                // 실시간 표시를 위해 보존합니다. KBO 공식(seriesId=0) 자료는 정규시즌에만
+                // 요청해야 하므로, 포스트시즌·올스타·시범경기는 아래 공식 수집을 건너뜁니다.
+                // 이렇게 해야 포스트시즌 진행 경기의 JSON이 1분 주기로 갱신됩니다.
+                if (naver?.RoundCode is { } round && !string.Equals(round, "kbo_r", StringComparison.OrdinalIgnoreCase))
+                    log?.Invoke($"네이버 중계 저장 {naverGameId} (roundCode={round}, 공식 정규시즌 자료는 요청하지 않음)");
 
                 var kbo = cached.KboOfficial;
                 if (!UnifiedDocumentStore.IsFinalKbo(kbo, request))
