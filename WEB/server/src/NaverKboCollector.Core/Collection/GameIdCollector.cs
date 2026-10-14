@@ -61,6 +61,8 @@ namespace NaverRelayUI.Collection
                     await Task.Delay(delayMs, ct);
             }
 
+            if(totalCount!=int.MaxValue && (all.Count!=totalCount || all.Select(g=>g.GameId).Distinct().Count()!=all.Count))
+                throw new InvalidDataException("네이버 일정 전체 페이지 개수 또는 경기 ID가 일치하지 않습니다.");
             // Real KBO league games only — drop scrimmages/youth/other (categoryId != "kbo").
             // NOTE: this listing endpoint has no roundCode field, so All-Star/postseason
             // games (categoryId is still "kbo") slip through here — RelayCollector checks

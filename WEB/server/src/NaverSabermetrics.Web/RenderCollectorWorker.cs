@@ -130,6 +130,7 @@ public sealed class RenderCollectorWorker : BackgroundService
     private DatabaseCacheService? writer;
     private DateTimeOffset? lastScheduleSyncUtc;
     private bool liveGamesInProgress;
+    private bool postseasonSchedule;
     private DateTimeOffset cycleStartedUtc;
 
     public RenderCollectorWorker(ILogger<RenderCollectorWorker> logger, SiteOptions site, RenderCollectorOptions options)
@@ -193,7 +194,7 @@ public sealed class RenderCollectorWorker : BackgroundService
 
     private async Task WaitForNextCycleAsync(CancellationToken token)
     {
-        var deadline = RenderCollectionPolicy.NextCollectionAt(liveGamesInProgress,cycleStartedUtc,DateTimeOffset.UtcNow,options.IntervalMinutes);
+        var deadline = RenderCollectionPolicy.NextCollectionAt(liveGamesInProgress,cycleStartedUtc,DateTimeOffset.UtcNow,postseasonSchedule?Math.Min(5,options.IntervalMinutes):options.IntervalMinutes);
         while (true)
         {
             if (RenderCollectionPolicy.TryConsumeManualTrigger(options.ManualTriggerPath))
@@ -228,7 +229,7 @@ public sealed class RenderCollectorWorker : BackgroundService
         }
 
         if (options.ScheduleSyncEnabled && (lastScheduleSyncUtc is null ||
-                DateTimeOffset.UtcNow - lastScheduleSyncUtc >= TimeSpan.FromMinutes(options.ScheduleSyncIntervalMinutes)))
+                DateTimeOffset.UtcNow - lastScheduleSyncUtc >= TimeSpan.FromMinutes(postseasonSchedule?Math.Min(5,options.ScheduleSyncIntervalMinutes):options.ScheduleSyncIntervalMinutes)))
         {
             try { await SyncUpcomingScheduleAsync(now, token); }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -267,6 +268,7 @@ public sealed class RenderCollectorWorker : BackgroundService
         foreach(var scheduled in games.Where(g=>g.GameId is {Length:17} && g.GameDate is {Length:10} && g.GameId[..4]!=g.GameDate[..4]))
         {
             var id=scheduled.GameId!;
+            postseasonSchedule=true;
             playoffIds.Add(id);
             if(!System.Text.RegularExpressions.Regex.IsMatch(id,@"^\d{8}[A-Z]{4}\d\d{4}$"))continue;
             try
@@ -468,6 +470,15 @@ public sealed class RenderCollectorWorker : BackgroundService
                 g.AwayTeamCode!.ToUpperInvariant() is not ("EA" or "WE"))
             .OrderBy(g => g.GameId, StringComparer.Ordinal)
             .ToArray();
+        writer ??= new DatabaseCacheService(site.DatabasePath);
+        await writer.InitializeAsync(token);
+        // Keep IDs from the complete list, even if their detail lookup fails later.
+        // Explicit cancellations and games no longer BEFORE no longer need placeholders.
+        var retained=games.Where(g=>!g.Cancel && g.StatusCode=="BEFORE" && g.GameId is not null)
+            .Select(g=>g.GameId!.Length==13 && g.GameDate is {Length:10}?g.GameId+g.GameDate[..4]:g.GameId!)
+            .ToArray();
+        var removed=await writer.PrunePostseasonSchedulesAsync(from,to,retained,token);
+        if(removed>0)logger.LogInformation("[schedule] 취소·소멸·시작된 포스트시즌 예정 경기 {Count}건 제거",removed);
         if (candidates.Length == 0)
         {
             logger.LogInformation("[schedule] {From}~{To} 예정 경기 없음", from, to);
@@ -495,7 +506,11 @@ public sealed class RenderCollectorWorker : BackgroundService
             catch (JsonException ex) { Log($"예정 경기 {game.GameId} 응답 오류: {ex.Message}"); continue; }
             if (metadata is null || metadata.GameId != game.GameId || metadata.Cancel == true || metadata.Suspended == true || metadata.StatusCode != "BEFORE") continue;
             var placeholder = RenderCollectionPolicy.ScheduledPlaceholder(metadata);
-            if (placeholder is not null) placeholders.Add(placeholder);
+            if (placeholder is not null)
+            {
+                placeholders.Add(placeholder);
+                postseasonSchedule |= placeholder.CompetitionType==GameCompetitionType.Postseason;
+            }
         }
 
         if (placeholders.Count == 0)

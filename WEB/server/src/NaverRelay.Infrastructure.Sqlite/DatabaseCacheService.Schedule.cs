@@ -15,6 +15,43 @@ public sealed record ScheduledGamePlaceholder(
 
 public sealed partial class DatabaseCacheService
 {
+    // Call only after the entire schedule range has been fetched successfully. IDs whose
+    // detail request failed must still be retained from the schedule list.
+    public async Task<int> PrunePostseasonSchedulesAsync(string from, string to,
+        IReadOnlyCollection<string> retainedIds, CancellationToken cancellationToken = default)
+    {
+        if (!DateOnly.TryParseExact(from,"yyyy-MM-dd",out var start) ||
+            !DateOnly.TryParseExact(to,"yyyy-MM-dd",out var end) || start>end)
+            throw new ArgumentException("Invalid schedule reconciliation range");
+        await using var connection=await OpenAsync(cancellationToken);
+        await using var transaction=(SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        await using var command=connection.CreateCommand();
+        command.Transaction=transaction;
+        command.CommandText="CREATE TEMP TABLE RetainedScheduleIds(Id TEXT PRIMARY KEY);";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        foreach(var id in retainedIds.Distinct(StringComparer.Ordinal))
+        {
+            command.CommandText="INSERT INTO RetainedScheduleIds VALUES($id)";
+            command.Parameters.Clear();command.Parameters.AddWithValue("$id",id);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        command.Parameters.Clear();
+        command.CommandText="""
+            DELETE FROM Games WHERE RoundCode=$round AND CompetitionType=$post AND StatusCode='BEFORE'
+              AND GameDate BETWEEN $from AND $to
+              AND NOT EXISTS(SELECT 1 FROM RetainedScheduleIds r WHERE r.Id=Games.GameId);
+            """;
+        command.Parameters.AddWithValue("$round",ScheduledPlaceholderRoundCode);
+        command.Parameters.AddWithValue("$post",(int)GameCompetitionType.Postseason);
+        command.Parameters.AddWithValue("$from",from);command.Parameters.AddWithValue("$to",to);
+        var removed=await command.ExecuteNonQueryAsync(cancellationToken);
+        if(removed>0)await BumpDataVersionAndInvalidateCachesAsync(connection,transaction,cancellationToken);
+        command.CommandText="DROP TABLE RetainedScheduleIds";command.Parameters.Clear();
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return removed;
+    }
+
     /// <summary>
     /// 예정 경기 자리표시자 행에 사용하는 RoundCode입니다. 정규시즌 실제 경기의 'kbo_r'과
     /// 반드시 달라야 합니다 — 이 사이트의 WAR·순위·평균 등 거의 모든 통계 쿼리가

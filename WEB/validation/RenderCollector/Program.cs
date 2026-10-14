@@ -56,6 +56,19 @@ try
     var path = Path.Combine(scratch,"cache.db");
     var writer = new DatabaseCacheService(path);
     await writer.InitializeAsync();
+    ScheduledGamePlaceholder Planned(string id,string date,GameCompetitionType competition,string status="BEFORE") =>
+        new(id,2026,date,date+"T18:30:00","LG","OB",null,status,competition);
+    await writer.UpsertScheduledGamesAsync([
+        Planned("keep","2026-10-15",GameCompetitionType.Postseason),
+        Planned("gone","2026-10-16",GameCompetitionType.Postseason),
+        Planned("finished","2026-10-15",GameCompetitionType.Postseason,"RESULT"),
+        Planned("old","2026-10-13",GameCompetitionType.Postseason),
+        Planned("regular","2026-10-16",GameCompetitionType.RegularSeason)]);
+    var priorVersion=await writer.GetWebSourceVersionAsync();
+    Check(await writer.PrunePostseasonSchedulesAsync("2026-10-14","2026-12-31",["keep"])==1,"사라진 포스트시즌 예정 경기만 제거·기존 목록 ID 보존");
+    Check(await writer.GetWebSourceVersionAsync()!=priorVersion,"일정 삭제 시 홈·조회 캐시 무효화");
+    Check(await writer.PrunePostseasonSchedulesAsync("2026-10-14","2026-12-31",[])==1,"정상 빈 일정 응답에서도 남은 포스트시즌 예정 경기 제거");
+    Check(await writer.PrunePostseasonSchedulesAsync("2026-10-14","2026-12-31",[])==0,"종료 경기·정규시즌·조회 범위 밖 기록 보호 및 반복 실행 안전");
     var reader = new DatabaseCacheService(path,webReadOnly:true);
     await reader.InitializeAsync();
     Check(await reader.TryLoadComputedAsync<string>("sample") is null,"초기 웹 계산 캐시 없음");
