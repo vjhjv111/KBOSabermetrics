@@ -16,7 +16,11 @@ var playing=HomeLiveService.Parse(Json(id,"PLAY"),id)!;
 Check(playing.Playing&&!playing.Final&&playing.StatusText=="8회 초","진행 상태·이닝과 종료 판정");
 Check(playing.AwayPitcher=="원정투수"&&playing.HomePitcher=="홈투수","양 팀 현재 투수");
 Check(playing.Source["textRelayData"] is null,"홈 캐시는 전체 중계를 메모리에 보관하지 않음");
-var postseason=HomeLiveService.Parse(Json(id,"PLAY",round:"kbo_ps"),id)!;
+var postseasonRaw=JsonNode.Parse(Json(id,"PLAY",round:"kbo_ps"))!;
+postseasonRaw["naver"]!["result"]!["game"]!["categoryId"]="kbo";
+postseasonRaw["naver"]!["result"]!["game"]!["gameDate"]=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy-MM-dd");
+postseasonRaw["naver"]!["result"]!["game"]!["seasonYear"]=year;
+var postseason=HomeLiveService.Parse(postseasonRaw.ToJsonString(),id)!;
 Check(postseason.Playing&&postseason.RoundCode=="kbo_ps","포스트시즌 실시간 중계 표시");
 Check(HomeLiveService.Parse(Json(id,"RESULT"),date+"KTHT0"+year) is null,"경기 ID 불일치 제외");
 var ended=HomeLiveService.Parse(Json(id,"ENDED"),id)!;
@@ -70,6 +74,17 @@ try{
     Check(await Query([ended],"SELECT AwayScore FROM HomeGames")==4,"편입된 DB 공식 점수가 JSON보다 우선");
     var file=Path.Combine(temp,id+".json");await File.WriteAllTextAsync(file,Json(id,"PLAY"));
     var live=new HomeLiveService(new(){JsonDirectory=temp},NullLogger<HomeLiveService>.Instance);
+    var psId="4444"+date[4..]+"HHSS0"+year;
+    postseasonRaw["naver"]!["result"]!["game"]!["gameId"]=psId;
+    postseasonRaw["naver"]!["result"]!["game"]!["statusCode"]="RESULT";
+    var psFile=Path.Combine(temp,date+"_"+psId+".json");
+    await File.WriteAllTextAsync(psFile,postseasonRaw.ToJsonString());
+    var psSnapshot=await live.ReadAsync(year,default);
+    var psGame=psSnapshot.Games.Single(g=>g.Id==psId);
+    Check(psGame.Date==playing.Date && psGame.Final,"4444 포스트시즌 파일을 실제 경기 날짜로 탐색·판독");
+    Check(await Query([psGame],"SELECT AwayScore FROM HomeGames")==4,"포스트시즌 종료 점수가 정규시즌 전적을 덮어쓰지 않음");
+    Check(await live.DetailAsync(psId,default) is not null,"4444 포스트시즌 종료 상세 파일 조회");
+    File.Delete(psFile);
     var first=await live.ReadAsync(year,default);Check(first.Games.Length==1,"실제 수집 디렉터리 투영");
     Check(await live.DetailAsync(id,default) is null,"진행 중 상세 미제공");
     await File.WriteAllTextAsync(file,Json(id,"RESULT",10,2));
@@ -82,5 +97,17 @@ if(args.Length>0){
     var detail=JsonSerializer.SerializeToNode(HomeLiveService.Detail(sample))!;
     Check(detail["batters"]!.AsArray().Count>0&&detail["pitchers"]!.AsArray().Count>0,"실제 수집 JSON 양 팀 박스스코어");
     Check(detail["plays"]!.AsArray().Count>0&&detail["probability"]!.AsArray().Count>0,"실제 수집 JSON 전체 문자중계·승리확률");
+    if(args.Contains("--collector"))
+    {
+        var collectedDir=Path.Combine(Path.GetTempPath(),"postseason-collector-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(collectedDir);
+        var worker=new RenderCollectorWorker(NullLogger<RenderCollectorWorker>.Instance,new SiteOptions(),new RenderCollectorOptions{JsonDirectory=collectedDir});
+        var method=typeof(RenderCollectorWorker).GetMethod("CollectAndPublishAsync",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+        await (Task)method.Invoke(worker,[sample.Date,sample.Date,CancellationToken.None])!;
+        var collected=new HomeLiveService(new RenderCollectorOptions{JsonDirectory=collectedDir},NullLogger<HomeLiveService>.Instance);
+        var result=await collected.ReadAsync(int.Parse(sample.Date[..4]),default);
+        Check(result.Games.Any(g=>g.Id==sample.Id&&g.Date==sample.Date),"실제 일정→수집기→날짜별 JSON→홈 실시간 판독 전체 경로");
+        Console.WriteLine("Collected JSON: "+collectedDir);
+    }
 }
 Console.WriteLine("All home live checks passed.");

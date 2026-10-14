@@ -96,6 +96,8 @@ public static class RenderCollectionPolicy
 
     public static string? GameDateKey(ScheduleGame game)
     {
+        if (DateTime.TryParseExact(game.GameDate,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var actualDate))
+            return actualDate.ToString("yyyyMMdd",CultureInfo.InvariantCulture);
         if (DateTime.TryParseExact(game.GameDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             return date.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         return game.GameId is { Length: >= 8 } id && id.Take(8).All(char.IsDigit) ? id[..8] : null;
@@ -259,6 +261,30 @@ public sealed class RenderCollectorWorker : BackgroundService
             return;
         }
 
+        // Naver playoff IDs use a series prefix such as 4444 instead of a year.
+        // Keep these snapshots separate from the regular-season official DB import path.
+        var playoffIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach(var scheduled in games.Where(g=>g.GameId is {Length:17} && g.GameDate is {Length:10} && g.GameId[..4]!=g.GameDate[..4]))
+        {
+            var id=scheduled.GameId!;
+            playoffIds.Add(id);
+            if(!System.Text.RegularExpressions.Regex.IsMatch(id,@"^\d{8}[A-Z]{4}\d\d{4}$"))continue;
+            try
+            {
+                var json=await http.GetStringAsync($"https://api-gw.sports.naver.com/schedule/games/{id}/game-polling?isHighlight=false",token);
+                var snapshot=HomeLiveService.Parse(json,id);
+                if(snapshot is null || snapshot.Date!=scheduled.GameDate || snapshot.RoundCode?.StartsWith("kbo_ps",StringComparison.Ordinal)!=true)
+                    throw new InvalidDataException("포스트시즌 경기 ID/날짜/시즌 응답 불일치");
+                var root=System.Text.Json.Nodes.JsonNode.Parse(json)!;
+                root["collectedAt"]=DateTimeOffset.UtcNow;
+                await UnifiedDocumentStore.SaveAtomicAsync(Path.Combine(options.JsonDirectory,snapshot.Date.Replace("-","")+"_"+id+".json"),root.ToJsonString(),token);
+                liveGamesInProgress |= snapshot.Playing;
+                Log($"포스트시즌 실시간 저장 {id}: {snapshot.StatusText} {snapshot.AwayScore}:{snapshot.HomeScore}");
+            }
+            catch(Exception ex) when(ex is HttpRequestException or IOException or JsonException or InvalidOperationException or FormatException)
+            { logger.LogWarning(ex,"포스트시즌 실시간 수집 실패: {GameId}",id); }
+        }
+        games=games.Where(g=>!playoffIds.Contains(g.GameId??"")).ToList();
         var summary = await RelayCollector.CollectAllAsync(http, games, options.JsonDirectory,
             delayMs: 500, log: Log, ct: token);
         // The schedule endpoint can briefly remain BEFORE while a playoff game has already

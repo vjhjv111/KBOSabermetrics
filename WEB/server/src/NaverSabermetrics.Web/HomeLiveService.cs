@@ -47,7 +47,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
                 var stamp=info.LastWriteTimeUtc.Ticks;var length=info.Length;
                 if(!files.TryGetValue(path,out var cached)||cached.Stamp!=stamp||cached.Length!=length)
                 {
-                    try { cached=(stamp,length,Parse(await File.ReadAllTextAsync(path,ct),Path.GetFileNameWithoutExtension(path))); files[path]=cached; }
+                    try { cached=(stamp,length,Parse(await File.ReadAllTextAsync(path,ct),Path.GetFileNameWithoutExtension(path).Split('_').Last())); files[path]=cached; }
                     catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
                     { logger.LogWarning(ex,"홈 경기 JSON 읽기 보류: {File}",Path.GetFileName(path)); continue; }
                 }
@@ -73,7 +73,14 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
         var final=RenderCollectionPolicy.IsFinalStatus(status);
         var inning=S(g,"currentInning")??S(g,"statusInfo");
         var label=final?"종료":status=="BEFORE"?"예정":status=="CANCEL"?"취소":S(g,"suspended")=="true"?"중단":string.IsNullOrWhiteSpace(inning)?"진행 중":Regex.Replace(inning,@"회\s*(초|말)","회 $1");
-        var date=DateTime.ParseExact(expectedId[..8],"yyyyMMdd",CultureInfo.InvariantCulture).ToString("yyyy-MM-dd");
+        string date;
+        if(round.StartsWith("kbo_ps",StringComparison.OrdinalIgnoreCase))
+        {
+            if(S(g,"categoryId")!="kbo" || !DateTime.TryParseExact(S(g,"gameDate"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var actualDate) ||
+                I(g,"seasonYear")!=actualDate.Year || expectedId[13..]!=actualDate.Year.ToString(CultureInfo.InvariantCulture) || expectedId.Substring(4,4)!=actualDate.ToString("MMdd"))return null;
+            date=actualDate.ToString("yyyy-MM-dd");
+        }
+        else date=DateTime.ParseExact(expectedId[..8],"yyyyMMdd",CultureInfo.InvariantCulture).ToString("yyyy-MM-dd");
         DateTimeOffset.TryParse(S(root,"collectedAt"),out var updated);
         var source=includeRelay?result!:new JsonObject{["game"]=g.DeepClone(),["decisionSummary"]=System.Text.Json.JsonSerializer.SerializeToNode(Decisions(result!))};
         return new(expectedId,date,S(g,"gameDateTime")??date,away!,home!,S(g,"stadium"),status,label,
@@ -120,9 +127,10 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     public async Task<object?> DetailAsync(string id,CancellationToken ct)
     {
         if(!Regex.IsMatch(id,@"^\d{8}[A-Z]{4}\d\d{4}$"))return null;
-        var snapshot=await ReadAsync(int.Parse(id[..4]),ct);var game=snapshot.Games.FirstOrDefault(x=>x.Id==id&&x.Final);
+        var snapshot=await ReadAsync(int.Parse(id[13..]),ct);var game=snapshot.Games.FirstOrDefault(x=>x.Id==id&&x.Final);
         if(game is null)return null;
-        var raw=await File.ReadAllTextAsync(Path.Combine(options.JsonDirectory,id+".json"),ct);
+        var datedPath=Path.Combine(options.JsonDirectory,game.Date.Replace("-","")+"_"+id+".json");
+        var raw=await File.ReadAllTextAsync(File.Exists(datedPath)?datedPath:Path.Combine(options.JsonDirectory,id+".json"),ct);
         var detailed=Parse(raw,id,includeRelay:true);
         return detailed is {Final:true}?Detail(detailed):null;
     }
