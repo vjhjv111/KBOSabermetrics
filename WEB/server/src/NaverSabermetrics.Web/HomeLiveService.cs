@@ -10,6 +10,7 @@ public sealed record HomeLiveGame(string Id, string Date, string Time, string Aw
     string? Stadium, string Status, string StatusText, int? AwayScore, int? HomeScore,
     string? AwayPitcher, string? HomePitcher, DateTimeOffset UpdatedAt, JsonObject Source)
 {
+    public string? RoundCode => HomeLiveService.S(Source["game"], "roundCode");
     public bool Final => RenderCollectionPolicy.IsFinalStatus(Status);
     public bool Playing => RenderCollectionPolicy.IsLiveStatus(Status);
     public object[] Decisions => HomeLiveService.Decisions(Source);
@@ -18,7 +19,7 @@ public sealed record HomeLiveGame(string Id, string Date, string Time, string Aw
         ["GameId"]=Id, ["Stadium"]=Stadium, ["AwayTeamCode"]=Away, ["HomeTeamCode"]=Home,
         ["AwayScore"]=AwayScore, ["HomeScore"]=HomeScore, ["StatusCode"]=Status,
         ["StatusText"]=StatusText, ["AwayPitcher"]=AwayPitcher, ["HomePitcher"]=HomePitcher,
-        ["decisions"]=Final ? Decisions : [], ["UpdatedAt"]=UpdatedAt
+        ["decisions"]=Final ? Decisions : [], ["UpdatedAt"]=UpdatedAt, ["RoundCode"]=RoundCode
     };
 }
 
@@ -62,7 +63,9 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     {
         var root=JsonNode.Parse(json);var result=(root?["naver"]??root)?["result"] as JsonObject;
         var g=result?["game"];
-        if(g is null || !Regex.IsMatch(expectedId,@"^\d{8}[A-Z]{4}\d\d{4}$") || S(g,"gameId")!=expectedId || S(g,"roundCode")!="kbo_r")return null;
+        var round=S(g,"roundCode");
+        if(g is null || !Regex.IsMatch(expectedId,@"^\d{8}[A-Z]{4}\d\d{4}$") || S(g,"gameId")!=expectedId ||
+            round is null || !round.StartsWith("kbo_",StringComparison.OrdinalIgnoreCase))return null;
         var home=S(g,"homeTeamCode");var away=S(g,"awayTeamCode");
         if(home!=expectedId.Substring(10,2)||away!=expectedId.Substring(8,2)||home is "EA" or "WE"||away is "EA" or "WE")return null;
         var status=S(g,"statusCode")??"";
@@ -103,7 +106,9 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
         await using var cmd=c.CreateCommand();
         cmd.CommandText="DROP TABLE IF EXISTS temp.HomeGames; CREATE TEMP TABLE HomeGames AS SELECT GameId,SeasonYear,GameDate,GameDateTime,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,AwayHits,HomeHits,AwayErrors,HomeErrors,RoundCode,CompetitionType,StatusCode FROM main.Games WHERE SeasonYear=$year; CREATE UNIQUE INDEX temp.HomeGamesId ON HomeGames(GameId);";
         cmd.Parameters.AddWithValue("$year",year);await cmd.ExecuteNonQueryAsync(ct);
-        foreach(var g in snapshot.Games.Where(g=>g.Final&&g.AwayScore>=0&&g.HomeScore>=0))
+        // Postseason live files are shown on the home card, but only regular-season
+        // finals may affect standings and forecast calculations.
+        foreach(var g in snapshot.Games.Where(g=>g.Final&&string.Equals(g.RoundCode,"kbo_r",StringComparison.OrdinalIgnoreCase)&&g.AwayScore>=0&&g.HomeScore>=0))
         {
             cmd.Parameters.Clear();
             cmd.CommandText="INSERT INTO HomeGames(GameId,SeasonYear,GameDate,GameDateTime,Stadium,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore,RoundCode,StatusCode) VALUES($id,$year,$date,$time,$stadium,$away,$home,$a,$h,'kbo_r',$status) ON CONFLICT(GameId) DO UPDATE SET GameDate=excluded.GameDate,GameDateTime=excluded.GameDateTime,Stadium=excluded.Stadium,AwayScore=excluded.AwayScore,HomeScore=excluded.HomeScore,RoundCode='kbo_r',StatusCode=excluded.StatusCode WHERE UPPER(HomeGames.StatusCode) NOT IN ('RESULT','ENDED') OR HomeGames.RoundCode<>'kbo_r';";
