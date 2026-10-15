@@ -68,6 +68,7 @@ if(builder.Configuration.GetValue<bool>("EstimatedWpa:Enabled"))
     builder.Services.AddHostedService<EstimatedWpaBackfillWorker>();
 builder.Services.AddSingleton<RecordService>();builder.Services.AddSingleton<QueryGate>();builder.Services.AddSingleton<QuotaStore>();
 builder.Services.AddSingleton<PlayerWebService>();
+builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddSingleton<OfficialPlayerProfileService>();
 builder.Services.AddSingleton<TeamWebService>();
 builder.Services.AddSingleton<HomeWebService>();
@@ -292,11 +293,11 @@ app.MapGet("/api/health",()=>
 app.MapGet("/api/ready",()=>databaseReady
     ? Results.Ok(new{status="ready"})
     : Results.Json(new{status="waiting_for_database",message="Upload sabermetrics_v2.db to the persistent disk, then restart the service."},statusCode:503));
-app.MapGet("/api/catalog",async (HttpContext c,QueryGate gate,QuotaStore quotas)=>
+app.MapGet("/api/catalog",async (HttpContext c,CatalogService catalogs,QuotaStore quotas)=>
 {
     if(!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다. /var/data/sabermetrics_v2.db를 업로드한 뒤 서비스를 재시작하세요.",503,"DB_NOT_READY");
     quotas.Consume(Ip(c),0);
-    var catalog=await gate.RunAsync(t=>db.GetCatalogAsync(t),c.RequestAborted);
+    var catalog=await catalogs.GetAsync(c.RequestAborted);
     return Results.Ok(new
     {
         catalog.Years,Teams=catalog.Teams.Where(t=>!new[]{"EA","WE"}.Contains(t,StringComparer.OrdinalIgnoreCase)),catalog.Stadiums,

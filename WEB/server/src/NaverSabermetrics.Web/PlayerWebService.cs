@@ -42,7 +42,10 @@ public sealed record PlayerWebRequest
     }
 }
 public sealed record PlayerMetric(string Key,string Label,string Display,double? Value,double? Percentile,int Population,bool LowerIsBetter);
-public sealed record PlayerTable(IReadOnlyList<string> Columns,IReadOnlyList<Dictionary<string,object?>> Rows,int Page,bool HasMore,string Note);
+public sealed record PlayerTable(IReadOnlyList<string> Columns,IReadOnlyList<Dictionary<string,object?>> Rows,int Page,bool HasMore,string Note)
+{
+    public Dictionary<string,object?>? OpponentTotal { get; init; }
+}
 
 public sealed partial class RecordService
 {
@@ -211,11 +214,19 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         var sortable=new[]{"PA","AB","H","HR","BB","SO","OPS","AVG","OBP","SLG","Name"};var sort=sortable.Contains(r.Sort)?r.Sort:"PA";
         var sql2=$"WITH totals AS ({expr}), ratios AS (SELECT *,1.0*H/NULLIF(AB,0) AVG,1.0*(H+BB+HBP)/NULLIF(AB+BB+HBP+SF,0) OBP,1.0*TB/NULLIF(AB,0) SLG FROM totals) SELECT *,OBP+SLG OPS FROM ratios ORDER BY {sort} {(r.Descending?"DESC":"ASC")},Name LIMIT $limit OFFSET $offset";
         var data=await Sql(sql2,r,ct);
+        Dictionary<string,object?>? opponentTotal=null;
+        if(r.Section=="opponents" && !string.IsNullOrEmpty(r.Opponent))
+        {
+            var totalSql=$"WITH totals AS (SELECT $opponent Name,{aggregate} {from} WHERE {where} HAVING COUNT(*)>0), ratios AS (SELECT *,1.0*H/NULLIF(AB,0) AVG,1.0*(H+BB+HBP)/NULLIF(AB+BB+HBP+SF,0) OBP,1.0*TB/NULLIF(AB,0) SLG FROM totals) SELECT *,OBP+SLG OPS FROM ratios";
+            opponentTotal=(await Sql(totalSql,r,ct)).FirstOrDefault();
+            if(opponentTotal is not null) Rates(opponentTotal,true);
+        }
         foreach(var row in data)
         {
             Rates(row,true);
             if(r.Section=="direction")row["Name"]=Convert.ToInt32(row["Name"]) switch{1=>"좌익",2=>"좌중간",3=>"중견",4=>"우중간",5=>"우익",6=>"투수",7=>"포수",8=>"1루",9=>"2루",10=>"3루",11=>"유격",_=>"방향 미상"};
         }
-        return Table(data,r,r.Section=="pitches"?"구종은 타석 마지막 투구 기준입니다. AVG·OBP·SLG·OPS는 해당 구종으로 끝난 공식 타석의 결과이며, 투수는 피타격 기록입니다.":r.Section=="direction"?"안타 방향별 집계입니다. 정확한 착지 좌표가 없어 타구 점 위치는 표시하지 않습니다.":"공식 타석 결과 기준입니다. OBP 분모에 희생플라이(SF)를 포함하며, 투수는 피타격 기록입니다.");
+        var table=Table(data,r,r.Section=="pitches"?"구종은 타석 마지막 투구 기준입니다. AVG·OBP·SLG·OPS는 해당 구종으로 끝난 공식 타석의 결과이며, 투수는 피타격 기록입니다.":r.Section=="direction"?"안타 방향별 집계입니다. 정확한 착지 좌표가 없어 타구 점 위치는 표시하지 않습니다.":"공식 타석 결과 기준입니다. OBP 분모에 희생플라이(SF)를 포함하며, 투수는 피타격 기록입니다.");
+        return table with { OpponentTotal=opponentTotal,Columns=table.Columns.Count>0?table.Columns:opponentTotal?.Keys.ToArray()??[] };
     }
 }
