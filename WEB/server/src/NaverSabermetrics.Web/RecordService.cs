@@ -20,7 +20,7 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
-    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.13";
+    public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.14-plus";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
     {
@@ -249,6 +249,7 @@ public sealed partial class RecordService
             ? "웹 공개 지표는 팬그래프 공식 WAR만 제공합니다(고정 대체수준, FIP 단독). 사이트 자체 추정치이며 공식 FanGraphs fWAR와 동일한 값은 아닙니다."
             : "업로드된 KBO WAR 계산 소스를 사용합니다. 사이트 자체 추정치입니다.");
         warnings.Add("리그 비교값은 화면 필터와 무관하게 적재된 전체 kbo_r 경기 기준입니다.");
+        if (request.View == "advanced") warnings.Add("Plus Stats는 선택 연도·기간·대회의 리그 전체 합산 기록을 100으로 비교합니다. 팀·선수·상황 필터는 기준값에 적용하지 않으며 구장 보정은 하지 않습니다. 타자 K%+·투수 BB%+는 낮을수록 유리합니다. ERA-는 정규시즌 단일 연도에서 공식 ER·IP와 실제 투구 구장별 이닝 가중 득점 PF를 사용합니다. 상황별·통산·PF 누락 시 -로 표시합니다.");
         if (request.Role == "pitcher" && request.View == "pitch-types")
             warnings.Add("구종별 평균·최저·최고 구속은 현재 조회 조건의 수집된 구속(km/h) 기준입니다. 누락·0·음수는 제외하며, 유효한 구속이 없으면 -로 표시합니다.");
         if (request.Role == "batter" && request.View == "team-batting")
@@ -369,7 +370,7 @@ public sealed partial class RecordService
         var league = needsLeague ? await _db.GetLeagueReferenceAsync(cancellationToken:token).ConfigureAwait(false) : new LeagueReference();
         var snapshot = needsSnapshot
             ? await _analytics.GetWebRoleSnapshotAsync(q,league,r.Role=="pitcher",
-                includeTeamBattingContext: r.Role=="batter" && r.View=="team-batting", cancellationToken:token).ConfigureAwait(false)
+                includeTeamBattingContext: r.Role=="batter" && r.View=="team-batting", includePlusStats: r.View=="advanced", cancellationToken:token).ConfigureAwait(false)
             : new AnalyticsSnapshot();
         // ERA*(추정치)는 상황 조건을 뺀 시즌 전체 자책점/실점 비율이 필요합니다. 상황 필터가
         // 걸린 snapshot.PitcherValues는 항상 비어 있으므로(공식 최종 기록은 상황별로 쪼갤 수
@@ -535,6 +536,8 @@ public sealed partial class RecordService
             Row("타자 WAR", "RAR", "wRAA + 주루 Runs + 포지션 Runs + 대체선수 Runs", "수비 Runs 0; 대체선수 Runs는 조회 범위 목표 WAR에 맞춰 역산", "대체선수 대비 득점"),
             Row("타자 WAR", "Site WAR", "RAR ÷ Runs Per Win", "Runs Per Win = (리그 RA9 + 2) × 1.5, 조회 범위 리그 기준; 타자 목표 WAR 57%", "사이트 자체 추정 타자 WAR"),
 
+            Row("리그 비교", "AVG+·OBP+·SLG+·ISO+·BABIP+·BB%+·K%+", "100 × 선수 지표 ÷ 같은 연도·기간·대회 리그 지표", "리그 평균 100", "합계로 산출한 리그 비율과 비교. 구장 보정 없음. 분모가 0이면 미표시"),
+            Row("리그 비교", "ERA-", "100 × ERA × (2 - 이닝 가중 득점 PF/100) ÷ 리그 ERA", "리그 평균 100", "정규시즌 단일 연도 공식 기록. 실제 홈·원정 구장 노출 반영. 단일시즌 자체 득점 PF 사용, 낮을수록 좋음"),
             Row("기본 투구", "ERA", "9 × ER ÷ IP", "공식 ER·IP", "9이닝당 자책점"),
             Row("기본 투구", "RA9", "9 × R ÷ IP", "공식 R·IP", "9이닝당 실점"),
             Row("기본 투구", "WHIP", "(H + BB) ÷ IP", "공식 투수 최종 기록", "이닝당 출루 허용"),

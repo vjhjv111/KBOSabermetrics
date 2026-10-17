@@ -58,8 +58,11 @@ public sealed class PitcherAdvancedRecordRow
     [DisplayName("K-BB%")] public double? StrikeoutMinusWalkRate { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
     [DisplayName("BACON")] public double? BACON { get; init; }
+    [DisplayName("K%+")] public double? StrikeoutRatePlus { get; set; }
+    [DisplayName("BB%+")] public double? WalkRatePlus { get; set; }
     [DisplayName("LOB%*")] public double? LobRate { get; init; }
     [DisplayName("ERA")] public double? ERA { get; init; }
+    [DisplayName("ERA-")] public double? EraMinus { get; set; }
     [DisplayName("RA9")] public double? RA9 { get; init; }
     [DisplayName("FIP")] public double? Fip { get; init; }
     [DisplayName("xFIP")] public double? Xfip { get; init; }
@@ -568,6 +571,9 @@ public static class PitcherRecordRoomRowFactory
                     WalkRate = row.WalkRate,
                     StrikeoutMinusWalkRate = row.StrikeoutMinusWalkRate,
                     BABIP = row.Babip, BACON = row.BACON,
+                    StrikeoutRatePlus = row.StrikeoutRatePlus,
+                    WalkRatePlus = row.WalkRatePlus,
+                    EraMinus = row.EraMinus,
                     LobRate = row.LobRate,
                     ERA = era,
                     RA9 = ra9,

@@ -15,6 +15,13 @@ public sealed class BatterSabermetricGridRow
     [DisplayName("ISO")] public double? Iso { get; init; }
     [DisplayName("BABIP")] public double? Babip { get; init; }
     [DisplayName("BACON")] public double? BACON { get; init; }
+    [DisplayName("AVG+")] public double? AveragePlus { get; set; }
+    [DisplayName("OBP+")] public double? OnBasePlus { get; set; }
+    [DisplayName("SLG+")] public double? SluggingPlus { get; set; }
+    [DisplayName("ISO+")] public double? IsoPlus { get; set; }
+    [DisplayName("BABIP+")] public double? BabipPlus { get; set; }
+    [DisplayName("BB%+")] public double? WalkRatePlus { get; set; }
+    [DisplayName("K%+")] public double? StrikeoutRatePlus { get; set; }
     [DisplayName("wOBA*")] public double? Woba { get; init; }
     [DisplayName("wRAA*")] public double? Wraa { get; init; }
     [DisplayName("wRC*")] public double? Wrc { get; init; }
@@ -37,6 +44,9 @@ public sealed class PitcherSabermetricGridRow
     [DisplayName("K-BB%")] public double? StrikeoutMinusWalkRate { get; init; }
     [DisplayName("BABIP")] public double? Babip { get; init; }
     [DisplayName("BACON")] public double? BACON { get; init; }
+    [DisplayName("K%+")] public double? StrikeoutRatePlus { get; set; }
+    [DisplayName("BB%+")] public double? WalkRatePlus { get; set; }
+    [DisplayName("ERA-")] public double? EraMinus { get; set; }
     [DisplayName("LOB%*")] public double? LobRate { get; init; }
     [DisplayName("K/9")] public double? StrikeoutsPerNine { get; init; }
     [DisplayName("BB/9")] public double? WalksPerNine { get; init; }

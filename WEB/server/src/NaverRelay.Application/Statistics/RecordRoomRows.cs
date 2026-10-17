@@ -53,6 +53,13 @@ public sealed class BatterAdvancedRecordRow
     [DisplayName("BB/K")] public double? WalkToStrikeout { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
     [DisplayName("BACON")] public double? BACON { get; init; }
+    [DisplayName("AVG+")] public double? AveragePlus { get; set; }
+    [DisplayName("OBP+")] public double? OnBasePlus { get; set; }
+    [DisplayName("SLG+")] public double? SluggingPlus { get; set; }
+    [DisplayName("ISO+")] public double? IsoPlus { get; set; }
+    [DisplayName("BABIP+")] public double? BabipPlus { get; set; }
+    [DisplayName("BB%+")] public double? WalkRatePlus { get; set; }
+    [DisplayName("K%+")] public double? StrikeoutRatePlus { get; set; }
     [DisplayName("IsoP")] public double? IsoP { get; init; }
     [DisplayName("IsoD")] public double? IsoD { get; init; }
     [DisplayName("R/ePA*")] public double? RunsPerEffectivePa { get; init; }
@@ -482,6 +489,13 @@ public static class RecordRoomRowFactory
                     WalkRate = row.WalkRate,
                     WalkToStrikeout = row.WalkToStrikeout,
                     BABIP = row.Babip, BACON = row.BACON,
+                    AveragePlus = row.AveragePlus,
+                    OnBasePlus = row.OnBasePlus,
+                    SluggingPlus = row.SluggingPlus,
+                    IsoPlus = row.IsoPlus,
+                    BabipPlus = row.BabipPlus,
+                    WalkRatePlus = row.WalkRatePlus,
+                    StrikeoutRatePlus = row.StrikeoutRatePlus,
                     IsoP = row.Iso,
                     IsoD = classicRow?.OBP.HasValue == true && classicRow.AVG.HasValue
                         ? classicRow.OBP.Value - classicRow.AVG.Value

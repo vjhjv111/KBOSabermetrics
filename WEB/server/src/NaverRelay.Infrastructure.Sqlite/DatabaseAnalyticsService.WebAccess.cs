@@ -8,9 +8,10 @@ public sealed partial class DatabaseAnalyticsService
     public async Task<AnalyticsSnapshot> GetWebRoleSnapshotAsync(
         GameQuery query, LeagueReference league, bool pitcher,
         bool includeTeamBattingContext = false,
+        bool includePlusStats = false,
         CancellationToken cancellationToken = default)
     {
-        var key = $"web-role-common-war-v1:{pitcher}:{JsonSerializer.Serialize(query)}";
+        var key = $"web-role-plus-v2:{pitcher}:{includePlusStats}:{JsonSerializer.Serialize(query)}";
         var cached = await _database.TryLoadComputedAsync<AnalyticsSnapshot>(key, cancellationToken).ConfigureAwait(false);
         if (cached is not null)
         {
@@ -23,6 +24,7 @@ public sealed partial class DatabaseAnalyticsService
             await AttachTeamBattingContextAsync(query, data, cancellationToken).ConfigureAwait(false);
         var allocation = await GetWarAllocationCalibrationAsync(query, league, cancellationToken).ConfigureAwait(false);
         var result = Build(data, league, query.SeasonYear, allocation, query.HasSituationFilters);
+        if (includePlusStats) await AttachPlusStatsAsync(query, data, result, pitcher, cancellationToken).ConfigureAwait(false);
         await _database.SaveComputedAsync(key, result, cancellationToken).ConfigureAwait(false);
         return result;
     }

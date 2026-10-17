@@ -78,6 +78,7 @@ public static class ViewRegistry
         if (!IsNumber(p)) return "text";
         var label = Label(p).Replace("*", "");
         if (p.Name.Contains("WarPerInning", StringComparison.OrdinalIgnoreCase)) return "decimal6";
+        if (p.Name.EndsWith("Plus") && label.EndsWith("+") || label == "ERA-") return "integer";
         if (label.Contains('%') || p.Name.EndsWith("Usage", StringComparison.Ordinal) || label.Contains("사용률") || label.Contains("구사율") || label.Contains("성공률")) return "percent";
         if (p.Name is "InningsPitched" or "StarterInnings" or "ReliefInnings") return "innings";
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;

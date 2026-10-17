@@ -8,7 +8,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 /// </summary>
 public sealed class DatabasePitcherRecordRoomService : IPitcherRecordRoomQueryService
 {
-    private const string CacheVersion = "pitcher-record-room-v2";
+    private const string CacheVersion = "pitcher-record-room-v2-bacon";
     private readonly DatabaseCacheService _database;
 
     public DatabasePitcherRecordRoomService(DatabaseCacheService database) => _database = database;
