@@ -173,6 +173,7 @@ public sealed partial class DatabaseCacheService
                 PA = pa,
                 BallsInPlay = bip,
                 BABIP = DivideRecordRoom(hits - hr, ab - so - hr + sf),
+                BACON = DivideRecordRoom(hits, ab - so + sf),
                 GroundBallRate = DivideRecordRoom(gb, bip),
                 FlyBallRate = DivideRecordRoom(fb, bip),
                 LineDriveRate = DivideRecordRoom(ld, bip),
@@ -279,6 +280,7 @@ public sealed partial class DatabaseCacheService
                 RightCenterHits = rightCenterHits,
                 RightHits = rightHits,
                 BABIP = DivideRecordRoom(hits - hr, ab - so - hr + sf),
+                BACON = DivideRecordRoom(hits, ab - so + sf),
             });
         }
 

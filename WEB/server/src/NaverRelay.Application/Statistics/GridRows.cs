@@ -162,6 +162,7 @@ public sealed class BatterSummaryGridRow
     [DisplayName("SLG")] public double? SLG { get; init; }
     [DisplayName("OPS")] public double? OPS { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("BB%")] public double? WalkRate { get; init; }
     [DisplayName("K%")] public double? StrikeoutRate { get; init; }
     [DisplayName("FB")] public int FlyBalls { get; init; }

@@ -167,6 +167,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             AVG = avg, OBP = obp, SLG = slg, OPS = obp.HasValue && slg.HasValue ? obp.Value + slg.Value : null,
             BABIP = Divide(row.Hits - row.HomeRuns,
                 row.AtBats - row.Strikeouts - row.HomeRuns + row.SacrificeFlies),
+            BACON = Divide(row.Hits, row.AtBats - row.Strikeouts + row.SacrificeFlies),
             WalkRate = Divide(row.Walks, row.PlateAppearances),
             StrikeoutRate = Divide(row.Strikeouts, row.PlateAppearances),
             FlyBalls = row.FlyBalls, Wpa = row.Wpa, Pitches = row.Pitches,
@@ -217,6 +218,7 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
             Iso = avg.HasValue && slg.HasValue ? slg.Value - avg.Value : null,
             Babip = Divide(row.Hits - row.HomeRuns,
                 row.AtBats - row.Strikeouts - row.HomeRuns + row.SacrificeFlies),
+            BACON = Divide(row.Hits, row.AtBats - row.Strikeouts + row.SacrificeFlies),
             Woba = woba, Wraa = wraa, Wrc = wrc, WrcPlus = wrcPlus, OpsPlus = opsPlus,
             ParkFactor = parkFactor, WrcPlusParkAdjusted = wrcPlusParkAdjusted,
         };
@@ -312,6 +314,8 @@ public sealed partial class DatabaseAnalyticsService : IAnalyticsQueryService
                 row.HitsFromPlateAppearances - row.HomeRunsFromPlateAppearances,
                 row.BattersFaced - row.WalksFromPlateAppearances - row.HitBattersFromPlateAppearances -
                 row.StrikeoutsFromPlateAppearances - row.HomeRunsFromPlateAppearances + row.SacrificeFlies),
+            BACON = Divide(row.HitsFromPlateAppearances,
+                row.OpponentAtBats - row.StrikeoutsFromPlateAppearances + row.SacrificeFlies),
             LobRate = lob,
             StrikeoutsPerNine = RatePerNine(hasFinalLine ? row.FinalStrikeouts : row.StrikeoutsFromPlateAppearances, perNineInnings),
             WalksPerNine = RatePerNine(hasFinalLine ? row.FinalWalks : row.WalksFromPlateAppearances, perNineInnings),

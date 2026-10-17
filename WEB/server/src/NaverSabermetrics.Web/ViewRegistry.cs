@@ -86,7 +86,7 @@ public static class ViewRegistry
         if (IsWarMetric(p)) return "decimal2";
         if (label.EndsWith("/9", StringComparison.Ordinal)) return "decimal2";
         if (label.Contains("AVG") || label.Contains("OBP") || label.Contains("SLG") || label.Contains("OPS") && !label.Contains('+')
-            || label.Contains("BABIP") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA" or "잔루/PA") return "decimal3";
+            || label.Contains("BABIP") || label.Contains("BACON") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA" or "잔루/PA") return "decimal3";
         if (label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
         if (p.Name.Contains("War", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Runs") || p.Name.Contains("Speed") || label.Contains("PF")) return "decimal1";
         return "decimal2";

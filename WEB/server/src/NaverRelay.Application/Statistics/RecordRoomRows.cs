@@ -52,6 +52,7 @@ public sealed class BatterAdvancedRecordRow
     [DisplayName("BB%")] public double? WalkRate { get; init; }
     [DisplayName("BB/K")] public double? WalkToStrikeout { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("IsoP")] public double? IsoP { get; init; }
     [DisplayName("IsoD")] public double? IsoD { get; init; }
     [DisplayName("R/ePA*")] public double? RunsPerEffectivePa { get; init; }
@@ -213,6 +214,7 @@ public sealed class BatterBattedBallRecordRow
     [DisplayName("PA")] public int PA { get; init; }
     [DisplayName("BIP")] public int BallsInPlay { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("GB%")] public double? GroundBallRate { get; init; }
     [DisplayName("FB%")] public double? FlyBallRate { get; init; }
     [DisplayName("LD%")] public double? LineDriveRate { get; init; }
@@ -244,6 +246,7 @@ public sealed class BatterDirectionRecordRow
     [DisplayName("우중 H")] public int RightCenterHits { get; init; }
     [DisplayName("우 H")] public int RightHits { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
 }
 
 public sealed class BatterPitchTypeRecordRow
@@ -478,7 +481,7 @@ public static class RecordRoomRowFactory
                     StrikeoutRate = row.StrikeoutRate,
                     WalkRate = row.WalkRate,
                     WalkToStrikeout = row.WalkToStrikeout,
-                    BABIP = row.Babip,
+                    BABIP = row.Babip, BACON = row.BACON,
                     IsoP = row.Iso,
                     IsoD = classicRow?.OBP.HasValue == true && classicRow.AVG.HasValue
                         ? classicRow.OBP.Value - classicRow.AVG.Value

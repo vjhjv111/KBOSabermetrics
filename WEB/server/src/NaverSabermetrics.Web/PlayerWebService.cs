@@ -62,7 +62,7 @@ public sealed partial class RecordService
         var pc=def.RowType.GetProperty("Pcode");
         var target=rows.FirstOrDefault(x=>Convert.ToString(pc?.GetValue(x))==code);
         if(target is null)return Array.Empty<PlayerMetric>();
-        var allowed=role=="batter" ? new[]{"AVG","OBP","SLG","OPS","ISO","BABIP","wRC+","wOBA","HR","BB%","K%","WAR"}
+        var allowed=role=="batter" ? new[]{"AVG","OBP","SLG","OPS","ISO","BABIP","BACON","wRC+","wOBA","HR","BB%","K%","WAR"}
             : new[]{"ERA","FIP","WHIP","K/9","BB/9","K%","BB%","K-BB%","피OPS","KBO fWAR","KBO fWAR v4"};
         var result=new List<PlayerMetric>();
         foreach(var p in ViewRegistry.Properties(def))

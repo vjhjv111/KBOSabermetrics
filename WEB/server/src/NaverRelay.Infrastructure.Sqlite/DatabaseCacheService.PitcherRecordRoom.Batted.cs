@@ -91,6 +91,7 @@ public sealed partial class DatabaseCacheService
                 InningsPitched = summary is null ? null : summary.InningsOuts / 3.0,
                 BallsInPlay = bip,
                 BABIP = RecordRoomDivide(hits - homeRuns, atBats - strikeouts - homeRuns + sacrificeFlies),
+                BACON = RecordRoomDivide(hits, atBats - strikeouts + sacrificeFlies),
                 GroundBallRate = RecordRoomDivide(groundBalls, bip),
                 InfieldFlyRate = RecordRoomDivide(infieldFlies, bip),
                 OutfieldFlyRate = RecordRoomDivide(outfieldFlies, bip),
@@ -246,6 +247,7 @@ public sealed partial class DatabaseCacheService
                 PullAverage = RecordRoomDivide(pullHits, pull),
                 OppositeAverage = RecordRoomDivide(oppositeHits, opposite),
                 BABIP = RecordRoomDivide(hits - homeRuns, atBats - strikeouts - homeRuns + sacrificeFlies),
+                BACON = RecordRoomDivide(hits, atBats - strikeouts + sacrificeFlies),
             });
         }
 

@@ -519,6 +519,7 @@ public sealed partial class RecordService
             Row("기본 타격", "OPS", "OBP + SLG", "-", "출루율과 장타율의 합"),
             Row("기본 타격", "ISO", "SLG - AVG", "-", "순수 장타력"),
             Row("기본 타격", "BABIP", "(H - HR) ÷ (AB - SO - HR + SF)", "-", "인플레이 타구의 안타 비율"),
+            Row("기본 타격", "BACON", "H ÷ (AB - SO + SF)", "-", "홈런을 포함한 타구 안타 비율. 분모가 0이면 미표시"),
             Row("기본 타격", "BB% · K%", "BB ÷ PA · SO ÷ PA", "-", "타석당 볼넷과 삼진"),
             Row("기본 타격", "BB/K", "BB ÷ SO", "-", "삼진 대비 볼넷"),
 
@@ -540,6 +541,7 @@ public sealed partial class RecordService
             Row("기본 투구", "K-BB%", "(SO - BB) ÷ TBF", "-", "상대한 타자 대비 삼진과 볼넷 차이"),
             Row("기본 투구", "K/9 · BB/9 · HR/9", "9 × SO·BB·HR ÷ IP", "공식 투수 최종 기록", "9이닝 기준 비율"),
             Row("기본 투구", "투수 BABIP", "(H - HR) ÷ (TBF - BB - HBP - SO - HR + SF)", "-", "피인플레이 타구의 안타 비율"),
+            Row("기본 투구", "투수 BACON", "피H ÷ (상대 AB - SO + 피SF)", "-", "홈런을 포함한 타구 피안타 비율"),
             Row("기본 투구", "LOB%", "(H + BB + HBP - R) ÷ (H + BB + HBP - 1.4×HR)", "HR 계수 1.4", "주자 잔류율 추정"),
 
             Row("수비 독립 투구", "FIP", "[13×HR + 3×(BB+HBP) - 2×SO] ÷ IP + C", $"C {league.FipConstant:0.0000}", "리그 평균 FIP가 리그 RA9에 맞도록 C 산출"),

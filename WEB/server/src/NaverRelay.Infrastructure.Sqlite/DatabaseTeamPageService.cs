@@ -402,6 +402,7 @@ public sealed partial class DatabaseTeamPageService : ITeamPageService
                 OPS = ops, ISO = avg.HasValue && slg.HasValue ? slg.Value - avg.Value : null,
                 BABIP = Divide(raw.Hits - raw.HomeRuns,
                     raw.AB - raw.Strikeouts - raw.HomeRuns + raw.SacrificeFlies),
+                BACON = Divide(raw.Hits, raw.AB - raw.Strikeouts + raw.SacrificeFlies),
                 WalkRate = Divide(raw.Walks, raw.PA), StrikeoutRate = Divide(raw.Strikeouts, raw.PA),
                 Woba = woba, Wraa = wraa, Wrc = wrc, WrcPlus = wrcPlus, OpsPlus = opsPlus,
                 BatterWar = snapshot is null ? null : batterWar,

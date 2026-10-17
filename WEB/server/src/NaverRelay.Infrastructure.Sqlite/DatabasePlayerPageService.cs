@@ -149,6 +149,7 @@ public sealed partial class DatabasePlayerPageService : IPlayerPageService
                 SacrificeFlies = classic?.SacrificeFlies ?? raw?.SacrificeFlies ?? 0,
                 AVG = classic?.AVG, OBP = classic?.OBP, SLG = classic?.SLG, OPS = classic?.OPS,
                 ISO = saber?.Iso, BABIP = classic?.BABIP ?? saber?.Babip,
+                BACON = classic?.BACON ?? saber?.BACON,
                 WalkRate = saber?.WalkRate ?? classic?.WalkRate,
                 StrikeoutRate = saber?.StrikeoutRate ?? classic?.StrikeoutRate,
                 Woba = saber?.Woba, Wraa = saber?.Wraa, Wrc = saber?.Wrc,

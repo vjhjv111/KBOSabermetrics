@@ -57,6 +57,7 @@ public sealed class PitcherAdvancedRecordRow
     [DisplayName("BB%")] public double? WalkRate { get; init; }
     [DisplayName("K-BB%")] public double? StrikeoutMinusWalkRate { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("LOB%*")] public double? LobRate { get; init; }
     [DisplayName("ERA")] public double? ERA { get; init; }
     [DisplayName("RA9")] public double? RA9 { get; init; }
@@ -225,6 +226,7 @@ public sealed class PitcherBattedBallRecordRow
     [DisplayName("IP")] public double? InningsPitched { get; init; }
     [DisplayName("BIP")] public int BallsInPlay { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("GB%")] public double? GroundBallRate { get; init; }
     [DisplayName("ifFB%")] public double? InfieldFlyRate { get; init; }
     [DisplayName("ofFB%")] public double? OutfieldFlyRate { get; init; }
@@ -272,6 +274,7 @@ public sealed class PitcherDirectionRecordRow
     [DisplayName("PU 피AVG")] public double? PullAverage { get; init; }
     [DisplayName("OP 피AVG")] public double? OppositeAverage { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
+    [DisplayName("BACON")] public double? BACON { get; init; }
 }
 
 public sealed class PitcherPitchProfileRecordRow
@@ -564,7 +567,7 @@ public static class PitcherRecordRoomRowFactory
                     StrikeoutRate = row.StrikeoutRate,
                     WalkRate = row.WalkRate,
                     StrikeoutMinusWalkRate = row.StrikeoutMinusWalkRate,
-                    BABIP = row.Babip,
+                    BABIP = row.Babip, BACON = row.BACON,
                     LobRate = row.LobRate,
                     ERA = era,
                     RA9 = ra9,
