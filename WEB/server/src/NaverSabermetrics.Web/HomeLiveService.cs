@@ -29,6 +29,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
 {
     private readonly SemaphoreSlim mutex = new(1,1);
     private readonly Dictionary<string,(long Stamp,long Length,HomeLiveGame? Game)> files = new();
+    private readonly Dictionary<string,(long Stamp,long Length,HomeLiveGame? Game)> calendarFiles = new();
     public async Task<HomeLiveSnapshot> ReadAsync(int year, CancellationToken ct)
     {
         // Only the collector's active lookback window is overlaid. Historical records stay DB-backed.
@@ -127,12 +128,58 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     public async Task<object?> DetailAsync(string id,CancellationToken ct)
     {
         if(!Regex.IsMatch(id,@"^\d{8}[A-Z]{4}\d\d{4}$"))return null;
-        var snapshot=await ReadAsync(int.Parse(id[13..]),ct);var game=snapshot.Games.FirstOrDefault(x=>x.Id==id&&x.Final);
-        if(game is null)return null;
-        var datedPath=Path.Combine(options.JsonDirectory,game.Date.Replace("-","")+"_"+id+".json");
-        var raw=await File.ReadAllTextAsync(File.Exists(datedPath)?datedPath:Path.Combine(options.JsonDirectory,id+".json"),ct);
-        var detailed=Parse(raw,id,includeRelay:true);
-        return detailed is {Final:true}?Detail(detailed):null;
+        // Playoff IDs start with a series code (e.g. 4444), not a calendar year.
+        var dateKey=id[13..]+id.Substring(4,4);
+        if(!DateTime.TryParseExact(dateKey,"yyyyMMdd",CultureInfo.InvariantCulture,DateTimeStyles.None,out _))return null;
+        foreach(var path in new[]{Path.Combine(options.JsonDirectory,dateKey+"_"+id+".json"),Path.Combine(options.JsonDirectory,id+".json")})
+        {
+            if(!File.Exists(path))continue;
+            try {
+                var detailed=Parse(await File.ReadAllTextAsync(path,ct),id,includeRelay:true);
+                if(detailed is {Final:true} && detailed.Date.Replace("-","")==dateKey)return Detail(detailed);
+            }
+            catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
+            { logger.LogWarning(ex,"경기 상세 JSON 읽기 보류: {GameId}",id); }
+        }
+        return null;
+    }
+
+    public async Task<HomeLiveGame[]> ReadMonthAsync(int year,int month,CancellationToken ct,IReadOnlySet<string>? imported=null)
+    {
+        if(!Directory.Exists(options.JsonDirectory))return [];
+        var prefix=$"{year:0000}-{month:00}";
+        // Read only the requested month, including older undated playoff filenames.
+        var paths=Directory.EnumerateFiles(options.JsonDirectory,$"{year:0000}{month:00}*.json")
+            .Concat(Directory.EnumerateFiles(options.JsonDirectory,$"????{month:00}??*{year:0000}.json"))
+            .Distinct(StringComparer.Ordinal).OrderBy(x=>x,StringComparer.Ordinal).ToArray();
+        var games=new Dictionary<string,HomeLiveGame>();
+        await mutex.WaitAsync(ct);
+        try {
+        foreach(var path in paths)
+        {
+            ct.ThrowIfCancellationRequested();
+            try {
+                var id=Path.GetFileNameWithoutExtension(path).Split('_').Last();
+                if(imported?.Contains(id)==true)continue;
+                var info=new FileInfo(path);var stamp=info.LastWriteTimeUtc.Ticks;var length=info.Length;
+                if(!calendarFiles.TryGetValue(path,out var cached)||cached.Stamp!=stamp||cached.Length!=length)
+                {
+                    cached=(stamp,length,Parse(await File.ReadAllTextAsync(path,ct),id));
+                    calendarFiles[path]=cached;
+                }
+                var game=cached.Game;
+                if(game is null || !game.Date.StartsWith(prefix,StringComparison.Ordinal))continue;
+                // Future fixtures come from the reconciled DB schedule. Do not resurrect
+                // a removed playoff fixture from an old BEFORE/READY snapshot.
+                if(!game.Final&&!game.Playing&&game.Status!="CANCEL")continue;
+                if(!games.TryGetValue(game.Id,out var old)||game.UpdatedAt>=old.UpdatedAt)games[game.Id]=game;
+            }
+            catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
+            { logger.LogWarning(ex,"경기 달력 JSON 읽기 보류: {File}",Path.GetFileName(path)); }
+        }
+        foreach(var old in calendarFiles.Keys.Except(paths).ToArray())calendarFiles.Remove(old);
+        return games.Values.ToArray();
+        }finally { mutex.Release(); }
     }
 
     public static object Detail(HomeLiveGame live)
@@ -162,6 +209,8 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
         }).ToArray();
         var probability=plays.Where(p=>p["Home"] is not null&&p["Away"] is not null).ToArray();
         return new{game,batters,pitchers,probability,innings=System.Array.Empty<object>(),original=new{home=Array(g?["homeTeamScoreByInning"]).Select(x=>x.ToString()),away=Array(g?["awayTeamScoreByInning"]).Select(x=>x.ToString())},decisions=live.Decisions,plays,
-            note="종료 직후 수집 JSON 기준입니다. 하루 전체 경기의 통계 DB 편입 후 정규화된 상세 기록으로 전환됩니다."};
+            note=live.RoundCode?.StartsWith("kbo_ps",StringComparison.OrdinalIgnoreCase)==true
+                ?"포스트시즌 수집 JSON 기준입니다. 문자중계·승리확률은 파일에 저장된 구간만 표시합니다."
+                :"종료 직후 수집 JSON 기준입니다. 하루 전체 경기의 통계 DB 편입 후 정규화된 상세 기록으로 전환됩니다."};
     }
 }

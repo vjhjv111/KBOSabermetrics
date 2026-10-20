@@ -84,6 +84,38 @@ try{
     Check(psGame.Date==playing.Date && psGame.Final,"4444 포스트시즌 파일을 실제 경기 날짜로 탐색·판독");
     Check(await Query([psGame],"SELECT AwayScore FROM HomeGames")==4,"포스트시즌 종료 점수가 정규시즌 전적을 덮어쓰지 않음");
     Check(await live.DetailAsync(psId,default) is not null,"4444 포스트시즌 종료 상세 파일 조회");
+    var historicDate=new DateTime(year-1,10,14);var historicId=$"44441014HHSS0{year-1}";
+    var historicRaw=postseasonRaw.DeepClone();
+    historicRaw["naver"]!["result"]!["game"]!["gameId"]=historicId;
+    historicRaw["naver"]!["result"]!["game"]!["gameDate"]=historicDate.ToString("yyyy-MM-dd");
+    historicRaw["naver"]!["result"]!["game"]!["seasonYear"]=year-1;
+    var historicPath=Path.Combine(temp,$"{historicDate:yyyyMMdd}_{historicId}.json");
+    await File.WriteAllTextAsync(historicPath,historicRaw.ToJsonString());
+    Check(await live.DetailAsync(historicId,default) is not null,"최근 수집 기간 밖 과거 시즌 포스트시즌 상세 조회");
+    var monthGames=await live.ReadMonthAsync(year-1,10,default);
+    Check(monthGames.Length==1&&monthGames[0].Id==historicId,"월별 달력은 과거 포스트시즌 JSON 포함");
+    Check((await live.ReadMonthAsync(year-1,9,default)).Length==0,"다른 월 경기 제외");
+    var stored=new List<Dictionary<string,object?>>{new(){["Id"]=historicId[..13],["Date"]=historicDate.ToString("yyyy-MM-dd"),["Status"]="BEFORE",["Time"]=""}};
+    var merged=GameWebService.MergeCalendar(stored,monthGames);
+    Check(merged.Count==1&&Equals(merged[0]["Id"],historicId)&&Equals(merged[0]["Status"],"RESULT"),"짧은 ID 일정과 포스트시즌 결과 중복 제거");
+    stored[0]["Status"]="RESULT";stored[0]["HS"]=99;
+    Check(Equals(GameWebService.MergeCalendar(stored,monthGames)[0]["HS"],99),"달력에서 DB 종료 기록 우선");
+    Check((await live.ReadMonthAsync(year-1,10,default,new HashSet<string>{historicId})).Length==0,"DB 편입 완료 경기는 JSON 재조회 생략");
+    await using(var c=new SqliteConnection("Data Source="+db)) {
+        await c.OpenAsync();await using var cmd=c.CreateCommand();
+        cmd.CommandText="ALTER TABLE Games ADD COLUMN HomeWalks INTEGER; ALTER TABLE Games ADD COLUMN AwayWalks INTEGER;";
+        await cmd.ExecuteNonQueryAsync();
+    }
+    var calendarService=new GameWebService(new NaverRelay.Infrastructure.Sqlite.DatabaseCacheService(db,webReadOnly:true),new SiteOptions(),live);
+    var actualCalendar=JsonSerializer.SerializeToNode(await calendarService.QueryAsync(new("calendar",year-1,10),default))!;
+    Check(actualCalendar["rows"]!.AsArray().Count==1,"경기일정 서비스 DB 미편입 포스트시즌 표시");
+    var actualDetail=JsonSerializer.SerializeToNode(await calendarService.QueryAsync(new("detail",Id:historicId),default))!;
+    Check(actualDetail["game"]!["Id"]!.GetValue<string>()==historicId,"경기 상세 서비스 과거 포스트시즌 fallback");
+    historicRaw["naver"]!["result"]!["game"]!["statusCode"]="BEFORE";
+    await File.WriteAllTextAsync(historicPath,historicRaw.ToJsonString());
+    Check((await live.ReadMonthAsync(year-1,10,default)).Length==0,"사라진 예정 경기를 오래된 JSON에서 복원하지 않음");
+    Check(await live.DetailAsync(historicId,default) is null,"종료 전 JSON 상세 제외 유지");
+    File.Delete(historicPath);
     File.Delete(psFile);
     var first=await live.ReadAsync(year,default);Check(first.Games.Length==1,"실제 수집 디렉터리 투영");
     Check(await live.DetailAsync(id,default) is null,"진행 중 상세 미제공");

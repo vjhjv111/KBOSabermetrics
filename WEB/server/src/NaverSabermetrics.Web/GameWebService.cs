@@ -35,7 +35,11 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
             var rows=await Read($"SELECT COALESCE(NULLIF(p.PitchType,''),'미상') Type,p.CrossPlateX X,p.CalculatedCrossPlateZ Z,p.TopStrikeZone Top,p.BottomStrikeZone Bottom FROM Pitches p JOIN Games g ON g.GameId=p.GameId WHERE p.PitcherPcode=$code AND g.SeasonYear=$year AND {safe} AND {round} ORDER BY p.GameId,p.PitchEventId LIMIT 1001 OFFSET $offset",r,ct);
             return new{rows=rows.Take(1000),hasMore=rows.Count>1000,page=r.Page};
         }
-        if(r.Section=="calendar")return new{rows=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.Stadium,g.StatusCode Status,g.RoundCode Round FROM Games g WHERE SUBSTR(g.GameDate,1,7)=$month AND {safe} ORDER BY g.GameDateTime,g.GameId LIMIT 500",r,ct)};
+        if(r.Section=="calendar"){
+            var stored=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.Stadium,g.StatusCode Status,g.RoundCode Round FROM Games g WHERE SUBSTR(g.GameDate,1,7)=$month AND {safe} ORDER BY g.GameDateTime,g.GameId LIMIT 500",r,ct);
+            var imported=stored.Where(g=>RenderCollectionPolicy.IsFinalStatus(Convert.ToString(g["Status"]))).Select(CalendarKey).ToHashSet();
+            return new{rows=MergeCalendar(stored,await live.ReadMonthAsync(r.Year,r.Month,ct,imported))};
+        }
         var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0 || !RenderCollectionPolicy.IsFinalStatus(Convert.ToString(games[0]["Status"]))){var collected=await live.DetailAsync(r.Id,ct);if(collected is not null)return collected;}if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
         var batters=await Read("SELECT Pcode Code,TeamCode Team,Name,BatOrder,Position,LineupSequence,PlateAppearances PA,AtBats AB,Hits H,HomeRuns HR,Walks BB,HitByPitch HBP,Strikeouts SO,Runs R,RunsBattedIn RBI FROM BattingGameLines WHERE GameId=$id ORDER BY TeamSide,BatOrder,LineupSequence",r,ct);
         var pitchers=await Read("SELECT Pcode Code,TeamCode Team,Name,InningsDisplay IP,PitchCount NP,HitsAllowed H,HomeRunsAllowed HR,Walks BB,HitBatters HBP,Strikeouts SO,RunsAllowed R,EarnedRuns ER FROM PitchingGameLines WHERE GameId=$id ORDER BY TeamSide,AppearanceSequence",r,ct);
@@ -102,5 +106,22 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
         }
         foreach(var play in plays)play["pitches"]=pitchGrouped[Convert.ToString(play["Id"])].Select(FormatPitch).Where(x=>x!=null).ToArray();
         return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays,wpaSource=converted?"FanGraphs WE 4.5":"collected"};
+    }
+
+    private static string CalendarKey(Dictionary<string,object?> row)
+    {
+        var id=Convert.ToString(row["Id"])??"";var date=Convert.ToString(row["Date"])??"";
+        return id.Length==13&&date.Length>=4?id+date[..4]:id;
+    }
+    public static List<Dictionary<string,object?>> MergeCalendar(List<Dictionary<string,object?>> stored,IEnumerable<HomeLiveGame> collected)
+    {
+        var rows=stored.GroupBy(CalendarKey).ToDictionary(g=>g.Key,g=>g.First());
+        foreach(var g in collected)
+        {
+            if(rows.TryGetValue(g.Id,out var existing)&&RenderCollectionPolicy.IsFinalStatus(Convert.ToString(existing["Status"])))continue;
+            rows[g.Id]=new(){["Id"]=g.Id,["Date"]=g.Date,["Time"]=g.Time,["Home"]=g.Home,["Away"]=g.Away,
+                ["HS"]=g.HomeScore,["AScore"]=g.AwayScore,["Stadium"]=g.Stadium,["Status"]=g.Status,["Round"]=g.RoundCode};
+        }
+        return rows.Values.OrderBy(g=>Convert.ToString(g["Date"])).ThenBy(g=>Convert.ToString(g["Time"])).ThenBy(g=>Convert.ToString(g["Id"])).ToList();
     }
 }
