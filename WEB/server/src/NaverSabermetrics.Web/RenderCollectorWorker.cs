@@ -278,8 +278,10 @@ public sealed class RenderCollectorWorker : BackgroundService
                 if(snapshot is null || snapshot.Date!=scheduled.GameDate || snapshot.RoundCode?.StartsWith("kbo_ps",StringComparison.Ordinal)!=true)
                     throw new InvalidDataException("포스트시즌 경기 ID/날짜/시즌 응답 불일치");
                 var root=System.Text.Json.Nodes.JsonNode.Parse(json)!;
+                var path=Path.Combine(options.JsonDirectory,snapshot.Date.Replace("-","")+"_"+id+".json");
+                await PostseasonRelayHistory.PopulateAsync(http,root,id,path,logger,token);
                 root["collectedAt"]=DateTimeOffset.UtcNow;
-                await UnifiedDocumentStore.SaveAtomicAsync(Path.Combine(options.JsonDirectory,snapshot.Date.Replace("-","")+"_"+id+".json"),root.ToJsonString(),token);
+                await UnifiedDocumentStore.SaveAtomicAsync(path,root.ToJsonString(),token);
                 liveGamesInProgress |= snapshot.Playing;
                 Log($"포스트시즌 실시간 저장 {id}: {snapshot.StatusText} {snapshot.AwayScore}:{snapshot.HomeScore}");
             }

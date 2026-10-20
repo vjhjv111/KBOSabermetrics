@@ -202,7 +202,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
             var metric=p["metricOption"];var home=D(metric,"homeTeamWinRate");var away=D(metric,"awayTeamWinRate");
             var valid=home is >=0 and <=100 && away is >=0 and <=100 && Math.Abs(home.Value+away.Value-100)<0.1;
             return new Dictionary<string,object?>{
-                ["Seq"]=I(p,"no"),["Inning"]=I(p,"inn"),["Team"]=S(p,"homeOrAway")=="1"?live.Away:live.Home,["Title"]=S(p,"title"),
+                ["Seq"]=I(p,"no"),["Inning"]=I(p,"inn"),["Team"]=S(p,"homeOrAway") switch {"0"=>live.Away,"1"=>live.Home,_=>null},["Title"]=S(p,"title"),
                 ["AH"]=I(after,"homeScore"),["AA"]=I(after,"awayScore"),["Home"]=valid?home:null,["Away"]=valid?away:null,["WPA"]=D(metric,"wpaByPlate"),
                 ["events"]=events.Select(e=>string.Join(' ',new[]{S(e,"text"),S(e,"stuff"),S(e,"speed") is {} speed?speed+"km/h":null}.Where(x=>!string.IsNullOrWhiteSpace(x)))).ToArray()
             };
