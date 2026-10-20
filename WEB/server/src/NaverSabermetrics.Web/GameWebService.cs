@@ -9,7 +9,7 @@ public sealed record GameWebRequest(string Section="calendar",int Year=2026,int 
 {
     public void Validate(){if(Section is not("calendar" or "detail" or "locations")||Year is <1900 or >2200||Month is <1 or >12||Page is <1 or >100||Id.Length>40||Code.Length>40||Id.Any(c=>!char.IsAsciiLetterOrDigit(c))||Code.Any(c=>!char.IsAsciiLetterOrDigit(c))||Competition is not("정규시즌" or "포스트시즌" or "시범경기" or "전체")||(Section=="detail"&&Id.Length==0)||(Section=="locations"&&Code.Length==0))throw new RequestError("경기 조회 조건이 잘못되었습니다.");}
 }
-public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,HomeLiveService live)
+public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,HomeLiveService live,BotStartersService? starters=null)
 {
     async Task<List<Dictionary<string,object?>>> Read(string sql,GameWebRequest r,CancellationToken ct)
     {
@@ -40,7 +40,14 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
             var imported=stored.Where(g=>RenderCollectionPolicy.IsFinalStatus(Convert.ToString(g["Status"]))).Select(CalendarKey).ToHashSet();
             return new{rows=MergeCalendar(stored,await live.ReadMonthAsync(r.Year,r.Month,ct,imported))};
         }
-        var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0 || !RenderCollectionPolicy.IsFinalStatus(Convert.ToString(games[0]["Status"]))){var collected=await live.DetailAsync(r.Id,ct);if(collected is not null)return collected;}if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
+        var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0 || !RenderCollectionPolicy.IsFinalStatus(Convert.ToString(games[0]["Status"])))
+        {
+            var lookupId=games.Count>0?CalendarKey(games[0]):r.Id;
+            var collected=await live.DetailAsync(lookupId,ct);
+            if(collected is not null)return collected;
+            if(games.Count>0)return Preview(games[0]);
+        }
+        if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
         var batters=await Read("SELECT Pcode Code,TeamCode Team,Name,BatOrder,Position,LineupSequence,PlateAppearances PA,AtBats AB,Hits H,HomeRuns HR,Walks BB,HitByPitch HBP,Strikeouts SO,Runs R,RunsBattedIn RBI FROM BattingGameLines WHERE GameId=$id ORDER BY TeamSide,BatOrder,LineupSequence",r,ct);
         var pitchers=await Read("SELECT Pcode Code,TeamCode Team,Name,InningsDisplay IP,PitchCount NP,HitsAllowed H,HomeRunsAllowed HR,Walks BB,HitBatters HBP,Strikeouts SO,RunsAllowed R,EarnedRuns ER FROM PitchingGameLines WHERE GameId=$id ORDER BY TeamSide,AppearanceSequence",r,ct);
         var probability=await Read("SELECT ChronologicalIndex Seq,Inning,Title,HomeWinRateAfter Home,AwayWinRateAfter Away,WpaByPlate WPA FROM RelayGroups WHERE GameId=$id AND HomeWinRateAfter IS NOT NULL AND AwayWinRateAfter IS NOT NULL AND HomeWinRateAfter BETWEEN 0 AND 100 AND AwayWinRateAfter BETWEEN 0 AND 100 AND ABS(HomeWinRateAfter+AwayWinRateAfter-100)<0.1 ORDER BY ChronologicalIndex LIMIT 2000",r,ct);
@@ -108,6 +115,16 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
         return new{game=games[0],batters,pitchers,probability,innings,original,decisions,plays,wpaSource=converted?"FanGraphs WE 4.5":"collected"};
     }
 
+    private object Preview(Dictionary<string,object?> game)
+    {
+        var date=Convert.ToString(game["Date"]);
+        var announced=date is {Length:>=10}?starters?.Get(date[..10])?.Games.FirstOrDefault(g=>g.Id==CalendarKey(game)):null;
+        return new {game,batters=Array.Empty<object>(),pitchers=Array.Empty<object>(),probability=Array.Empty<object>(),
+            innings=Array.Empty<object>(),original=(object?)null,decisions=Array.Empty<object>(),plays=Array.Empty<object>(),
+            preview=true,lineups=new {away=announced?.AwayLineup??[],home=announced?.HomeLineup??[],
+                awayPitcher=announced?.AwayStarter,homePitcher=announced?.HomeStarter},
+            note=Convert.ToString(game["Status"])=="CANCEL"?"취소된 경기입니다.":"경기 일정·예고 선발 정보입니다. 중계 수집 후 실시간 상세로 전환됩니다."};
+    }
     private static string CalendarKey(Dictionary<string,object?> row)
     {
         var id=Convert.ToString(row["Id"])??"";var date=Convert.ToString(row["Date"])??"";

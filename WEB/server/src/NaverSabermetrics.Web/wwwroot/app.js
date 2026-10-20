@@ -732,14 +732,14 @@ function renderHomeResults(d,year){
   const list=text('div','','home-results-list');
   for(const g of d.latestGames??[]){
     const final=!g.StatusCode||['RESULT','ENDED'].includes(g.StatusCode);const status=g.StatusText??(final?'종료':'진행 중');
-    const game=text('article','','home-game');game.title=`${g.Stadium??'구장 정보 없음'} · ${status}`;
+    const game=text('article','','home-game');game.onclick=e=>{if(!e.target.closest('a,button'))location.hash=`game=${encodeURIComponent(g.GameId)}`;};game.title=`${g.Stadium??'구장 정보 없음'} · ${status}`;
     const scoreline=text('div','','home-scoreline');
     for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
       const link=homeTeamLink(code,year);link.title=side==='Away'?'원정':'홈';
       const result=text('strong',['BEFORE','CANCEL'].includes(g.StatusCode)?'—':score??'—',score>other?'team-win':'');result.setAttribute('aria-label',`${score??'—'}점${final?' '+(score>other?'승':score<other?'패':'무승부'):''}`);
       if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
-    }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · ${status}`));if(final){const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);}game.append(meta,scoreline);
+    }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · ${status}`));{const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);}game.append(meta,scoreline);
     const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
     for(const side of ['Away','Home']){
       sides[side].dataset.team=g[side+'TeamCode'];

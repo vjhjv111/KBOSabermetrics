@@ -1,15 +1,15 @@
 function gameTeamScore(g,tag='span'){const line=text(tag,'');line.append(teamNameNode(g.Away),document.createTextNode(` ${g.AScore??'—'} : ${g.HS??'—'} `),teamNameNode(g.Home));return line;}
 function gameStatusLabel(status){return ['RESULT','ENDED'].includes(status)?'종료':['BEFORE','READY'].includes(status)?'예정':['STARTED','PLAY'].includes(status)?'진행 중':status==='CANCEL'?'취소':status??'';}
-const gameState={seq:0,controller:null,month:null};
+const gameState={seq:0,controller:null,month:null,timer:null};
 const gameRoot=text('main','','game-page');gameRoot.id='game-page';gameRoot.hidden=true;$('workspace').before(gameRoot);
 const gameNav=text('button','경기일정','room');gameNav.dataset.route='games';gameNav.onclick=()=>{location.hash='games';};document.querySelector('.room-nav').append(gameNav);
 window.addEventListener('hashchange',gameRoute);
 async function gameRoute(){
-  if(!state.catalog)return;const params=new URLSearchParams(location.hash.slice(1));const active=location.hash==='#games'||params.has('game');gameState.controller?.abort();const seq=++gameState.seq;gameRoot.hidden=!active;if(!active)return;
+  clearTimeout(gameState.timer);if(!state.catalog)return;const params=new URLSearchParams(location.hash.slice(1));const active=location.hash==='#games'||params.has('game');gameState.controller?.abort();const seq=++gameState.seq;gameRoot.hidden=!active;if(!active)return;
   for(const id of ['workspace','home-page','player-page','team-page'])$(id).hidden=true;abortQuery();
   gameState.controller=new AbortController();const signal=gameState.controller.signal;
   gameRoot.replaceChildren(text('h1',params.has('game')?'경기 상세':'경기일정'),text('p','불러오는 중…'));
-  try{if(params.has('game')){const d=await api('/api/games',{section:'detail',id:params.get('game')},signal);if(seq===gameState.seq)renderGame(d);}else{
+  try{if(params.has('game')){const d=await api('/api/games',{section:'detail',id:params.get('game')},signal);if(seq===gameState.seq){renderGame(d);if(!['RESULT','ENDED','CANCEL'].includes(d.game.Status))gameState.timer=setTimeout(gameRoute,60000);}}else{
     gameState.month??=state.catalog.maxDate?.slice(0,7)??`${Math.max(...state.catalog.years)}-01`;const [year,month]=gameState.month.split('-').map(Number);const d=await api('/api/games',{section:'calendar',year,month},signal);if(seq===gameState.seq)renderCalendar(d,year,month);
   }}catch(e){if(e.name!=='AbortError'&&seq===gameState.seq)gameRoot.replaceChildren(text('h1','경기일정'),text('p',e.message));}
 }
@@ -17,17 +17,28 @@ function renderCalendar(d,year,month){
   document.title='경기일정 · FANZAI';gameRoot.replaceChildren(text('h1','경기일정'));
   const controls=text('div','','game-month-controls');const prev=text('button','← 이전 달','button outline'),next=text('button','다음 달 →','button outline'),input=document.createElement('input');input.type='month';input.value=gameState.month;input.min='1900-01';input.max='2200-12';input.setAttribute('aria-label','조회 월');
   input.onchange=()=>{if(input.validity.valid&&input.value){gameState.month=input.value;gameRoute();}};
-  function shift(delta){const date=new Date(year,month-1+delta,1);if(date.getFullYear()<1900||date.getFullYear()>2200)return;gameState.month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;gameRoute();}prev.onclick=()=>shift(-1);next.onclick=()=>shift(1);controls.append(prev,input,next);gameRoot.append(controls,text('p','수집된 정규시즌·포스트시즌 경기를 표시합니다. 종료 경기의 점수를 누르면 상세 기록을 볼 수 있습니다.','player-note'));
+  function shift(delta){const date=new Date(year,month-1+delta,1);if(date.getFullYear()<1900||date.getFullYear()>2200)return;gameState.month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;gameRoute();}prev.onclick=()=>shift(-1);next.onclick=()=>shift(1);controls.append(prev,input,next);gameRoot.append(controls,text('p','수집된 정규시즌·포스트시즌 경기를 표시합니다. 경기를 누르면 일정·선발 정보 또는 수집된 상세 기록을 볼 수 있습니다.','player-note'));
   const wrap=text('div','','game-calendar-scroll'),grid=text('div','','game-calendar');for(const day of ['일','월','화','수','목','금','토'])grid.append(text('div',day,'calendar-weekday'));
   for(let i=0;i<new Date(year,month-1,1).getDay();i++)grid.append(text('div','','calendar-blank'));
-  for(let day=1;day<=new Date(year,month,0).getDate();day++){const cell=text('section','','calendar-day'),date=`${gameState.month}-${String(day).padStart(2,'0')}`;const dateLabel=text('strong',`${month}월 ${day}일`,'calendar-date');dateLabel.append(text('span',` (${['일','월','화','수','목','금','토'][new Date(year,month-1,day).getDay()]})`,'mobile-weekday'));cell.append(dateLabel);const games=d.rows.filter(g=>g.Date?.slice(0,10)===date);for(const g of games){const final=['RESULT','ENDED'].includes(g.Status),a=text(final?'a':'div','','calendar-game');if(final)a.href=`#game=${encodeURIComponent(g.Id)}`;a.append(gameTeamScore(g),text('small',`${gameStatusLabel(g.Status)} · ${g.Stadium??''}${g.Round?.startsWith('kbo_ps')?' · 포스트시즌':''}`));cell.append(a);}if(!games.length)cell.append(text('small','수집 경기 없음','muted'));grid.append(cell);}wrap.tabIndex=0;wrap.setAttribute('aria-label','경기 달력');wrap.append(grid);gameRoot.append(wrap);
+  for(let day=1;day<=new Date(year,month,0).getDate();day++){const cell=text('section','','calendar-day'),date=`${gameState.month}-${String(day).padStart(2,'0')}`;const dateLabel=text('strong',`${month}월 ${day}일`,'calendar-date');dateLabel.append(text('span',` (${['일','월','화','수','목','금','토'][new Date(year,month-1,day).getDay()]})`,'mobile-weekday'));cell.append(dateLabel);const games=d.rows.filter(g=>g.Date?.slice(0,10)===date);for(const g of games){const a=text('a','','calendar-game');a.href=`#game=${encodeURIComponent(g.Id)}`;a.append(gameTeamScore(g),text('small',`${gameStatusLabel(g.Status)} · ${g.Stadium??''}${g.Round?.startsWith('kbo_ps')?' · 포스트시즌':''}`));cell.append(a);}if(!games.length)cell.append(text('small','수집 경기 없음','muted'));grid.append(cell);}wrap.tabIndex=0;wrap.setAttribute('aria-label','경기 달력');wrap.append(grid);gameRoot.append(wrap);
 }
 function gameScoreboard(d){
   const g=d.game;const count=Math.max(d.original?.home?.length??0,d.original?.away?.length??0,...d.innings.map(i=>Number(i.Inning)),9);const rows=['away','home'].map(side=>{const home=side==='home',code=g[home?'Home':'Away'];const original=d.original?.[side];return [teamNameNode(code),...Array.from({length:count},(_,i)=>{if(original?.[i]!=null)return original[i];const x=d.innings.find(x=>x.Team===code&&Number(x.Inning)===i+1);return x?.Start!=null&&x?.Finish!=null?x.Finish-x.Start:'—';}),g[home?'HS':'AScore'],g[home?'HH':'AH'],g[home?'HE':'AE'],g[home?'HB':'AB']];});return homeTable(['팀',...Array.from({length:count},(_,i)=>i+1),'R','H','E','B'],rows);
 }
 function renderGame(d){
-  const g=d.game,title=`${teamNames[g.Away]??g.Away} ${g.AScore??'—'} : ${g.HS??'—'} ${teamNames[g.Home]??g.Home}`;document.title=title+' · 경기 상세';const back=text('a','← 경기 달력','player-link');back.href='#games';gameRoot.replaceChildren(back,gameTeamScore(g,'h1'),text('p',`${g.Date?.slice(0,10)} · ${g.Stadium??''} · ${['RESULT','ENDED'].includes(g.Status)?'경기 종료':g.Status==='BEFORE'?'경기 예정':g.Status??''}`));
+  const g=d.game,title=`${teamNames[g.Away]??g.Away} ${g.AScore??'—'} : ${g.HS??'—'} ${teamNames[g.Home]??g.Home}`;document.title=title+' · 경기 상세';const back=text('a','← 경기 달력','player-link');back.href='#games';gameRoot.replaceChildren(back,gameTeamScore(g,'h1'),text('p',`${g.Date?.slice(0,10)} · ${g.Stadium??''} · ${g.StatusText??gameStatusLabel(g.Status)}`));
   if(d.note)gameRoot.append(text('p',d.note,'player-note'));
+  if(d.preview){
+    if(g.Status!=='CANCEL')for(const side of ['away','home']){
+      const card=playerCard(`${teamNames[g[side==='away'?'Away':'Home']]??g[side==='away'?'Away':'Home']} · 선발 라인업`);
+      const players=d.lineups?.[side]??[],pitcher=d.lineups?.[side+'Pitcher'];
+      card.append(text('p',`선발투수: ${pitcher??'미발표'}`));
+      if(players.length)card.append(homeTable(['타순','선수','포지션'],players.map(p=>[p.order,p.name,p.position])));
+      else card.append(text('p','선발 라인업 미발표 또는 수집 대기 중'));
+      gameRoot.append(card);
+    }
+    return;
+  }
   const board=playerCard('이닝별 점수');board.append(gameScoreboard(d));const decisions=text('p');decisions.textContent=d.decisions.map(p=>`${p.label} ${p.name}`).join(' · ');board.append(decisions,text('p',d.original?'원본 이닝 점수 기준':'중계 점수에서 복원 · 미수집 이닝은 — 표시','player-note'));gameRoot.append(board);
   const probability=playerCard('경기 승리확률');probability.append(gameProbability(d));gameRoot.append(probability);
   gameRoot.append(gameHighlights(d));

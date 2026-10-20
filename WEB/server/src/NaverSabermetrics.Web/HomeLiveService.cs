@@ -136,7 +136,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
             if(!File.Exists(path))continue;
             try {
                 var detailed=Parse(await File.ReadAllTextAsync(path,ct),id,includeRelay:true);
-                if(detailed is {Final:true} && detailed.Date.Replace("-","")==dateKey)return Detail(detailed);
+                if(detailed is not null && (detailed.Final||detailed.Playing) && detailed.Date.Replace("-","")==dateKey)return Detail(detailed);
             }
             catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
             { logger.LogWarning(ex,"경기 상세 JSON 읽기 보류: {GameId}",id); }
@@ -185,7 +185,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     public static object Detail(HomeLiveGame live)
     {
         var g=live.Source["game"];var relay=live.Source["textRelayData"];
-        var game=new Dictionary<string,object?>{["Id"]=live.Id,["Date"]=live.Date,["Time"]=live.Time,["Away"]=live.Away,["Home"]=live.Home,["AScore"]=live.AwayScore,["HS"]=live.HomeScore,["Stadium"]=live.Stadium,["Status"]=live.Status};
+        var game=new Dictionary<string,object?>{["Id"]=live.Id,["Date"]=live.Date,["Time"]=live.Time,["Away"]=live.Away,["Home"]=live.Home,["AScore"]=live.AwayScore,["HS"]=live.HomeScore,["Stadium"]=live.Stadium,["Status"]=live.Status,["StatusText"]=live.StatusText};
         foreach(var (side,prefix) in new[]{("away","A"),("home","H")}){var rheb=Array(g?[side+"TeamRheb"]);foreach(var (key,index) in new[]{("H",1),("E",2),("B",3)})game[prefix+key]=index<rheb.Length?rheb[index].ToString():null;}
         var batters=new List<object>();var pitchers=new List<object>();
         foreach(var side in new[]{"away","home"})foreach(var role in new[]{"batter","pitcher"})
@@ -208,8 +208,9 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
             };
         }).ToArray();
         var probability=plays.Where(p=>p["Home"] is not null&&p["Away"] is not null).ToArray();
-        return new{game,batters,pitchers,probability,innings=System.Array.Empty<object>(),original=new{home=Array(g?["homeTeamScoreByInning"]).Select(x=>x.ToString()),away=Array(g?["awayTeamScoreByInning"]).Select(x=>x.ToString())},decisions=live.Decisions,plays,
-            note=live.RoundCode?.StartsWith("kbo_ps",StringComparison.OrdinalIgnoreCase)==true
+        return new{game,batters,pitchers,probability,innings=System.Array.Empty<object>(),original=new{home=Array(g?["homeTeamScoreByInning"]).Select(x=>x.ToString()),away=Array(g?["awayTeamScoreByInning"]).Select(x=>x.ToString())},decisions=live.Final?live.Decisions:[],plays,
+            note=live.Playing?"진행 중 수집 정보입니다. 1분마다 갱신하며, 문자중계는 저장된 구간만 표시합니다."
+                :live.RoundCode?.StartsWith("kbo_ps",StringComparison.OrdinalIgnoreCase)==true
                 ?"포스트시즌 수집 JSON 기준입니다. 문자중계·승리확률은 파일에 저장된 구간만 표시합니다."
                 :"종료 직후 수집 JSON 기준입니다. 하루 전체 경기의 통계 DB 편입 후 정규화된 상세 기록으로 전환됩니다."};
     }

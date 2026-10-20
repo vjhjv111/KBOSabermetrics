@@ -111,6 +111,25 @@ try{
     Check(actualCalendar["rows"]!.AsArray().Count==1,"경기일정 서비스 DB 미편입 포스트시즌 표시");
     var actualDetail=JsonSerializer.SerializeToNode(await calendarService.QueryAsync(new("detail",Id:historicId),default))!;
     Check(actualDetail["game"]!["Id"]!.GetValue<string>()==historicId,"경기 상세 서비스 과거 포스트시즌 fallback");
+    historicRaw["naver"]!["result"]!["game"]!["statusCode"]="PLAY";
+    await File.WriteAllTextAsync(historicPath,historicRaw.ToJsonString());
+    var ongoing=JsonSerializer.SerializeToNode(await calendarService.QueryAsync(new("detail",Id:historicId),default))!;
+    Check(ongoing["game"]!["StatusText"]!.GetValue<string>()=="8회 초"&&ongoing["decisions"]!.AsArray().Count==0,
+        "진행 중 포스트시즌 상세·이닝 표시 및 승패 투수 숨김");
+    var upcomingId=date+"LGLT0"+year;
+    await using(var c=new SqliteConnection("Data Source="+db)) {
+        await c.OpenAsync();await using var cmd=c.CreateCommand();
+        cmd.CommandText="INSERT INTO Games(GameId,SeasonYear,GameDate,GameDateTime,HomeTeamCode,AwayTeamCode,StatusCode) VALUES($id,$year,$date,$date,'LT','LG','BEFORE')";
+        cmd.Parameters.AddWithValue("$id",upcomingId[..13]);cmd.Parameters.AddWithValue("$year",year);
+        cmd.Parameters.AddWithValue("$date",playing.Date);await cmd.ExecuteNonQueryAsync();
+    }
+    var startersStore=new BotStartersService(new SiteOptions{StateDirectory=Path.Combine(temp,"starters")});
+    await startersStore.SaveAsync(new StarterDay(playing.Date,DateTimeOffset.UtcNow,
+        [new StarterGame(upcomingId,playing.Date,"LG","롯데","BEFORE","원정선발","홈선발",DateTimeOffset.UtcNow,false)]),default);
+    var previewService=new GameWebService(new NaverRelay.Infrastructure.Sqlite.DatabaseCacheService(db,webReadOnly:true),new SiteOptions(),live,startersStore);
+    var preview=JsonSerializer.SerializeToNode(await previewService.QueryAsync(new("detail",Id:upcomingId[..13]),default))!;
+    Check(preview["preview"]!.GetValue<bool>()&&preview["lineups"]!["homePitcher"]!.GetValue<string>()=="홈선발",
+        "예정 경기 짧은 ID 상세와 예고 선발 표시");
     historicRaw["naver"]!["result"]!["game"]!["statusCode"]="BEFORE";
     await File.WriteAllTextAsync(historicPath,historicRaw.ToJsonString());
     Check((await live.ReadMonthAsync(year-1,10,default)).Length==0,"사라진 예정 경기를 오래된 JSON에서 복원하지 않음");
@@ -118,7 +137,7 @@ try{
     File.Delete(historicPath);
     File.Delete(psFile);
     var first=await live.ReadAsync(year,default);Check(first.Games.Length==1,"실제 수집 디렉터리 투영");
-    Check(await live.DetailAsync(id,default) is null,"진행 중 상세 미제공");
+    Check(await live.DetailAsync(id,default) is not null,"진행 중 상세 제공");
     await File.WriteAllTextAsync(file,Json(id,"RESULT",10,2));
     var second=await live.ReadAsync(year,default);Check(first.Version!=second.Version&&second.Games[0].Final,"JSON 교체 시 캐시 갱신");
     var detail=JsonSerializer.SerializeToNode(await live.DetailAsync(id,default))!;
