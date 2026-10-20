@@ -104,3 +104,5 @@ td.formula-text:nth-child(5){min-width:260px;max-width:380px}
 
 /* Current pitcher in the live home scoreboard. */
 .decision-P{background:#42556e}
+
+.game-probability-wrap{position:relative}.game-probability-tooltip{position:absolute;z-index:2;max-width:min(320px,90%);padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;box-shadow:0 3px 12px #0002;color:#24364b;font-size:13px;white-space:pre-line;pointer-events:none}.game-probability circle:focus{outline:none;stroke:#e85c2b;stroke-width:3}

@@ -217,17 +217,63 @@ function gamePlayLog(d){
   }
   if(!d.plays?.length)card.append(text('p','수집된 플레이로그가 없습니다.'));return card;
 }
-function gameProbability(d){
-  const wrap=text('div');if(!d.probability.length){wrap.append(text('p','수집된 승리확률 데이터가 없습니다.'));return wrap;}
-  const decided=d.game.Status==='RESULT'&&d.game.HS!=null&&d.game.AScore!=null&&d.game.HS!==d.game.AScore;
-  const upper=decided&&d.game.AScore>d.game.HS?'Away':'Home',lower=upper==='Home'?'Away':'Home';
-  const upperName=teamNames[d.game[upper]]??d.game[upper],lowerName=teamNames[d.game[lower]]??d.game[lower];
-  const chart=svgNode('svg',{viewBox:'0 0 900 300',class:'game-probability',role:'img','aria-label':`위 ${upperName} 100%, 가운데 양 팀 50%, 아래 ${lowerName} 100%인 단일 승리확률 그래프`});const n=d.probability.length;
-  for(const pct of [0,25,50,75,100]){const y=260-pct*2.2;chart.append(svgNode('line',{x1:120,y1:y,x2:880,y2:y,stroke:pct===50?'#a8b5c5':'#e3e8ef'}));const t=svgNode('text',{x:5,y:y+4,fill:'#758499','font-size':12});t.textContent=pct===50?'양 팀 50%':`${pct>50?upperName:lowerName} ${pct>50?pct:100-pct}%`;if(pct!==50)markTeamName(t,d.game[pct>50?upper:lower]);chart.append(t);}
-  const pts=d.probability.map((p,i)=>`${120+(n===1?0:i/(n-1)*760)},${260-Number(p[upper])*2.2}`).join(' ');chart.append(svgNode('polyline',{points:pts,fill:'none',stroke:'#3989dc','stroke-width':2}));
-  d.probability.forEach((p,i)=>{const dot=svgNode('circle',{cx:120+(n===1?0:i/(n-1)*760),cy:260-Number(p[upper])*2.2,r:3,fill:'#3989dc'});const tip=svgNode('title');tip.textContent=`${p.Inning??''}회 ${p.Title??''} · ${upperName} ${Number(p[upper]).toFixed(1)}% / ${lowerName} ${Number(p[lower]).toFixed(1)}%`;dot.append(tip);chart.append(dot);});
-  const teamsNote=text('p','상단: ','player-note');teamsNote.append(teamNameNode(d.game[upper]),document.createTextNode(`${decided?' (승리팀)':' (홈팀)'} 100% · 하단: `),teamNameNode(d.game[lower]),document.createTextNode(`${decided?' (패배팀)':' (원정팀)'} 100%. 가운데는 양 팀 50%입니다. 가로축은 중계 진행 순서이며 점에 마우스를 올리면 양 팀 확률을 볼 수 있습니다.`));wrap.append(chart,teamsNote,text('p','원본 중계의 경기 승리확률입니다. 홈 화면의 피타고리안 PS 진출확률과는 다른 지표이며 미수집 구간은 복원하지 않습니다.','player-note'));return wrap;
+function gameProbabilityPoints(d){
+  const plays=new Map((d.plays??[]).map(p=>[String(p.Seq),p]));
+  const rows=(d.probability??[]).filter(p=>p.Home!=null&&p.Away!=null&&Number.isFinite(Number(p.Home))&&Number.isFinite(Number(p.Away))&&Number(p.Home)>=0&&Number(p.Home)<=100&&Number(p.Away)>=0&&Number(p.Away)<=100).map(p=>{
+    const team=p.Team??plays.get(String(p.Seq))?.Team,inning=Number(p.Inning);
+    const half=team===d.game.Away?0:team===d.game.Home?1:null;
+    return {...p,inning,half,slot:(inning-1)*2+(half??0.5),label:`${inning}회${half===0?' 초':half===1?' 말':' (초·말 미제공)'}`};
+  }).filter(p=>Number.isInteger(p.inning)&&p.inning>=1&&p.inning<=30);
+  const groups=new Map();for(const p of rows){if(!groups.has(p.slot))groups.set(p.slot,[]);groups.get(p.slot).push(p);}
+  const innings=Math.max(9,...rows.map(p=>p.inning));
+  for(const group of groups.values())group.forEach((p,i)=>{p.x=120+(p.slot+(i+1)/(group.length+1)*(p.half==null?0.4:1))/(innings*2)*760;});
+  return {points:rows,innings};
 }
+function gameProbability(d){
+  const wrap=text('div','','game-probability-wrap'),{points,innings}=gameProbabilityPoints(d);
+  if(!points.length){wrap.append(text('p','수집된 승리확률 데이터가 없습니다.'));return wrap;}
+  // Keep the orientation stable while a live game becomes final.
+  const homeName=teamNames[d.game.Home]??d.game.Home,awayName=teamNames[d.game.Away]??d.game.Away;
+  const chart=svgNode('svg',{viewBox:'0 0 900 310',class:'game-probability',role:'group','aria-label':`${homeName}·${awayName} 이닝별 승리확률. 각 점에서 확률과 타석을 확인할 수 있습니다.`});
+  for(const pct of [0,25,50,75,100]){
+    const y=260-pct*2.2;chart.append(svgNode('line',{x1:120,y1:y,x2:880,y2:y,stroke:pct===50?'#a8b5c5':'#e3e8ef'}));
+    const t=svgNode('text',{x:5,y:y+4,fill:'#758499','font-size':12});t.textContent=pct===50?'양 팀 50%':`${pct>50?homeName:awayName} ${pct>50?pct:100-pct}%`;if(pct!==50)markTeamName(t,d.game[pct>50?'Home':'Away']);chart.append(t);
+  }
+  for(let inning=1;inning<=innings;inning++){
+    const x=120+(inning-1)/innings*760;
+    chart.append(svgNode('line',{x1:x,y1:40,x2:x,y2:264,stroke:'#e3e8ef','stroke-dasharray':'3 4'}));
+    if(innings<=12||inning%2===1){const t=svgNode('text',{x:x+380/innings,y:282,'text-anchor':'middle',fill:'#596779','font-size':11});t.textContent=`${inning}회`;chart.append(t);}
+  }
+  const axis=svgNode('text',{x:500,y:302,'text-anchor':'middle',fill:'#758499','font-size':10});axis.textContent='각 이닝의 왼쪽은 초, 오른쪽은 말 · 이닝 안에서는 수집 순서';chart.append(axis);
+  // Never bridge an uncollected half-inning, or invent a 50% starting point.
+  let segment=[];function flush(){if(segment.length>1)chart.append(svgNode('polyline',{points:segment.map(p=>`${p.x},${260-Number(p.Home)*2.2}`).join(' '),fill:'none',stroke:'#3989dc','stroke-width':2}));segment=[];}
+  for(const p of points){const prev=segment.at(-1);if(prev&&(p.slot<prev.slot||p.slot-prev.slot>1))flush();segment.push(p);}flush();
+  const tip=text('div','','game-probability-tooltip');tip.hidden=true;
+  const cursor=svgNode('line',{x1:120,x2:120,y1:40,y2:260,stroke:'#526b89','stroke-dasharray':'4 3',visibility:'hidden','pointer-events':'none'});
+  const selected=svgNode('circle',{r:5,fill:'#e85c2b',visibility:'hidden','pointer-events':'none'});
+  const readout=text('p','그래프 위에 마우스를 올리거나 점을 선택하면 해당 타석의 확률을 확인할 수 있습니다.','player-note');
+  const describe=p=>`${p.label} · ${p.Title??'중계 기록'}\n${homeName} ${Number(p.Home).toFixed(1)}% / ${awayName} ${Number(p.Away).toFixed(1)}%${p.WPA==null?'':` · WPA ${Number(p.WPA)>0?'+':''}${Number(p.WPA).toFixed(1)}%p`}`;
+  function show(p){
+    const description=describe(p);readout.textContent=description;tip.textContent=description;tip.hidden=false;
+    cursor.setAttribute('x1',p.x);cursor.setAttribute('x2',p.x);cursor.setAttribute('visibility','visible');
+    selected.setAttribute('cx',p.x);selected.setAttribute('cy',260-Number(p.Home)*2.2);selected.setAttribute('visibility','visible');
+    const bounds=chart.getBoundingClientRect(),box=wrap.getBoundingClientRect();
+    tip.style.left=`${Math.max(0,Math.min(bounds.left-box.left+p.x/900*bounds.width+10,box.width-tip.offsetWidth))}px`;
+    tip.style.top=`${bounds.top-box.top+12}px`;
+  }
+  function hide(){tip.hidden=true;cursor.setAttribute('visibility','hidden');selected.setAttribute('visibility','hidden');}
+  for(const p of points){
+    const dot=svgNode('circle',{cx:p.x,cy:260-Number(p.Home)*2.2,r:4,fill:'#3989dc',tabindex:0,'aria-label':describe(p)});
+    dot.addEventListener('focus',()=>show(p));dot.addEventListener('blur',hide);dot.addEventListener('pointerdown',()=>show(p));
+    const title=svgNode('title');title.textContent=describe(p);dot.append(title);chart.append(dot);
+  }
+  chart.append(cursor,selected);
+  chart.addEventListener('pointermove',e=>{const rect=chart.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*900;const nearest=points.reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a);if(Math.abs(nearest.x-x)>760/(innings*2)){hide();return;}show(nearest);});
+  chart.addEventListener('pointerleave',hide);
+  wrap.append(chart,tip,readout,text('p',`수집 범위: ${points[0].label} ~ ${points.at(-1).label}. 비어 있는 구간은 미수집 또는 승리확률 미제공 구간입니다. 경기 시작 확률을 임의로 추가하지 않습니다.`,'player-note'),text('p',`상단 ${homeName}(홈팀), 하단 ${awayName}(원정팀). 중계 승리확률이며 PS 진출확률과 다릅니다.`,'player-note'));
+  return wrap;
+}
+
 async function renderPitchLocations(req,seq,signal){
   const card=playerCard('구종별 투구 위치');$('player-content').append(card);const status=text('p','투구 위치를 불러오는 중…','player-note');card.append(status);const rows=[];
   try{let more=true,page=1;while(more){const d=await api('/api/games',{section:'locations',code:req.code,year:req.year,competition:req.competition,page},signal);if(seq!==playerState.sequence)return;rows.push(...d.rows);more=d.hasMore;status.textContent=`${rows.length.toLocaleString()}구 확인 중…`;if(more&&page===100)throw new Error('조회 가능한 투구 수를 초과했습니다.');page++;}
