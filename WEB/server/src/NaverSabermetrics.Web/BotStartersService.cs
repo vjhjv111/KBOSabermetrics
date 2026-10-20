@@ -5,13 +5,19 @@ using NaverRelayUI.Collection;
 namespace NaverSabermetrics.Web;
 
 public sealed record StarterGame(string Id, string? Time, string Away, string Home, string Status,
-    string? AwayStarter, string? HomeStarter, DateTimeOffset? UpdatedAt, bool FetchFailed);
+    string? AwayStarter, string? HomeStarter, DateTimeOffset? UpdatedAt, bool FetchFailed)
+{
+    public ProbableStarterFetcher.LineupPlayer[] AwayLineup { get; init; } = [];
+    public ProbableStarterFetcher.LineupPlayer[] HomeLineup { get; init; } = [];
+    public DateTimeOffset? LineupCheckedAt { get; init; }
+    public bool LineupFrozen { get; init; }
+}
 public sealed record StarterDay(string Date, DateTimeOffset UpdatedAt, StarterGame[] Games);
 public sealed record BotStartersResponse(string Date, string TimeZone, DateTimeOffset? UpdatedAt,
     bool Available, bool Stale, int RefreshSeconds, StarterGame[] Games, string Text);
 
 // Small persisted snapshots, independent of the season statistics DB/import gate.
-public sealed class BotStartersService(SiteOptions options)
+public sealed partial class BotStartersService(SiteOptions options)
 {
     private readonly string path = Path.Combine(options.StateDirectory, "bot-starters.json");
     private Dictionary<string, StarterDay> days = Load(Path.Combine(options.StateDirectory, "bot-starters.json"));
@@ -68,6 +74,7 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; FANZAI-Starters/1.0)");
         while (!ct.IsCancellationRequested)
         {
+            var cycle = System.Diagnostics.Stopwatch.StartNew();
             var today = BotGamesService.ParseDate(null);
             for (var offset = 0; offset <= 1; offset++)
             {
@@ -86,14 +93,18 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
                         {
                             try
                             {
-                                var starters = await ProbableStarterFetcher.TryFetchAsync(http, g.GameId, ct);
-                                row = row with { AwayStarter = starters.AwayStarterName, HomeStarter = starters.HomeStarterName, UpdatedAt = DateTimeOffset.UtcNow };
+                                var frozen = old?.LineupFrozen == true || row.Status is not ("BEFORE" or "READY");
+                                var needLineups = !frozen || old?.AwayLineup.Length != 9 || old?.HomeLineup.Length != 9;
+                                var starters = await ProbableStarterFetcher.TryFetchAsync(http, g.GameId, ct, includeLineups: needLineups);
+                                row = MergeLineups(row, old, starters, DateTimeOffset.UtcNow);
                             }
                             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                             catch (Exception ex)
                             {
                                 logger.LogWarning(ex, "예고 선발 조회 실패: {GameId}", g.GameId);
-                                row = row with { AwayStarter = old?.AwayStarter, HomeStarter = old?.HomeStarter, UpdatedAt = old?.UpdatedAt, FetchFailed = true };
+                                row = row with { AwayStarter = old?.AwayStarter, HomeStarter = old?.HomeStarter, UpdatedAt = old?.UpdatedAt, FetchFailed = true,
+                                    AwayLineup = old?.AwayLineup ?? [], HomeLineup = old?.HomeLineup ?? [], LineupCheckedAt = old?.LineupCheckedAt,
+                                    LineupFrozen = old?.LineupFrozen == true || row.Status is not ("BEFORE" or "READY") };
                             }
                         }
                         rows.Add(row);
@@ -104,7 +115,22 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) { logger.LogWarning(ex, "예고 선발 수집 실패: {Date}; 이전 캐시 유지", date); }
             }
-            await Task.Delay(TimeSpan.FromMinutes(5), ct);
+            var delay = TimeSpan.FromMinutes(5) - cycle.Elapsed;
+            await Task.Delay(delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1), ct);
         }
+    }
+
+    public static StarterGame MergeLineups(StarterGame row, StarterGame? old,
+        ProbableStarterFetcher.ProbableStarters data, DateTimeOffset now)
+    {
+        var before = old?.LineupFrozen != true && row.Status is ("BEFORE" or "READY");
+        // Accept pregame corrections. Once underway, retain the saved starting positions.
+        return row with {
+            AwayStarter = !before && old?.AwayStarter is not null ? old.AwayStarter : data.AwayStarterName,
+            HomeStarter = !before && old?.HomeStarter is not null ? old.HomeStarter : data.HomeStarterName, UpdatedAt = now,
+            AwayLineup = before || old?.AwayLineup.Length != 9 ? data.AwayLineup : old.AwayLineup,
+            HomeLineup = before || old?.HomeLineup.Length != 9 ? data.HomeLineup : old.HomeLineup,
+            LineupCheckedAt = now, LineupFrozen = !before
+        };
     }
 }

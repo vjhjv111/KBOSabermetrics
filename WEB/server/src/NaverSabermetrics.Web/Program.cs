@@ -397,6 +397,12 @@ app.MapGet("/api/bot/starters", (int? dayOffset, HttpContext c, BotStartersServi
     c.Response.Headers.CacheControl = "no-store";
     return Results.Ok(starters.Query(dayOffset ?? 0));
 });
+app.MapGet("/api/bot/lineup", (string? team, HttpContext c, BotStartersService starters, QuotaStore quotas) =>
+{
+    quotas.Consume(Ip(c),10);
+    c.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(starters.QueryLineup(team));
+});
 app.MapGet("/api/bot/standings", async (int? year, HttpContext c, HomeWebService home, QueryGate gate, QuotaStore quotas) =>
 {
     if (!databaseReady) throw new RequestError("DB가 아직 준비되지 않았습니다.",503,"DB_NOT_READY");
