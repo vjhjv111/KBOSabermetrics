@@ -15,12 +15,12 @@ public sealed partial class BotStartersService
         return key switch {
             "한화" or "한화이글스" or "HH" => "한화",
             "KIA" or "기아" or "KIA타이거즈" or "기아타이거즈" or "HT" => "KIA",
-            "KT" or "KT위즈" => "KT",
-            "LG" or "LG트윈스" => "LG",
+            "KT" or "KT위즈" or "케이티" or "케이티위즈" => "KT",
+            "LG" or "LG트윈스" or "엘지" or "엘지트윈스" => "LG",
             "롯데" or "롯데자이언츠" or "LT" => "롯데",
-            "NC" or "NC다이노스" => "NC",
+            "NC" or "NC다이노스" or "엔씨" or "엔씨다이노스" => "NC",
             "두산" or "두산베어스" or "OB" => "두산",
-            "SSG" or "SSG랜더스" or "SK" => "SSG",
+            "SSG" or "SSG랜더스" or "SK" or "쓱" or "쓱랜더스" or "에스에스지" or "에스에스지랜더스" => "SSG",
             "삼성" or "삼성라이온즈" or "SS" => "삼성",
             "키움" or "키움히어로즈" or "WO" => "키움",
             _ => throw new RequestError("팀명을 확인해 주세요. 예: /라인업 한화")

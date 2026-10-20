@@ -32,6 +32,13 @@ Check(ProbableStarterFetcher.Parse(root.ToJsonString()).AwayLineup.Length == 0, 
 foreach (var alias in new[] {"@한화", "한화 이글스", "hh"})
     Check(BotStartersService.NormalizeLineupTeam(alias) == "한화", "aliases");
 Check(BotStartersService.NormalizeLineupTeam("기아타이거즈") == "KIA", "KIA distinct from Hanwha");
+foreach (var (alias, team) in new[] {
+    ("엘지", "LG"), ("@엘지 트윈스", "LG"), ("lg", "LG"),
+    ("케이티", "KT"), ("케이티 위즈", "KT"),
+    ("엔씨", "NC"), ("엔씨 다이노스", "NC"),
+    ("쓱", "SSG"), ("쓱랜더스", "SSG"), ("에스에스지 랜더스", "SSG")
+})
+    Check(BotStartersService.NormalizeLineupTeam(alias) == team, $"Korean team alias: {alias}");
 try { BotStartersService.NormalizeLineupTeam("미지정"); throw new Exception("invalid accepted"); } catch (RequestError) {}
 var day = new StarterDay(date, now, [row]);
 var response = BotStartersService.FormatLineup(date, "LG", day, now);
