@@ -35,7 +35,11 @@ public sealed class ComparisonWebService(DatabaseCacheService db, SiteOptions op
         new("PA", "타석", "integer"), new("AVG", "타율", "rate"), new("OBP", "출루율", "rate"),
         new("SLG", "장타율", "rate"), new("OPS", "OPS", "rate"), new("ISO", "순장타율", "rate"),
         new("HR", "홈런", "integer"), new("BBPct", "볼넷%", "percent"),
-        new("KPct", "삼진%", "percent", false), new("SB", "도루", "integer")
+        new("KPct", "삼진%", "percent", false), new("SB", "도루", "integer"),
+        new("AVGPlus", "AVG+", "integer"), new("OBPPlus", "OBP+", "integer"),
+        new("SLGPlus", "SLG+", "integer"), new("ISOPlus", "ISO+", "integer"),
+        new("BABIPPlus", "BABIP+", "integer"), new("BBPctPlus", "BB%+", "integer"),
+        new("KPctPlus", "K%+", "integer", false)
     ];
     private const string GamesFilter = """
         g.SeasonYear=$year AND LOWER(TRIM(g.RoundCode))='kbo_r' AND UPPER(g.StatusCode) IN ('RESULT','ENDED')
@@ -82,6 +86,23 @@ public sealed class ComparisonWebService(DatabaseCacheService db, SiteOptions op
             using var cancellation = ct.Register(command.Cancel);
             lastGameDate = await command.ExecuteScalarAsync(ct) as string;
         }
+        // League reference must include low-PA and unidentified players too.
+        var league = new Dictionary<string, double?>(StringComparer.Ordinal);
+        await using (var command = Command(connection, request, $"""
+            SELECT {string.Join(",", Totals.Select(key => $"SUM(s.{key}) {key}"))}
+            FROM BatterGameStats s JOIN Games g ON g.GameId=s.GameId WHERE {GamesFilter}
+            """))
+        {
+            using var cancellation = ct.Register(command.Cancel);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            await reader.ReadAsync(ct);
+            for (var i = 0; i < Totals.Length; i++)
+                league[Totals[i]] = reader.IsDBNull(i) ? null : Convert.ToDouble(reader.GetValue(i), CultureInfo.InvariantCulture);
+        }
+        AddRates(league);
+        foreach (var player in players)
+            foreach (var key in new[] { "AVG", "OBP", "SLG", "ISO", "BABIP", "BBPct", "KPct" })
+                player.Values[key + "Plus"] = Ratio(player.Values[key], league[key], 100);
         AddPercentiles(players, ct);
         var photos = await PhotoUrlsAsync(connection, players.Select(player => player.Code).ToHashSet(StringComparer.Ordinal), ct);
         for (var i = 0; i < players.Count; i++)
@@ -89,6 +110,7 @@ public sealed class ComparisonWebService(DatabaseCacheService db, SiteOptions op
 
         var notes = new List<string>
         {
+            "Plus Stats는 각 선수 시즌의 리그 전체 합산 비율 대비 지수입니다(리그 평균 100). 최소 타석은 리그 기준값에 적용하지 않고 구장 보정은 하지 않습니다. 타자 K%+만 낮을수록 유리합니다.",
             "적재된 종료 경기의 정규시즌 타자 기록을 선수별로 합산합니다. 최소 타석을 충족한 선수 전체가 비교군이며, 팀 표시 필터는 퍼센타일과 유사도를 바꾸지 않습니다.",
             "타율·출루율·장타율은 경기별 비율의 평균이 아닌 합산 분자/분모입니다. BB에는 고의4구가 이미 포함되어 한 번만 계산합니다. 분모가 없으면 —로 표시합니다.",
             "퍼센타일은 100×(더 낮은 값의 인원+동률 인원/2)/유효 인원입니다. 삼진%만 방향을 뒤집어 높을수록 우수하게 표시합니다. PA·HR·SB는 누적량의 순위입니다.",
@@ -127,6 +149,7 @@ public sealed class ComparisonWebService(DatabaseCacheService db, SiteOptions op
 
     private static void AddRates(Dictionary<string, double?> values)
     {
+        values["BABIP"] = Ratio(values["H"] - values["HR"], values["AB"] - values["SO"] - values["HR"] + values["SF"]);
         values["AVG"] = Ratio(values["H"], values["AB"]);
         values["OBP"] = Ratio(values["H"] + values["BB"] + values["HBP"], values["AB"] + values["BB"] + values["HBP"] + values["SF"]);
         values["SLG"] = Ratio(values["TB"], values["AB"]);

@@ -61,6 +61,13 @@ foreach (var similar in result.Similar)
 Check(result.Players.All(player=>player.PhotoUrl is null), "legacy DB without profile table supports comparisons");
 var fewer = await service.QueryAsync(new(Codes:["10001"]), default);
 Check(fewer.CohortSize==result.CohortSize && fewer.Players.Single(player=>player.Code=="10001").Percentiles.SequenceEqual(first.Percentiles), "selected display subset never changes league cohort percentiles");
+var lowThreshold = await service.QueryAsync(new(MinPa:1), default);
+var plusKeys = new[] { "AVGPlus", "OBPPlus", "SLGPlus", "ISOPlus", "BABIPPlus", "BBPctPlus", "KPctPlus" };
+Check(plusKeys.All(key => first.Values[key] == lowThreshold.Players.Single(p=>p.Code=="10001").Values[key]), "plus reference includes all league hitters regardless of PA threshold");
+Check(Close(first.Values["AVGPlus"], (20d/88) / (1109d/1440) * 100), "AVG+ uses full league totals including low PA and anonymous records");
+Check(Close(first.Values["BABIPPlus"], (19d/67) / (101d/360) * 100), "BABIP+ uses league summed contact denominator");
+Check(noAtBats.Values["AVGPlus"] is null, "undefined plus values remain null");
+Check(result.Metrics.Single(m=>m.Key=="KPctPlus").HigherIsBetter==false, "K%+ percentile direction reversed");
 var fallback = await service.QueryAsync(new(Codes:["10007","99999"],TargetCode:"99999"), default);
 Check(fallback.SelectedCodes.SequenceEqual(new[]{"10003"}) && fallback.TargetCode=="10003" && fallback.Notes.Any(note=>note.Contains("선택 선수 2명")), "ineligible requested selections fall back deterministically and are explained");
 var none = await service.QueryAsync(new(Year:2024), default);
@@ -109,3 +116,4 @@ if(args.Length>0)
     Console.WriteLine($"Actual cohort={real.CohortSize}, minPA={real.MinPa}, asOf={real.LastGameDate}, photos={real.Players.Count(player=>player.PhotoUrl is not null)}, elapsed={sw.ElapsedMilliseconds}ms");
 }
 Console.WriteLine($"Comparison validation passed: {checks} checks. Fixture: {fixture}");
+
