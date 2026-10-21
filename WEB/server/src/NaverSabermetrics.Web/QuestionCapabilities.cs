@@ -5,6 +5,15 @@ namespace NaverSabermetrics.Web;
 
 public static class QuestionCapabilities
 {
+    public static bool RequestsWrcPlus(string question) =>
+        Regex.IsMatch(question, @"우르크|(?<![a-z])wrc\s*(?:[+＋]|플러스|plus)", RegexOptions.IgnoreCase);
+    public static QuestionPlan NormalizeMetric(string question, QuestionPlan plan)
+    {
+        if (!RequestsWrcPlus(question)) return plan;
+        if (plan.Role != "batter" || !Regex.IsMatch(plan.Metric, @"^wrc(?:plus(?:parkadjusted)?|[+＋])?$", RegexOptions.IgnoreCase))
+            return plan;
+        return plan with { Metric = "WrcPlusParkAdjusted" };
+    }
     public static bool ExplicitTeamTotals(string question)=>
         Regex.IsMatch(question,@"(?:10|열)\s*(?:개\s*)?(?:구단|팀)|(?:전체|모든|각)\s*(?:구단|팀)|(?:구단|팀)\s*별")
         && !Regex.IsMatch(question,@"선수|개인|[0-9]+\s*명|플레이|타석별");
@@ -23,6 +32,7 @@ public static class QuestionCapabilities
         ?? throw new RequestError("기록실에서 확인할 수 없는 지표입니다. 지표 이름을 구체적으로 적어 주세요.",400,"AI_FILTER");
     public static string Describe(string question)
     {
+        if(RequestsWrcPlus(question)) question += " WrcPlusParkAdjusted";
         var q=Regex.Replace(question,@"\s","").ToLowerInvariant();
         return string.Join(";",ViewRegistry.Views.Where(v=>v.Role is "batter" or "pitcher")
             .SelectMany(v=>ViewRegistry.Properties(v).Where(ViewRegistry.IsNumber).Select(p=>new{v.Role,p.Name,Label=ViewRegistry.Label(p)}))

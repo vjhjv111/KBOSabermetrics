@@ -26,6 +26,13 @@ try
 }
 finally{Environment.SetEnvironmentVariable("OPENAI_API_KEY",previousKey);}
 var plan=OpenAiRecordPlanner.Parse("""{"supported":true,"clarification":"","role":"batter","year":2026,"startDate":"2026-05-01","endDate":"2026-05-31","team":null,"player":null,"metric":"hr","descending":true,"filters":[],"inning":null,"minimumVolume":0,"limit":1}""");
+foreach(var alias in new[]{"우르크","Wrc+","wRC +","wRC＋","wrc plus","wrc플러스"})
+{
+    var normalized=QuestionCapabilities.NormalizeMetric($"2026년 {alias} 순위",plan with{Metric="Wrc"});
+    Check(normalized.Metric=="WrcPlusParkAdjusted",$"wRC+ 별칭 {alias}");
+    Check(QuestionCapabilities.Describe(alias).Contains("WrcPlusParkAdjusted"),"AI 후보에 보정 지표 포함");
+}
+Check(QuestionCapabilities.NormalizeMetric("2026년 wRC 순위",plan with{Metric="Wrc"}).Metric=="Wrc","일반 wRC 구분");
 var site=new SiteOptions{QuerySeconds=120,StateDirectory=Path.Combine(Path.GetTempPath(),"record-questions-"+Guid.NewGuid())};
 var request=RecordQuestionService.ToRequest(plan,site,[2026]);
 Check(new RecordQuestionOptions().DailyLimit==1000 && new RecordQuestionOptions().PerIpDailyLimit==10,"운영 기본 한도 전체 1000/IP 10");
