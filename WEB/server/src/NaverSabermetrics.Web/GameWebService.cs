@@ -38,7 +38,14 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
         if(r.Section=="calendar"){
             var stored=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.Stadium,g.StatusCode Status,g.RoundCode Round FROM Games g WHERE SUBSTR(g.GameDate,1,7)=$month AND {safe} ORDER BY g.GameDateTime,g.GameId LIMIT 500",r,ct);
             var imported=stored.Where(g=>RenderCollectionPolicy.IsFinalStatus(Convert.ToString(g["Status"]))).Select(CalendarKey).ToHashSet();
-            return new{rows=MergeCalendar(stored,await live.ReadMonthAsync(r.Year,r.Month,ct,imported))};
+            var calendar=MergeCalendar(stored,await live.ReadMonthAsync(r.Year,r.Month,ct,imported));
+            if(Environment.GetEnvironmentVariable("FANZAI_EXTERNAL_COLLECTOR")=="true")
+                foreach(var offset in new[]{0,1}) {
+                    var date=BotGamesService.ParseDate(null).AddDays(offset);
+                    if(date.Year==r.Year&&date.Month==r.Month&&starters?.Get(date.ToString("yyyy-MM-dd")) is {} day)
+                        calendar=ExternalRelayUpload.ApplySchedule(calendar,day);
+                }
+            return new{rows=calendar};
         }
         var games=await Read($"SELECT g.GameId Id,g.GameDate Date,g.GameDateTime Time,g.HomeTeamCode Home,g.AwayTeamCode Away,g.HomeScore HS,g.AwayScore AScore,g.HomeHits HH,g.AwayHits AH,g.HomeErrors HE,g.AwayErrors AE,g.HomeWalks HB,g.AwayWalks AB,g.Stadium,g.StatusCode Status FROM Games g WHERE g.GameId=$id AND {safe}",r,ct);if(games.Count==0 || !RenderCollectionPolicy.IsFinalStatus(Convert.ToString(games[0]["Status"])))
         {
@@ -47,6 +54,12 @@ public sealed class GameWebService(DatabaseCacheService db,SiteOptions options,H
             if(collected is not null)return collected;
             if(games.Count>0)return Preview(games[0]);
         }
+        if(games.Count==0 && Environment.GetEnvironmentVariable("FANZAI_EXTERNAL_COLLECTOR")=="true")
+            foreach(var offset in new[]{0,1}) {
+                var day=starters?.Get(BotGamesService.ParseDate(null).AddDays(offset).ToString("yyyy-MM-dd"));
+                if(day?.Games.Any(g=>g.Id==r.Id)==true)
+                    return Preview(ExternalRelayUpload.ApplySchedule([],day).Single(g=>Convert.ToString(g["Id"])==r.Id));
+            }
         if(games.Count==0)throw new RequestError("경기를 찾을 수 없습니다.",404,"GAME_NOT_FOUND");
         var batters=await Read("SELECT Pcode Code,TeamCode Team,Name,BatOrder,Position,LineupSequence,PlateAppearances PA,AtBats AB,Hits H,HomeRuns HR,Walks BB,HitByPitch HBP,Strikeouts SO,Runs R,RunsBattedIn RBI FROM BattingGameLines WHERE GameId=$id ORDER BY TeamSide,BatOrder,LineupSequence",r,ct);
         var pitchers=await Read("SELECT Pcode Code,TeamCode Team,Name,InningsDisplay IP,PitchCount NP,HitsAllowed H,HomeRunsAllowed HR,Walks BB,HitBatters HBP,Strikeouts SO,RunsAllowed R,EarnedRuns ER FROM PitchingGameLines WHERE GameId=$id ORDER BY TeamSide,AppearanceSequence",r,ct);

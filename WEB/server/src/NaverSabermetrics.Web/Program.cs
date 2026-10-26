@@ -127,6 +127,8 @@ builder.Services.AddRateLimiter(o=>
           ? RateLimitPartition.GetFixedWindowLimiter("diamond:"+Ip(c),_=>new(){PermitLimit=900,Window=TimeSpan.FromMinutes(1),QueueLimit=0})
           : RateLimitPartition.GetFixedWindowLimiter("ip:"+Ip(c),_=>new(){PermitLimit=settings.IpRequestsPerMinute,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
 });
+builder.Services.AddSingleton<NaverRecoveryProbe>();
+builder.Services.AddHostedService(sp=>sp.GetRequiredService<NaverRecoveryProbe>());
 var app=builder.Build();
 var db=app.Services.GetRequiredService<DatabaseCacheService>();
 if(databaseReady)
@@ -198,7 +200,7 @@ app.Use(async(c,next)=>
         throw new RequestError("HTTPS 연결이 필요합니다.",400,"HTTPS_REQUIRED");
     if(c.Request.Method=="POST" && c.Request.Path.StartsWithSegments("/api"))
     {
-        if(c.Request.ContentLength>(c.Request.Path==ExternalRelayUpload.Route?ExternalRelayUpload.MaxBytes:16*1024))throw new RequestError("요청 크기를 초과했습니다.",413,"BODY_TOO_LARGE");
+        if(c.Request.ContentLength>((c.Request.Path==ExternalRelayUpload.Route || c.Request.Path==ExternalRelayUpload.ScheduleRoute || c.Request.Path=="/api/collector/status")?ExternalRelayUpload.MaxBytes:16*1024))throw new RequestError("요청 크기를 초과했습니다.",413,"BODY_TOO_LARGE");
         var origin=c.Request.Headers.Origin.ToString();
         var self=$"{c.Request.Scheme}://{c.Request.Host}";
         if((origin.Length>0 && !string.Equals(origin,self,StringComparison.OrdinalIgnoreCase) && !settings.AllowedOrigins.Contains(origin,StringComparer.OrdinalIgnoreCase))
@@ -228,7 +230,7 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRouting();app.UseRateLimiter();
 app.Use(async(c,next)=>
 {
-    if(c.Request.Path==ExternalRelayUpload.Route)
+    if((c.Request.Path==ExternalRelayUpload.Route || c.Request.Path==ExternalRelayUpload.ScheduleRoute || c.Request.Path=="/api/collector/status"))
     {
         ExternalRelayUpload.Authorize(c.Request.Headers["X-Fanzai-Collector-Key"].ToString());
         var bodyLimit=c.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
@@ -245,6 +247,8 @@ app.Use(async(c,next)=>
     await next(c);
 });
 app.MapPost(ExternalRelayUpload.Route,ExternalRelayUpload.ReceiveAsync);
+app.MapPost(ExternalRelayUpload.ScheduleRoute,ExternalRelayUpload.ReceiveScheduleAsync);
+app.MapGet("/api/collector/status",(NaverRecoveryProbe probe)=>Results.Ok(probe.Status));
 app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(new
 {
     csrfToken=antiforgery.GetAndStoreTokens(c).RequestToken,

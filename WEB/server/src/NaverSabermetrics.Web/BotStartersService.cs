@@ -70,6 +70,7 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        if(Environment.GetEnvironmentVariable("FANZAI_EXTERNAL_COLLECTOR")=="true")return;
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; FANZAI-Starters/1.0)");
         while (!ct.IsCancellationRequested)
@@ -82,6 +83,19 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
                 try
                 {
                     var schedule = await GameIdCollector.CollectAllKboGamesAsync(http, date, date, ct: ct);
+                    await RefreshDayAsync(store,logger,http,date,schedule,ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) { logger.LogWarning(ex, "예고 선발 수집 실패: {Date}; 이전 캐시 유지", date); }
+            }
+            var delay = TimeSpan.FromMinutes(5) - cycle.Elapsed;
+            await Task.Delay(delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1), ct);
+        }
+    }
+
+    public static async Task RefreshDayAsync(BotStartersService store, ILogger logger, HttpClient http, string date,
+        IEnumerable<NaverRelayUI.Models.ScheduleGame> schedule, CancellationToken ct)
+    {
                     var rows = new List<StarterGame>();
                     foreach (var g in schedule.Where(g => g.CategoryId == "kbo" && RenderCollectionPolicy.GameDateKey(g) == date.Replace("-", "")))
                     {
@@ -89,6 +103,11 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
                         var old = store.Get(date)?.Games.FirstOrDefault(x => x.Id == g.GameId);
                         var row = new StarterGame(g.GameId, g.GameDateTime, g.AwayTeamName ?? g.AwayTeamCode ?? "원정", g.HomeTeamName ?? g.HomeTeamCode ?? "홈",
                             g.Cancel ? "CANCEL" : g.StatusCode ?? "BEFORE", null, null, null, false);
+                        if (RenderCollectionPolicy.IsFinalStatus(row.Status) && old?.LineupFrozen==true && old.AwayLineup.Length==9 && old.HomeLineup.Length==9)
+                        {
+                            rows.Add(old with{Status=row.Status,Time=row.Time});
+                            continue;
+                        }
                         if (row.Status != "CANCEL")
                         {
                             try
@@ -111,13 +130,6 @@ public sealed class BotStartersWorker(BotStartersService store, ILogger<BotStart
                         await Task.Delay(300, ct);
                     }
                     await store.SaveAsync(new(date, DateTimeOffset.UtcNow, rows.OrderBy(x => x.Time).ThenBy(x => x.Id).ToArray()), ct);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch (Exception ex) { logger.LogWarning(ex, "예고 선발 수집 실패: {Date}; 이전 캐시 유지", date); }
-            }
-            var delay = TimeSpan.FromMinutes(5) - cycle.Elapsed;
-            await Task.Delay(delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1), ct);
-        }
     }
 
     public static StarterGame MergeLineups(StarterGame row, StarterGame? old,

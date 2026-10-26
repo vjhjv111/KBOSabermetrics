@@ -31,3 +31,25 @@ Check((await live.ReadMonthAsync(date.Year,date.Month,default)).Single().Final,"
 root["result"]!["game"]!["gameId"]="../../bad";
 try{await Receive(root);throw new Exception("id accepted");}catch(RequestError){Console.WriteLine("PASS invalid ID rejected");}
 Console.WriteLine("External upload checks passed.");
+
+
+var tomorrow=date.AddDays(1);
+var tomorrowId="5555"+tomorrow.ToString("MMdd")+"HTSS0"+tomorrow.Year;
+var day=new StarterDay(tomorrow.ToString("yyyy-MM-dd"),DateTimeOffset.UtcNow,[
+    new(tomorrowId,tomorrow.ToString("yyyy-MM-dd")+"T18:30:00","KIA","삼성","BEFORE","투수A","투수B",DateTimeOffset.UtcNow,false)]);
+ExternalRelayUpload.ValidateDay(day);
+var calendar=ExternalRelayUpload.ApplySchedule([],day);
+Check(calendar.Count==1 && (string?)calendar[0]["Id"]==tomorrowId,"full schedule adds upcoming game");
+var empty=day with{Games=[]};
+Check(ExternalRelayUpload.ApplySchedule(calendar,empty).Count==0,"confirmed empty schedule removes vanished fixture");
+calendar=ExternalRelayUpload.ApplySchedule([],day);
+calendar[0]["Status"]="RESULT";calendar[0]["AScore"]=5;
+Check(ExternalRelayUpload.ApplySchedule(calendar,empty).Count==1,"empty schedule preserves played result");
+var store=new BotStartersService(new SiteOptions{StateDirectory=Path.Combine(dir,"state")});
+var scheduleContext=new DefaultHttpContext();
+scheduleContext.Request.Headers["X-Fanzai-Collector-Key"]=key;
+scheduleContext.Request.Body=new MemoryStream(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(day));
+await ExternalRelayUpload.ReceiveScheduleAsync(scheduleContext,store);
+Check(store.Get(day.Date)?.Games.Single().AwayStarter=="투수A","uploaded starters available in bot store");
+var duplicate=day with{Games=[day.Games[0],day.Games[0]]};
+try{ExternalRelayUpload.ValidateDay(duplicate);throw new Exception("duplicate accepted");}catch(RequestError){Console.WriteLine("PASS duplicate ID rejected");}

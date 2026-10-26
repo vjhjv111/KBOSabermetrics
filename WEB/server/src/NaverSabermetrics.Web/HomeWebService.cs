@@ -68,6 +68,20 @@ public sealed class HomeWebService(DatabaseCacheService db,RecordService records
     // StatusCode='BEFORE')만 대상이며, 박스스코어가 없으므로 팀·시간·구장만 제공합니다.
     async Task<(string? Date,object[] Games)> UpcomingSchedule(SqliteConnection c,int year,string? after,CancellationToken ct)
     {
+        if(Environment.GetEnvironmentVariable("FANZAI_EXTERNAL_COLLECTOR")=="true") {
+            var today=BotGamesService.ParseDate(null);
+            foreach(var offset in new[]{0,1}) {
+                var externalDate=today.AddDays(offset).ToString("yyyy-MM-dd");
+                if(today.AddDays(offset).Year!=year || after is not null && string.CompareOrdinal(externalDate,after)<=0)continue;
+                var day=starters.Get(externalDate);
+                var upcoming=day?.Games.Where(g=>g.Status is "BEFORE" or "READY").ToArray()??[];
+                if(upcoming.Length>0)return (externalDate,upcoming.Select(g=>(object)new{gameId=g.Id,stadium=(string?)null,
+                    awayTeamCode=g.Id.Substring(8,2),homeTeamCode=g.Id.Substring(10,2),gameDateTime=g.Time,
+                    awayStarter=g.AwayStarter,homeStarter=g.HomeStarter,starterUpdatedAt=g.UpdatedAt,
+                    starterStatus=g.FetchFailed?"error":"available"}).ToArray());
+            }
+            return (null,[]);
+        }
         await using var find=c.CreateCommand();find.CommandTimeout=options.QuerySeconds;
         find.CommandText="SELECT MIN(GameDate) FROM HomeGames WHERE SeasonYear=$year AND LOWER(TRIM(COALESCE(RoundCode,'')))='kbo_scheduled' AND UPPER(StatusCode)='BEFORE' AND ($after IS NULL OR GameDate>$after) AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE')";
         find.Parameters.AddWithValue("$year",year);find.Parameters.AddWithValue("$after",(object?)after??DBNull.Value);

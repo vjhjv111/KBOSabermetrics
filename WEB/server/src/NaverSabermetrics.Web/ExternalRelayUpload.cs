@@ -5,7 +5,7 @@ using NaverRelayUI.Collection;
 
 namespace NaverSabermetrics.Web;
 
-public static class ExternalRelayUpload
+public static partial class ExternalRelayUpload
 {
     public const string Route="/api/collector/relay";
     public const int MaxBytes=8*1024*1024;
@@ -37,9 +37,9 @@ public static class ExternalRelayUpload
             try {game=HomeLiveService.Parse(root.ToJsonString(),id);}
             catch(Exception ex) when(ex is FormatException or InvalidOperationException){throw new RequestError("잘못된 경기 데이터");}
             var today=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).Date;
-            if(game is null || game.RoundCode?.StartsWith("kbo_ps",StringComparison.Ordinal)!=true ||
+            if(game is null || !(game.RoundCode=="kbo_r" || game.RoundCode?.StartsWith("kbo_ps",StringComparison.Ordinal)==true) ||
                 !DateTime.TryParse(game.Date,out var date) || date<today.AddDays(-2)||date>today.AddDays(1))
-                throw new RequestError("최근 포스트시즌 경기만 업로드할 수 있습니다.");
+                throw new RequestError("최근 KBO 경기만 업로드할 수 있습니다.");
             if(!DateTimeOffset.TryParse(root["collectedAt"]?.ToString(),out var fetched) ||
                 fetched<DateTimeOffset.UtcNow.AddMinutes(-10)||fetched>DateTimeOffset.UtcNow.AddMinutes(1))
                 throw new RequestError("수집 시각이 오래되었거나 잘못되었습니다.");
