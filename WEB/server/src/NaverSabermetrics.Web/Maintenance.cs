@@ -7,12 +7,15 @@ namespace NaverSabermetrics.Web;
 public static class Maintenance
 {
     public static PasswordHasher<WebUser> Hasher() => new(Options.Create(new PasswordHasherOptions { IterationCount=210000 }));
-    public static bool IsCommand(string x) => new[]{"--naver-check","--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--help"}.Contains(x);
+    public static bool IsCommand(string x) => new[]{"--home-relay","--naver-check","--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--help"}.Contains(x);
     public static async Task<bool> ExecuteAsync(string[] args)
     {
         if(args.Length==0 || !IsCommand(args[0]))return false;
         switch(args[0])
         {
+            case "--home-relay":
+                if(args.Length is <2 or >3 || args.Length==3 && args[2]!="--once")throw new ArgumentException("--home-relay <cache-directory> [--once]");
+                await HomeRelaySender.RunAsync(args[1],args.Length==3);break;
             case "--naver-check":
                 Need(args,2,"--naver-check <game ID>"); await NaverConnectionCheck.RunAsync(args[1]); break;
             case "--hash":

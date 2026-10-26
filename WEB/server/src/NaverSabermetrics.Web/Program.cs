@@ -198,7 +198,7 @@ app.Use(async(c,next)=>
         throw new RequestError("HTTPS 연결이 필요합니다.",400,"HTTPS_REQUIRED");
     if(c.Request.Method=="POST" && c.Request.Path.StartsWithSegments("/api"))
     {
-        if(c.Request.ContentLength>16*1024)throw new RequestError("요청 크기를 초과했습니다.",413,"BODY_TOO_LARGE");
+        if(c.Request.ContentLength>(c.Request.Path==ExternalRelayUpload.Route?ExternalRelayUpload.MaxBytes:16*1024))throw new RequestError("요청 크기를 초과했습니다.",413,"BODY_TOO_LARGE");
         var origin=c.Request.Headers.Origin.ToString();
         var self=$"{c.Request.Scheme}://{c.Request.Host}";
         if((origin.Length>0 && !string.Equals(origin,self,StringComparison.OrdinalIgnoreCase) && !settings.AllowedOrigins.Contains(origin,StringComparer.OrdinalIgnoreCase))
@@ -228,6 +228,11 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRouting();app.UseRateLimiter();
 app.Use(async(c,next)=>
 {
+    if(c.Request.Path==ExternalRelayUpload.Route)
+    {
+        ExternalRelayUpload.Authorize(c.Request.Headers["X-Fanzai-Collector-Key"].ToString());
+        await next(c);return;
+    }
     if(c.Request.Path=="/api/bot/ask")
     {
         BotQuestionEndpoint.Authorize(Environment.GetEnvironmentVariable("FANZAI_BOT_API_KEY"),c.Request.Headers["X-Fanzai-Bot-Key"].ToString());
@@ -237,6 +242,7 @@ app.Use(async(c,next)=>
         await c.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(c);
     await next(c);
 });
+app.MapPost(ExternalRelayUpload.Route,ExternalRelayUpload.ReceiveAsync);
 app.MapGet("/api/session",(IAntiforgery antiforgery,HttpContext c)=>Results.Ok(new
 {
     csrfToken=antiforgery.GetAndStoreTokens(c).RequestToken,

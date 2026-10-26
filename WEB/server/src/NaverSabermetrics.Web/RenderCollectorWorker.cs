@@ -145,7 +145,7 @@ public sealed class RenderCollectorWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Enabled) return;
+        if (!options.Enabled || Environment.GetEnvironmentVariable("FANZAI_EXTERNAL_COLLECTOR")=="true") return;
         // IntervalMinutes=0 is allowed for idle cycles: it means "no artificial gap between cycles" —
         // useful for a local backfill run, where the real throttling already happens per-request
         // inside GameIdCollector/RelayCollector (delayMs), not at the cycle level. WaitForNextCycleAsync
