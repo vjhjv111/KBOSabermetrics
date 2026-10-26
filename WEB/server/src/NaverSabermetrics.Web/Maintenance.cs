@@ -7,12 +7,14 @@ namespace NaverSabermetrics.Web;
 public static class Maintenance
 {
     public static PasswordHasher<WebUser> Hasher() => new(Options.Create(new PasswordHasherOptions { IterationCount=210000 }));
-    public static bool IsCommand(string x) => new[]{"--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--help"}.Contains(x);
+    public static bool IsCommand(string x) => new[]{"--naver-check","--hash","--prepare","--sample-db","--check-db","--compare","--self-test","--http-check","--http-check-rate","--help"}.Contains(x);
     public static async Task<bool> ExecuteAsync(string[] args)
     {
         if(args.Length==0 || !IsCommand(args[0]))return false;
         switch(args[0])
         {
+            case "--naver-check":
+                Need(args,2,"--naver-check <game ID>"); await NaverConnectionCheck.RunAsync(args[1]); break;
             case "--hash":
                 var password=Environment.GetEnvironmentVariable("SABER_PASSWORD");
                 if(password is null)
