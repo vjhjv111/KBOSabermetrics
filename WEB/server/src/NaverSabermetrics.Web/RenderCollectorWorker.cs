@@ -248,7 +248,28 @@ public sealed class RenderCollectorWorker : BackgroundService
     {
         void Log(string message) => logger.LogInformation("[collector] {Message}", message);
 
-        var games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token);
+        List<ScheduleGame> games;
+        try { games = await GameIdCollector.CollectAllKboGamesAsync(http, from, to, delayMs: 300, log: Log, ct: token); }
+        catch(Exception ex) when(ex is HttpRequestException or IOException || ex is OperationCanceledException && !token.IsCancellationRequested)
+        {
+            games = new();
+            if(Directory.Exists(options.JsonDirectory))
+            foreach(var date in Enumerable.Range(0,(DateTime.Parse(to)-DateTime.Parse(from)).Days+1).Select(n=>DateTime.Parse(from).AddDays(n)))
+            foreach(var file in Directory.EnumerateFiles(options.JsonDirectory,date.ToString("yyyyMMdd")+"*.json"))
+            {
+                try {
+                    var id=Path.GetFileNameWithoutExtension(file).Split('_').Last();
+                    var saved=HomeLiveService.Parse(await File.ReadAllTextAsync(file,token),id);
+                    if(saved is null || saved.Date!=date.ToString("yyyy-MM-dd") || saved.Status=="CANCEL")continue;
+                    games.Add(new ScheduleGame {GameId=id,CategoryId="kbo",GameDate=saved.Date,GameDateTime=saved.Time,
+                        HomeTeamCode=saved.Home,AwayTeamCode=saved.Away,StatusCode=saved.Status});
+                } catch(Exception readError) when(readError is IOException or JsonException or FormatException or InvalidOperationException)
+                { logger.LogWarning(readError,"저장 경기 재수집 후보 읽기 실패: {File}",file); }
+            }
+            games=games.DistinctBy(g=>g.GameId).ToList();
+            logger.LogWarning(ex,"일정 조회 실패; 저장된 경기 {Count}건 직접 재수집",games.Count);
+            if(games.Count==0)throw;
+        }
         if (to==TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,korea).ToString("yyyy-MM-dd"))
             {
             var playing=games.Any(g=>!g.Cancel && RenderCollectionPolicy.IsLiveStatus(g.StatusCode));
@@ -285,7 +306,7 @@ public sealed class RenderCollectorWorker : BackgroundService
                 liveGamesInProgress |= snapshot.Playing;
                 Log($"포스트시즌 실시간 저장 {id}: {snapshot.StatusText} {snapshot.AwayScore}:{snapshot.HomeScore}");
             }
-            catch(Exception ex) when(ex is HttpRequestException or IOException or JsonException or InvalidOperationException or FormatException)
+            catch(Exception ex) when(ex is HttpRequestException or IOException or JsonException or InvalidOperationException or FormatException || ex is OperationCanceledException && !token.IsCancellationRequested)
             { logger.LogWarning(ex,"포스트시즌 실시간 수집 실패: {GameId}",id); }
         }
         games=games.Where(g=>!playoffIds.Contains(g.GameId??"")).ToList();

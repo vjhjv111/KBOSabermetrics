@@ -73,7 +73,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
         if(S(g,"cancel")=="true")status="CANCEL";
         var final=RenderCollectionPolicy.IsFinalStatus(status);
         var inning=S(g,"currentInning")??S(g,"statusInfo");
-        var label=final?"종료":status=="BEFORE"?"예정":status=="CANCEL"?"취소":S(g,"suspended")=="true"?"중단":string.IsNullOrWhiteSpace(inning)?"진행 중":Regex.Replace(inning,@"회\s*(초|말)","회 $1");
+        var label=final?"종료":status is "BEFORE" or "READY"?"예정":status=="CANCEL"?"취소":S(g,"suspended")=="true"?"중단":string.IsNullOrWhiteSpace(inning)?"진행 중":Regex.Replace(inning,@"회\s*(초|말)","회 $1");
         string date;
         if(round.StartsWith("kbo_ps",StringComparison.OrdinalIgnoreCase))
         {
@@ -136,7 +136,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
             if(!File.Exists(path))continue;
             try {
                 var detailed=Parse(await File.ReadAllTextAsync(path,ct),id,includeRelay:true);
-                if(detailed is not null && (detailed.Final||detailed.Playing) && detailed.Date.Replace("-","")==dateKey)return Detail(detailed);
+                if(detailed is not null && (detailed.Final||detailed.Playing||detailed.Status is "BEFORE" or "READY" or "CANCEL") && detailed.Date.Replace("-","")==dateKey)return Detail(detailed);
             }
             catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
             { logger.LogWarning(ex,"경기 상세 JSON 읽기 보류: {GameId}",id); }
@@ -171,7 +171,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
                 if(game is null || !game.Date.StartsWith(prefix,StringComparison.Ordinal))continue;
                 // Future fixtures come from the reconciled DB schedule. Do not resurrect
                 // a removed playoff fixture from an old BEFORE/READY snapshot.
-                if(!game.Final&&!game.Playing&&game.Status!="CANCEL")continue;
+                if(!game.Final&&!game.Playing&&game.Status!="CANCEL" && !(game.Status=="READY" && game.Date==DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy-MM-dd")))continue;
                 if(!games.TryGetValue(game.Id,out var old)||game.UpdatedAt>=old.UpdatedAt)games[game.Id]=game;
             }
             catch(Exception ex) when(ex is IOException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
@@ -185,7 +185,7 @@ public sealed class HomeLiveService(RenderCollectorOptions options, ILogger<Home
     public static object Detail(HomeLiveGame live)
     {
         var g=live.Source["game"];var relay=live.Source["textRelayData"];
-        var game=new Dictionary<string,object?>{["Id"]=live.Id,["Date"]=live.Date,["Time"]=live.Time,["Away"]=live.Away,["Home"]=live.Home,["AScore"]=live.AwayScore,["HS"]=live.HomeScore,["Stadium"]=live.Stadium,["Status"]=live.Status,["StatusText"]=live.StatusText};
+        var game=new Dictionary<string,object?>{["Id"]=live.Id,["Date"]=live.Date,["Time"]=live.Time,["Away"]=live.Away,["Home"]=live.Home,["AScore"]=live.Status is "BEFORE" or "READY" or "CANCEL"?null:live.AwayScore,["HS"]=live.Status is "BEFORE" or "READY" or "CANCEL"?null:live.HomeScore,["Stadium"]=live.Stadium,["Status"]=live.Status,["StatusText"]=live.StatusText};
         foreach(var (side,prefix) in new[]{("away","A"),("home","H")}){var rheb=Array(g?[side+"TeamRheb"]);foreach(var (key,index) in new[]{("H",1),("E",2),("B",3)})game[prefix+key]=index<rheb.Length?rheb[index].ToString():null;}
         var batters=new List<object>();var pitchers=new List<object>();
         foreach(var side in new[]{"away","home"})foreach(var role in new[]{"batter","pitcher"})

@@ -12,6 +12,10 @@ string Json(string id,string status,int away=3,int home=2,string round="kbo_r") 
     }}});
 var date=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9)).ToString("yyyyMMdd");
 var year=int.Parse(date[..4]);var id=date+"HHSS0"+year;
+var ready=HomeLiveService.Parse(Json(id,"READY"),id)!;
+Check(ready.StatusText=="예정"&&!ready.Playing,"READY 기본 이닝을 진행 중으로 표시하지 않음");
+var readyDetail=JsonSerializer.SerializeToNode(HomeLiveService.Detail(ready))!;
+Check(readyDetail["game"]!["AScore"] is null && readyDetail["game"]!["HS"] is null,"예정 경기 점수는 미정");
 var playing=HomeLiveService.Parse(Json(id,"PLAY"),id)!;
 Check(playing.Playing&&!playing.Final&&playing.StatusText=="8회 초","진행 상태·이닝과 종료 판정");
 Check(playing.AwayPitcher=="원정투수"&&playing.HomePitcher=="홈투수","양 팀 현재 투수");
@@ -133,7 +137,7 @@ try{
     historicRaw["naver"]!["result"]!["game"]!["statusCode"]="BEFORE";
     await File.WriteAllTextAsync(historicPath,historicRaw.ToJsonString());
     Check((await live.ReadMonthAsync(year-1,10,default)).Length==0,"사라진 예정 경기를 오래된 JSON에서 복원하지 않음");
-    Check(await live.DetailAsync(historicId,default) is null,"종료 전 JSON 상세 제외 유지");
+    Check(await live.DetailAsync(historicId,default) is not null,"저장된 경기 전 JSON 상세 제공");
     File.Delete(historicPath);
     File.Delete(psFile);
     var first=await live.ReadAsync(year,default);Check(first.Games.Length==1,"실제 수집 디렉터리 투영");

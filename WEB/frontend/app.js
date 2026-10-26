@@ -737,7 +737,7 @@ function renderHomeResults(d,year){
     for(const side of ['Away','Home']){
       const code=g[side+'TeamCode'],score=g[side+'Score'],other=g[(side==='Away'?'Home':'Away')+'Score'];
       const link=homeTeamLink(code,year);link.title=side==='Away'?'원정':'홈';
-      const result=text('strong',['BEFORE','CANCEL'].includes(g.StatusCode)?'—':score??'—',score>other?'team-win':'');result.setAttribute('aria-label',`${score??'—'}점${final?' '+(score>other?'승':score<other?'패':'무승부'):''}`);
+      const result=text('strong',['BEFORE','READY','CANCEL'].includes(g.StatusCode)?'—':score??'—',score>other?'team-win':'');result.setAttribute('aria-label',`${score??'—'}점${final?' '+(score>other?'승':score<other?'패':'무승부'):''}`);
       if(side==='Away')scoreline.append(link,result,text('span',':','home-score-divider'));else scoreline.append(result,link);
     }const meta=text('div','','home-game-meta');meta.append(text('span',`${g.Stadium??'구장 정보 없음'} · ${status}`));{const detail=text('a','경기 상세 ↗','player-link');detail.href=`#game=${encodeURIComponent(g.GameId)}`;detail.setAttribute('aria-label',`${teamNames[g.AwayTeamCode]??g.AwayTeamCode} 대 ${teamNames[g.HomeTeamCode]??g.HomeTeamCode} 경기 상세`);meta.append(detail);}game.append(meta,scoreline);
     const sides={Away:text('div','','home-side-decisions home-away-decisions'),Home:text('div','','home-side-decisions home-home-decisions')};
@@ -757,7 +757,7 @@ function renderHomeResults(d,year){
       row.append(text('span',kind,`home-decision-badge decision-${kind}`),text('span',p.name));
       (side?sides[side]:decisions).append(row);
     }
-    if(!final&&!['BEFORE','CANCEL'].includes(g.StatusCode))for(const side of ['Away','Home']){const row=text('div','','home-side-decision');row.append(text('span','P','home-decision-badge decision-P'),text('span',g[side+'Pitcher']||'—'));row.title='현재 투수';sides[side].append(row);}
+    if(!final&&!['BEFORE','READY','CANCEL'].includes(g.StatusCode))for(const side of ['Away','Home']){const row=text('div','','home-side-decision');row.append(text('span','P','home-decision-badge decision-P'),text('span',g[side+'Pitcher']||'—'));row.title='현재 투수';sides[side].append(row);}
     for(const side of ['Away','Home'])if(sides[side].childElementCount)scoreline.append(sides[side]);
     if(decisions.childElementCount)game.append(decisions);
     list.append(game);
