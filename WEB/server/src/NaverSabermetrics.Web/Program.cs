@@ -231,6 +231,8 @@ app.Use(async(c,next)=>
     if(c.Request.Path==ExternalRelayUpload.Route)
     {
         ExternalRelayUpload.Authorize(c.Request.Headers["X-Fanzai-Collector-Key"].ToString());
+        var bodyLimit=c.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+        if(bodyLimit is {IsReadOnly:false})bodyLimit.MaxRequestBodySize=ExternalRelayUpload.MaxBytes;
         await next(c);return;
     }
     if(c.Request.Path=="/api/bot/ask")
