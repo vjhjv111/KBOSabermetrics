@@ -62,6 +62,8 @@ public sealed partial class RecordService
         // 팀 단위(AnalyticsGrouping.Team) 집계 행은 한 팀의 여러 선수 수비 이닝을 모두 합친
         // 값이라 "주 포지션"이 개인 의미를 갖지 않으므로 그리드에서 숨깁니다.
         if (string.Equals(room, "team", StringComparison.OrdinalIgnoreCase) && p.Name == "PrimaryPosition") return true;
+        // 파크 보정 wRC+(WrcPlusParkAdjusted)가 있는 행은 보정 전 wRC+를 숨깁니다(계산은 그대로).
+        if (p.Name == "WrcPlus" && p.DeclaringType?.GetProperty("WrcPlusParkAdjusted") is not null) return true;
         if (!string.Equals(role, "pitcher", StringComparison.OrdinalIgnoreCase)) return false;
         var name = p.Name;
         return name.Contains("Ra9War", StringComparison.OrdinalIgnoreCase)
@@ -527,8 +529,8 @@ public sealed partial class RecordService
             Row("타격 가치", "wOBA", "(wBB×uBB + wHBP×HBP + w1B×1B + w2B×2B + w3B×3B + wHR×HR) ÷ (AB + uBB + HBP + SF)", wobaWeights, "시즌 RE24 이벤트 득점가치를 리그 OBP에 맞춰 스케일링"),
             Row("타격 가치", "wRAA", "((wOBA - lgwOBA) ÷ Scale) × PA", $"lgwOBA {woba.LeagueWoba:0.0000}; Scale {woba.Scale:0.0000}", "평균 타자 대비 득점 기여"),
             Row("타격 가치", "wRC", "wRAA + (lgR/PA × PA)", $"lgR/PA {woba.RunsPerPa:0.0000}", "선수가 창출한 추정 득점"),
-            Row("타격 가치", "wRC+", "100 × (wRC ÷ PA) ÷ lgR/PA", $"lgR/PA {woba.RunsPerPa:0.0000}", "100이 리그 평균"),
-            Row("타격 가치", "wRC+(파크)", "wRC+ + (100 - 타자 PF)", "KBO PF v2; 선수의 구장별 PA 가중", "구장 효과를 단순 점수 보정한 사이트 지표"),
+            Row("타격 가치", "보정 전 wRC+(비공개)", "100 × (wRC ÷ PA) ÷ lgR/PA", $"lgR/PA {woba.RunsPerPa:0.0000}", "100이 리그 평균"),
+            Row("타격 가치", "wRC+", "보정 전 wRC+ + (100 - 타자 PF)", "KBO PF v2; 선수의 구장별 PA 가중", "구장 효과를 단순 점수 보정한 사이트 지표"),
             Row("타격 가치", "OPS+", "100 × (OBP÷lgOBP + SLG÷lgSLG - 1)", $"통합 lgOBP {league.Obp:0.0000}; lgSLG {league.Slg:0.0000}", "100이 리그 평균"),
 
             Row("타자 WAR", "주루 Runs", "0.20×SB - 0.40×CS", "SB +0.20; CS -0.40 runs", "현재 도루·도실패만 반영"),

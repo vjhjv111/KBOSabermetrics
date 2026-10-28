@@ -27,7 +27,7 @@ public sealed class BatterSabermetricGridRow
     [DisplayName("wRC*")] public double? Wrc { get; init; }
     [DisplayName("wRC+*")] public double? WrcPlus { get; init; }
     [DisplayName("PF")] public double? ParkFactor { get; init; }
-    [DisplayName("wRC+(파크)*")] public double? WrcPlusParkAdjusted { get; init; }
+    [DisplayName("wRC+*")] public double? WrcPlusParkAdjusted { get; init; }
     [DisplayName("OPS+")] public double? OpsPlus { get; init; }
 }
 
