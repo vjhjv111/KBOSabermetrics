@@ -231,10 +231,12 @@ public static class FieldingRecordBuilder
                 var runnerOuts = 0; var runnerCaughtStealing = false;
                 var runnerErrorChains = new HashSet<string>(StringComparer.Ordinal);
                 var passedBall = false;
-                // "투수 앞 땅볼로 출루"처럼 아웃 없이 출루한 타구에 주자 문구만 "실책으로 진루"면 타구를 처리한 수비수의 실책 1개로 봅니다.
+                // "투수 앞 땅볼로 출루"처럼 아웃 없이 출루한 타구나 안타에 주자 문구만 "실책으로 진루"면
+                // 타구를 처리한 수비수(안타는 타구 방향 수비수)의 실책 1개로 봅니다. 볼넷·아웃 뒤의 실책은 수비수를 알 수 없어 미분류로 둡니다.
                 var reachedOnBattedBall = !pa.IsOut && pa.OutsRecorded == 0 && !paHasError && PositionCode(pa.PrimaryFielder) is not null
-                    && (pa.ResultText?.Contains("땅볼로 출루", StringComparison.Ordinal) == true || pa.ResultText?.Contains("플라이로 출루", StringComparison.Ordinal) == true
-                        || pa.ResultText?.Contains("라인드라이브로 출루", StringComparison.Ordinal) == true);
+                    && pa.ResultText is { } reachText
+                    && (reachText.Contains("로 출루", StringComparison.Ordinal) || reachText.Contains("안타", StringComparison.Ordinal) || reachText.Contains("루타", StringComparison.Ordinal))
+                    && !reachText.Contains("홈런", StringComparison.Ordinal);
                 var impliedError = false;
                 foreach (var runner in runnersByPa.GetValueOrDefault(pa.PlateAppearanceId) ?? [])
                 {
@@ -267,6 +269,8 @@ public static class FieldingRecordBuilder
                 {
                     if (paChain.OutFielders.Count > 0) CreditChain(paChain.OutFielders, batterOuts);
                     else if (pa.IsOut && pa.IsStrikeout) Credit("C", 1, 0, 0);
+                    // 타자가 자기 타구에 맞아 아웃되면 공식 기록 규칙상 포수 자살입니다.
+                    else if (pa.IsOut && pa.ResultText?.Contains("타구맞음", StringComparison.Ordinal) == true) Credit("C", 1, 0, 0);
                     else if (pa.IsOut && PositionCode(pa.PrimaryFielder) is { } fielder) Credit(fielder, 1, 0, 0);
                 }
                 if (impliedError) Credit(PositionCode(pa.PrimaryFielder)!, 0, 0, 1);
