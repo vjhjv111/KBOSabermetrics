@@ -248,14 +248,16 @@ public static class FieldingRecordBuilder
                     {
                         if (runner.Reason == ReasonCaughtStealing) runnerCaughtStealing = true;
                         // 병살 타석의 "포스아웃 (유격수->2루수 ...)"는 타석 연결의 앞부분을 되풀이한 것이라 한 번만 셉니다.
-                        if (runner.Reason is ReasonForceOut or ReasonTagOut && IsPrefix(chain.OutFielders, paChain.OutFielders) && pa.OutsRecorded >= 2) continue;
+                        // 연결이 완전히 같으면("1루수 1루 터치아웃" + "1루수 태그아웃") 같은 수비수가 두 아웃을 잡은 별개 플레이입니다.
+                        if (runner.Reason is ReasonForceOut or ReasonTagOut && IsProperPrefix(chain.OutFielders, paChain.OutFielders) && pa.OutsRecorded >= 2) continue;
                         runnerOuts++;
                         if (chain.OutFielders.Count > 0) CreditChain(chain.OutFielders, 1);
                         if (runner.Reason == ReasonCaughtStealing && chain.OutFielders.Count > 0 && map.TryGetValue("C", out var c))
                             TallyFor(fieldingTeam, "C", c).CaughtStealing++;
                     }
                     var runnerError = chain.ErrorFielder ?? ErrorFielderFromText(runner.RawText);
-                    if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(runner.RawText ?? ""))
+                    // 같은 실책으로 여러 주자가 진루하면 주자별 문구가 따로 오므로, 연결 괄호(없으면 수비수 코드) 기준으로 한 번만 셉니다.
+                    if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(ErrorKey(runner.RawText, runnerError)))
                         Credit(runnerError, 0, 0, 1);
                     else if (runnerError is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
                     {
@@ -322,9 +324,15 @@ public static class FieldingRecordBuilder
         return new(rows, new(gameCount, totalOuts, credited, unclassifiedOuts, overCredited, unclassifiedErrors, unmapped, samples));
     }
 
-    private static bool IsPrefix(IReadOnlyList<string> shorter, IReadOnlyList<string> longer)
+    private static string ErrorKey(string? text, string fielder)
     {
-        if (shorter.Count == 0 || shorter.Count > longer.Count) return false;
+        var m = text is null ? null : Parenthetical.Match(text);
+        return m is { Success: true } ? m.Value : fielder;
+    }
+
+    private static bool IsProperPrefix(IReadOnlyList<string> shorter, IReadOnlyList<string> longer)
+    {
+        if (shorter.Count == 0 || shorter.Count >= longer.Count) return false;
         for (var i = 0; i < shorter.Count; i++) if (shorter[i] != longer[i]) return false;
         return true;
     }
