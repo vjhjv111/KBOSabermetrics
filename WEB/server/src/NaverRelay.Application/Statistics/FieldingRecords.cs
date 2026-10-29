@@ -231,6 +231,11 @@ public static class FieldingRecordBuilder
                 var runnerOuts = 0; var runnerCaughtStealing = false;
                 var runnerErrorChains = new HashSet<string>(StringComparer.Ordinal);
                 var passedBall = false;
+                // "투수 앞 땅볼로 출루"처럼 아웃 없이 출루한 타구에 주자 문구만 "실책으로 진루"면 타구를 처리한 수비수의 실책 1개로 봅니다.
+                var reachedOnBattedBall = !pa.IsOut && pa.OutsRecorded == 0 && !paHasError && PositionCode(pa.PrimaryFielder) is not null
+                    && (pa.ResultText?.Contains("땅볼로 출루", StringComparison.Ordinal) == true || pa.ResultText?.Contains("플라이로 출루", StringComparison.Ordinal) == true
+                        || pa.ResultText?.Contains("라인드라이브로 출루", StringComparison.Ordinal) == true);
+                var impliedError = false;
                 foreach (var runner in runnersByPa.GetValueOrDefault(pa.PlateAppearanceId) ?? [])
                 {
                     var chain = ParseChain(runner.RawText);
@@ -251,7 +256,10 @@ public static class FieldingRecordBuilder
                     if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(runner.RawText ?? ""))
                         Credit(runnerError, 0, 0, 1);
                     else if (runnerError is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
-                    { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
+                    {
+                        if (reachedOnBattedBall) impliedError = true;
+                        else { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
+                    }
                 }
 
                 var batterOuts = pa.OutsRecorded - runnerOuts;
@@ -261,6 +269,7 @@ public static class FieldingRecordBuilder
                     else if (pa.IsOut && pa.IsStrikeout) Credit("C", 1, 0, 0);
                     else if (pa.IsOut && PositionCode(pa.PrimaryFielder) is { } fielder) Credit(fielder, 1, 0, 0);
                 }
+                if (impliedError) Credit(PositionCode(pa.PrimaryFielder)!, 0, 0, 1);
                 if (paHasError)
                 {
                     if ((paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText) ?? PositionCode(pa.PrimaryFielder)) is { } fielder) Credit(fielder, 0, 0, 1);

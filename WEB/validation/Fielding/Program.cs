@@ -61,6 +61,7 @@ static void BuildCases()
         Pa(6, "타자 : 2루수 앞 땅볼로 출루", false, 1),
         Pa(7, "타자 : 투수 땅볼 아웃 (투수->1루수 송구아웃)", true, 2),
         Pa(8, "타자 : 볼넷", false, 0),
+        Pa(11, "타자 : 투수 앞 땅볼로 출루", false, 0, primary: "투수"),   // 주자 문구만 실책 → 투수 E
         Pa(9, "타자 : 3루수 땅볼 아웃 (3루수->1루수 송구아웃)", true, 1),   // 유격수 교체 뒤
         Pa(10, "타자 : 중견수 플라이 아웃", true, 2, primary: "중견수"),
     };
@@ -75,6 +76,8 @@ static void BuildCases()
         new("pa8", 80, 1, A, 2, false, "1루주자 : 도루로 2루까지 진루"),
         new("pa8", 80, 2, A, 4, false, "2루주자 : 포일로 3루까지 진루"),
         new("pa10", 100, 1, A, 3, true, "1루주자 : 도루실패아웃 (포수->유격수 태그아웃)"),
+        new("pa11", 110, 1, A, 5, false, "1루주자 : 실책으로 3루까지 진루"),
+        new("pa11", 110, 2, A, 5, false, "2루주자 : 실책으로 홈인"),
     };
     var changes = new List<FieldingChangeSource>
     {
@@ -83,7 +86,7 @@ static void BuildCases()
         new(85, 2, 2, H, 1, "lf1", "7번타자", "ph1", "대타", null, null, null),
         new(85, 3, 3, H, 2, null, null, null, null, "ph1", "대타", "좌익수"),
         // 경기 마지막 타석 뒤의 이동: 반영되지 않지만 "중견수였다"는 선발 위치 복원에 쓰입니다.
-        new(105, 1, 1, H, 2, null, null, null, null, "cf1", "중견수", "우익수"),
+        new(200, 1, 1, H, 2, null, null, null, null, "cf1", "중견수", "우익수"),
     };
     var game = new FieldingGameSource("G1", H, A, lineup, plateAppearances, runners, changes);
     var result = FieldingRecordBuilder.Build([game], AnalyticsGrouping.PlayerByTeam);
@@ -110,7 +113,8 @@ static void BuildCases()
     var b1 = Row("b1|1B");
     Check(b1.Putouts == 5 && b1.Assists == 1 && b1.Errors == 0 && b1.DoublePlays == 2, $"1B: PO {b1.Putouts} A {b1.Assists} E {b1.Errors} DP {b1.DoublePlays}");
     var p1 = Row("p1|P");
-    Check(p1.Putouts == 0 && p1.Assists == 2, "pitcher: ground-ball assist and pickoff assist");
+    Check(p1.Putouts == 0 && p1.Assists == 2 && p1.Errors == 1, "pitcher: ground-ball assist, pickoff assist, implied error on reach-on-grounder");
+    Check(result.Diagnostics.UnclassifiedErrors == 0, "implied error is not left unclassified");
     Check(Row("lf1|LF").Putouts == 1 && Row("lf1|LF").Games == 1 && Row("ph1|LF").Games == 1 && Row("ph1|LF").Putouts == 0
         && Math.Abs(Row("ph1|LF").FieldingInnings - 1.0) < 1e-9, "pinch hitter shifted to LF gets innings after the shift");
     Check(!rows.ContainsKey("dh1|DH") && !rows.ContainsKey("ph1|PH"), "DH and pinch hitter are not fielding rows");
