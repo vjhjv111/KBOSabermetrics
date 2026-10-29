@@ -268,8 +268,12 @@ public static class FieldingRecordBuilder
                     // 출루 타구에 주자 실책 문구가 붙으면 타구 처리 수비수의 실책으로 보되, 아래에서 같은 수비수의 연결 실책과는 합칩니다.
                     if (reachedOnBattedBall && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true) impliedError = true;
                     // 같은 실책으로 여러 주자가 진루하면 주자별 문구가 따로 오므로, 연결 괄호(없으면 수비수 코드) 기준으로 한 번만 셉니다.
-                    if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(ErrorKey(runner.RawText, runnerError)))
+                    // 타석 문구의 실책과 같은 연결 표기면 같은 실책입니다. 표기가 다르면 같은 수비수라도 별개 실책입니다
+                    // (예: "1루수 포구 실책" 뒤 "1루수 송구 실책->투수"는 박스스코어에서 2개).
+                    if (runnerError is not null && runnerErrorChains.Add(ErrorKey(runner.RawText, runnerError))
+                        && (!paHasError || ErrorKey(runner.RawText, runnerError) != ErrorKey(pa.ResultText, paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText) ?? PositionCode(pa.PrimaryFielder) ?? "")))
                     { Credit(runnerError, 0, 0, 1); runnerErrorFielders.Add(runnerError); }
+                    if (chain.ErrorFielder is not null) foreach (var f in chain.OutFielders) runnerErrorFielders.Add(f);
                     else if (runnerError is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
                     {
                         if (!reachedOnBattedBall) { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
@@ -292,6 +296,7 @@ public static class FieldingRecordBuilder
                     else if (pa.IsOut && PositionCode(pa.PrimaryFielder) is { } fielder) Credit(fielder, 1, 0, 0);
                 }
                 // 같은 플레이의 주자 문구가 이미 그 수비수 실책을 연결로 밝혔으면(예: "투수 송구 실책->포수") 한 번만 셉니다.
+                // 타구 처리 수비수가 주자 실책 연결에 등장하면(실책 당사자이거나 송구한 쪽) 그 플레이의 실책은 연결 쪽 하나뿐입니다.
                 if (impliedError && !runnerErrorFielders.Contains(PositionCode(pa.PrimaryFielder)!)) Credit(PositionCode(pa.PrimaryFielder)!, 0, 0, 1);
                 if (paHasError)
                 {
