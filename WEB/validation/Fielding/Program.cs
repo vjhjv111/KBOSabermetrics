@@ -62,7 +62,7 @@ static void BuildCases()
         Pa(7, "타자 : 투수 땅볼 아웃 (투수->1루수 송구아웃)", true, 2),
         Pa(8, "타자 : 볼넷", false, 0),
         Pa(11, "타자 : 투수 앞 땅볼로 출루", false, 0, primary: "투수"),   // 주자 문구만 실책 → 투수 E
-        Pa(12, "타자 : 중견수 앞 1루타", false, 0, primary: "중견수"),      // 안타 뒤 주자 실책 진루 → 중견수 E
+        Pa(12, "타자 : 중견수 앞 1루타", false, 0, primary: "중견수"),      // 안타 뒤 주자 실책 진루 → 수비수 불명, 미분류
         Pa(13, "타자 : 타구맞음 아웃", true, 1),                            // 포수 PO
         Pa(14, "타자 : 1루수 병살타 아웃 (1루수 1루 터치아웃)", true, 2, primary: "1루수"), // 1루수 혼자 두 아웃
         Pa(15, "타자 : 볼넷", false, 0),
@@ -103,7 +103,7 @@ static void BuildCases()
 
     Check(result.Diagnostics.TotalOuts == 15 && result.Diagnostics.CreditedPutouts == 15 && result.Diagnostics.UnclassifiedOuts == 0
         && result.Diagnostics.OverCreditedOuts == 0, $"all 12 outs credited exactly once ({result.Diagnostics})");
-    Check(result.Diagnostics.UnmappedFielderCredits == 0 && result.Diagnostics.UnclassifiedErrors == 0, "every credit mapped to a player");
+    Check(result.Diagnostics.UnmappedFielderCredits == 0, "every credit mapped to a player");
     var c1 = Row("c1|C");
     Check(c1.Putouts == 2 && c1.Assists == 1, "catcher: strikeout PO, batter-hit-by-batted-ball PO, CS throw assist");
     Check(c1.Errors == 1, "catcher error read from runner body text");
@@ -123,11 +123,11 @@ static void BuildCases()
     Check(Row("b3|3B").Errors == 1, "one error for two runners advancing on the same throwing error");
     var p1 = Row("p1|P");
     Check(p1.Putouts == 0 && p1.Assists == 2 && p1.Errors == 1, "pitcher: ground-ball assist, pickoff assist, implied error on reach-on-grounder");
-    Check(result.Diagnostics.UnclassifiedErrors == 0, "implied error is not left unclassified");
+    Check(result.Diagnostics.UnclassifiedErrors == 1, "runner error after a hit stays unclassified (no fielder named)");
     Check(Row("lf1|LF").Putouts == 1 && Row("lf1|LF").Games == 1 && Row("ph1|LF").Games == 1 && Row("ph1|LF").Putouts == 0
         && Math.Abs(Row("ph1|LF").FieldingInnings - 2.0) < 1e-9, "pinch hitter shifted to LF gets innings after the shift");
     Check(!rows.ContainsKey("dh1|DH") && !rows.ContainsKey("ph1|PH"), "DH and pinch hitter are not fielding rows");
-    Check(Row("cf1|CF").Errors == 1, "CF error implied by runner advance on a single");
+    Check(Row("cf1|CF").Errors == 0, "no CF error implied by a runner advance on a single");
     Check(Row("b3|3B").Assists == 1 && Row("cf1|CF").Putouts == 1 && Row("cf1|CF").GamesStarted == 1 && !rows.ContainsKey("cf1|RF"), "3B assist and CF fly putout; starting position restored from the later shift");
     Check(Math.Abs(Row("b1|1B").FieldingPercentage!.Value - 1.0) < 1e-9 && Row("b1|1B").TotalChances == 8 && Math.Abs(ss1.FieldingPercentage!.Value - 0.8) < 1e-9, "FPCT=(PO+A)/TC");
     Check(Math.Abs(Row("b1|1B").RangeFactorPerNine!.Value - 27.0 * 8 / 15) < 1e-9, "RF/9=27*(PO+A)/outs");
