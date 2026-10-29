@@ -12,7 +12,7 @@ const analysisTabs=[
   ['replay','투구 재현','실제 타석을 고르고 기록된 투구 궤적을 천천히 재생해 보세요.'],
   ['provenance','기록 대조','서로 다른 수집·집계 자료의 기록과 누락 여부를 비교하세요.']
 ];
-const analysisState={section:'zones',page:1,seq:0,controller:null,catalogKey:'',catalog:null,raf:0,initialized:false,gameId:'',paId:'',result:null};
+const analysisState={playerOptions:[],section:'zones',page:1,seq:0,controller:null,catalogKey:'',catalog:null,raf:0,initialized:false,gameId:'',paId:'',result:null};
 const analysisRoot=text('main','','analysis-page');analysisRoot.id='analysis-page';analysisRoot.hidden=true;
 $('workspace').before(analysisRoot);
 const analysisNav=text('button','분석실','room');analysisNav.type='button';analysisNav.dataset.route='analysis';
@@ -39,7 +39,8 @@ function analysisInitialize(){
   const form=text('form','','analysis-filter');form.id='analysis-form';form.autocomplete='off';
   const years=[...state.catalog.years].sort((a,b)=>b-a).map(y=>[y,String(y)]);
   form.append(analysisField('year','시즌',years),analysisField('team','팀',[['','전체 팀'],...state.catalog.teams.map(t=>[t,teamNames[t]??t])]),analysisField('role','선수 구분',[['pitcher','투수'],['batter','타자']]));
-  const player=analysisField('code','선수',[['','선수를 불러오는 중…']]);player.classList.add('analysis-player');form.append(player);
+  const search=analysisField('playerSearch','선수 검색',null,'search'),searchInput=search.querySelector('input');searchInput.placeholder='이름·팀·코드';searchInput.maxLength=30;
+  const player=analysisField('code','선수',[['','선수를 불러오는 중…']]);player.classList.add('analysis-player');form.append(search,player);
   form.append(analysisField('pitchType','구종',[['','전체 구종']]),analysisField('stance','타자 타석',[['','전체'],['L','좌타'],['R','우타']]),analysisField('count','투구 전 카운트',[['','전체'],...[0,1,2,3].flatMap(b=>[0,1,2].map(s=>[`${b}-${s}`,`${b}-${s}`]))]));
   form.append(analysisField('start','시작일',null,'date'),analysisField('end','종료일',null,'date'),analysisField('window','이동 평균',[['5','최근 5경기'],['10','최근 10경기'],['15','최근 15경기'],['20','최근 20경기']]));
   const game=analysisField('gameId','경기 ID (선택)',null,'text');game.querySelector('input').maxLength=40;game.querySelector('input').placeholder='비우면 선수의 최근 타석';form.append(game);
@@ -54,6 +55,18 @@ function analysisInitialize(){
   form.onsubmit=e=>{e.preventDefault();if(!form.reportValidity())return;analysisState.page=1;analysisState.gameId=$('an-gameId').value.trim();analysisState.paId='';analysisLoad();};
   for(const id of ['year','team','role'])$(`an-${id}`).onchange=()=>{analysisState.catalogKey='';analysisState.page=1;analysisState.gameId=analysisState.paId='';$('an-gameId').value='';analysisLoad();};
   $('an-code').onchange=()=>{analysisState.gameId=analysisState.paId='';$('an-gameId').value='';};
+  searchInput.oninput=()=>{if(analysisRenderPlayers())$('an-code').onchange();};
+}
+// 선수 검색어로 선수 콤보 옵션을 좁힌다. 공백·대소문자 무시, 표시 문구(이름·팀·코드) 부분 일치.
+function analysisSearchKey(value){return String(value??'').toLowerCase().replace(/\s+/g,'');}
+function analysisRenderPlayers(){
+  const select=$('an-code'),oldCode=select.value,allAllowed=analysisState.section==='workload',q=analysisSearchKey($('an-playerSearch').value);
+  const matches=q?analysisState.playerOptions.filter(([title])=>analysisSearchKey(title).includes(q)):analysisState.playerOptions;
+  select.replaceChildren();if(allAllowed&&!q)select.add(new Option('전체 투수',''));
+  for(const [title,code] of matches)select.add(new Option(title,code));
+  if(matches.some(([,code])=>code===oldCode))select.value=oldCode;else if(allAllowed&&!q)select.value='';else if(matches.length)select.value=matches[0][1];
+  else select.add(new Option(q?'검색 결과 없음':'조건에 맞는 선수 없음',''));
+  return select.value!==oldCode;
 }
 function analysisConfigure(){
   const section=analysisState.section;const tab=analysisTabs.find(t=>t[0]===section);$('analysis-subtitle').textContent=tab[2];
@@ -63,7 +76,7 @@ function analysisConfigure(){
   for(const id of ['pitchType','stance','count'])$('an-field-'+id).hidden=!pitchFilters;
   $('an-field-window').hidden=section!=='trend';$('an-field-gameId').hidden=!['replay','provenance'].includes(section);
   $('an-field-start').hidden=section==='workload';
-  $('an-field-code').hidden=section==='expectancy';$('an-field-role').hidden=section==='expectancy';
+  $('an-field-code').hidden=$('an-field-playerSearch').hidden=section==='expectancy';$('an-field-role').hidden=section==='expectancy';
   document.title=`${tab[1]} · 분석실 | FANZAI`;
 }
 async function analysisRoute(){
@@ -89,10 +102,9 @@ async function analysisCatalog(signal,seq){
   // The catalog has its own small pages; collect them before displaying a complete selector.
   let attempts=0;while(catalog.hasMore&&attempts++<3){requested.page++;const more=await api('/api/analysis',requested,signal);if(seq!==analysisState.seq)return;for(const table of catalog.tables??[]){const addition=more.tables?.find(t=>t.key===table.key);if(addition)table.rows.push(...addition.rows);}catalog.hasMore=more.hasMore;}
   analysisState.catalog=catalog;analysisState.catalogKey=key;
-  const players=analysisRows(catalog,'players'),oldCode=$('an-code').value,allAllowed=analysisState.section==='workload';
-  $('an-code').replaceChildren();if(allAllowed)$('an-code').add(new Option('전체 투수',''));
-  const seen=new Set();for(const player of players){if(seen.has(player.Code))continue;seen.add(player.Code);$('an-code').add(new Option(`${player.Name} · ${teamNames[player.Team]??player.Team??''} (${player.Code})`,player.Code));}
-  if(players.some(p=>String(p.Code)===oldCode))$('an-code').value=oldCode;else if(allAllowed)$('an-code').value='';else if(!players.length)$('an-code').add(new Option('조건에 맞는 선수 없음',''));
+  const players=analysisRows(catalog,'players'),seen=new Set();analysisState.playerOptions=[];
+  for(const player of players){if(seen.has(player.Code))continue;seen.add(player.Code);analysisState.playerOptions.push([`${player.Name} · ${teamNames[player.Team]??player.Team??''} (${player.Code})`,String(player.Code)]);}
+  analysisRenderPlayers();
   const oldType=$('an-pitchType').value;const types=analysisRows(catalog,'pitchTypes');$('an-pitchType').replaceChildren(new Option('전체 구종',''));for(const row of types)if(row.Type)$('an-pitchType').add(new Option(row.Type,row.Type));if(types.some(r=>r.Type===oldType))$('an-pitchType').value=oldType;
 }
 async function analysisLoad(clear=true){
@@ -177,7 +189,7 @@ function analysisVelocity(data,root){
   card.append(text('p','타격 결과는 타석의 마지막 공, 스윙 지표는 조건에 맞는 모든 유효 구속 투구를 기준으로 합니다. 구속 구간은 km/h입니다.','analysis-note'));
   const metrics=[['OPS','OPS · 출루율 + 장타율'],['AVG','AVG · 타율'],['OBP','OBP · 출루율'],['SLG','SLG · 장타율'],['WhiffPct','헛스윙률 · 스윙 대비'],['SwingPct','스윙률 · 투구 대비']],plot=text('div','','analysis-velocity-bands');
   plot.setAttribute('aria-live','polite');
-  const labels=['120 미만','120–<135','135–<150','150 이상'];
+  const labels=['120 미만','120–<135','135–<150','150 이상','152 이상','155 이상'];
   function draw(key){
     const percent=key.endsWith('Pct'),format=percent?'percent':'rate',metric=metrics.find(m=>m[0]===key)[1];
     const values=rows.map(r=>r[key]).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);
@@ -194,6 +206,7 @@ function analysisVelocity(data,root){
       const paSample=`종료 PA ${analysisFormat(row.PA,'integer')} · 결과 확인 PA ${analysisFormat(row.OutcomePA,'integer')}`;
       const denominator=key==='WhiffPct'?`분모: 스윙 ${analysisFormat(row.Swings,'integer')}회`:key==='SwingPct'?`분모: 유효 구속 투구 ${analysisFormat(row.N,'integer')}구`:key==='OBP'?`분모: AB+BB+HBP+SF ${analysisFormat(row.ObpN,'integer')}`:key==='OPS'?`분모: OBP ${analysisFormat(row.ObpN,'integer')} / SLG AB ${analysisFormat(row.AB,'integer')}`:`분모: AB ${analysisFormat(row.AB,'integer')}`;
       item.append(text('p',percent?pitchSample:paSample,'analysis-velocity-sample'),text('p',denominator,'analysis-velocity-sample'));
+      if(band>=4)item.append(text('p','150 이상에 포함된 투구를 따로 본 누적 구간','analysis-velocity-sample'));
       if(!known)item.append(text('span','계산할 분모가 없습니다.','analysis-velocity-empty'));
       else if(!percent&&Number(row.OutcomePA)<Number(data.chart?.smallSamplePa??30))item.append(text('span','작은 표본 · 결과 확인 30 PA 미만','analysis-velocity-caution'));
       if(Number(row.UnknownOutcomePA)>0)item.append(text('span',`결과 미분류 ${analysisFormat(row.UnknownOutcomePA,'integer')} PA 제외`,'analysis-velocity-caution'));

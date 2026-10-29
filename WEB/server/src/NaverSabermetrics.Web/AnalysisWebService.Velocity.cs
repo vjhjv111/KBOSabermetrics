@@ -38,9 +38,14 @@ public sealed partial class AnalysisWebService
 
         var rows = await SqlAsync(prefix + """
             , bins(Band,Label) AS (
-              VALUES (0,'120 미만'),(1,'120 이상 135 미만'),(2,'135 이상 150 미만'),(3,'150 이상')
+              VALUES (0,'120 미만'),(1,'120 이상 135 미만'),(2,'135 이상 150 미만'),(3,'150 이상'),(4,'152 이상'),(5,'155 이상')
+            ), banded AS (
+              -- 4·5는 150 이상(3)의 부분집합을 따로 보는 누적 구간이라 0~3과 겹칩니다.
+              SELECT Band Bin,* FROM binned
+              UNION ALL SELECT 4,* FROM binned WHERE SpeedKmh>=152
+              UNION ALL SELECT 5,* FROM binned WHERE SpeedKmh>=155
             ), aggregates AS (
-              SELECT Band,COUNT(*) N,SUM(IsSwing) Swings,SUM(IsWhiff) Whiffs,SUM(Terminal) PA,
+              SELECT Bin Band,COUNT(*) N,SUM(IsSwing) Swings,SUM(IsWhiff) Whiffs,SUM(Terminal) PA,
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN 1 ELSE 0 END) OutcomePA,
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN PaAB ELSE 0 END) AB,
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN PaH ELSE 0 END) H,
@@ -48,7 +53,7 @@ public sealed partial class AnalysisWebService
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN PaBB ELSE 0 END) BB,
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN PaHBP ELSE 0 END) HBP,
                 SUM(CASE WHEN Terminal=1 AND PaKnown=1 THEN PaSF ELSE 0 END) SF
-              FROM binned GROUP BY Band
+              FROM banded GROUP BY Bin
             ), stats AS (
               SELECT b.Band,b.Label,COALESCE(a.N,0) N,COALESCE(a.Swings,0) Swings,
                 COALESCE(a.Whiffs,0) Whiffs,COALESCE(a.PA,0) PA,COALESCE(a.OutcomePA,0) OutcomePA,
@@ -66,7 +71,7 @@ public sealed partial class AnalysisWebService
             """, r, ct);
 
         return new(r.Section, "구속별 대응", [SeasonNote,
-            "구속은 수집된 투구 구속 관측값이며 40~180km/h만 사용합니다. 구간은 120 미만, 120 이상 135 미만, 135 이상 150 미만, 150 이상입니다. 180km/h는 포함합니다.",
+            "구속은 수집된 투구 구속 관측값이며 40~180km/h만 사용합니다. 구간은 120 미만, 120 이상 135 미만, 135 이상 150 미만, 150 이상입니다. 180km/h는 포함합니다. 152 이상·155 이상은 150 이상에 포함된 투구를 따로 본 누적 구간이라 다른 구간과 합산하지 않습니다.",
             "구종·타자 좌우·투구 전 카운트는 개별 투구에 적용합니다. 타석 결과는 조건을 적용하기 전 확인한 실제 마지막 투구가 조건을 만족할 때만 해당 공의 구속 구간에 한 번 배정합니다. 마지막 공의 구속이 없거나 범위를 벗어나면 앞선 공으로 대체하지 않습니다.",
             r.Role == "pitcher" ? "투수 화면은 마지막 투구 기준 상대 타자 성적입니다. 공식 기록의 투수 책임 배분과 다를 수 있습니다." : "타격 결과는 구속이 확인된 마지막 투구로 끝난 공식 완료 타석의 성적입니다. 모든 시즌 타석을 포함한 공식 타격 성적과 다를 수 있습니다.",
             "AVG=H/AB, OBP=(H+BB+HBP)/(AB+BB+HBP+SF), SLG=TB/AB, OPS=OBP+SLG입니다. BB는 고의4구를 한 번 포함합니다. 결과 미분류 PA는 PA에는 세고 결과 확인 PA·AB·비율 계산에서는 제외합니다.",

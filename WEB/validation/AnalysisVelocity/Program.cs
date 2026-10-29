@@ -12,7 +12,9 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
     Console.WriteLine("PASS " + message);
 }
-static List<Dictionary<string, object?>> Bands(AnalysisResult result) => result.Tables.Single(t => t.Key == "velocityBands").Rows;
+static List<Dictionary<string, object?>> AllBands(AnalysisResult result) => result.Tables.Single(t => t.Key == "velocityBands").Rows;
+// Bands 0-3 partition valid speeds; 4 (152+) and 5 (155+) are cumulative subsets of band 3 and must not be summed.
+static List<Dictionary<string, object?>> Bands(AnalysisResult result) => AllBands(result).Where(row => Convert.ToInt64(row["Band"]) <= 3).ToList();
 static Dictionary<string, object?> Coverage(AnalysisResult result) => result.Tables.Single(t => t.Key == "velocityCoverage").Rows.Single();
 static long Number(Dictionary<string, object?> row, string key) => Convert.ToInt64(row[key]);
 static long Sum(AnalysisResult result, string key) => Bands(result).Sum(row => Number(row, key));
@@ -99,7 +101,8 @@ static async Task SyntheticCases()
         var request = new AnalysisRequest(Section: "velocity", Code: "Boundary");
         async Task<AnalysisResult> Query(AnalysisRequest r) => await service.QueryAsync(r, CancellationToken.None);
         var boundary = await Query(request);
-        Check(Bands(boundary).Count == 4 && Bands(boundary).Select(r => Number(r, "Band")).SequenceEqual(new long[] { 0, 1, 2, 3 }), "four bands in velocity order");
+        Check(AllBands(boundary).Select(r => Number(r, "Band")).SequenceEqual(new long[] { 0, 1, 2, 3, 4, 5 }), "four exclusive bands then 152+/155+ in velocity order");
+        Check(AllBands(boundary).Skip(4).All(r => Number(r, "N") == 1 && Number(r, "PA") == 1), "152+/155+ count only the 180 pitch from the 150+ band");
         Check(Bands(boundary).All(r => Number(r, "N") == 2 && Number(r, "PA") == 2), "40/119.999/120/134.999/135/149.999/150/180 boundaries");
         var coverage = Coverage(boundary);
         Check(Number(coverage, "Pitches") == 11 && Number(coverage, "SpeedPitches") == 8 && Number(coverage, "MissingSpeedPitches") == 1 && Number(coverage, "InvalidSpeedPitches") == 2,
@@ -138,8 +141,8 @@ static async Task SyntheticCases()
         var zero = Bands(await Query(request with { Code = "Zero" }))[1];
         Check(Near(zero["AVG"], 0) && Near(zero["OPS"], 0) && Near(zero["SwingPct"], 0) && zero["WhiffPct"] is null, "observed zero differs from missing swing denominator");
         var empty = await Query(request with { Code = "Missing" });
-        Check(Bands(empty).Count == 4 && Bands(empty).All(b => Number(b, "N") == 0 && new[] { "AVG", "OBP", "SLG", "OPS", "SwingPct", "WhiffPct" }.All(k => b[k] is null)),
-            "empty result retains all four bands and null rates");
+        Check(AllBands(empty).Count == 6 && AllBands(empty).All(b => Number(b, "N") == 0 && new[] { "AVG", "OBP", "SLG", "OPS", "SwingPct", "WhiffPct" }.All(k => b[k] is null)),
+            "empty result retains all six bands and null rates");
         var bbOnly = Bands(await Query(request with { Code = "OnlyWalk" }))[3];
         Check(Near(bbOnly["OBP"], 1) && bbOnly["AVG"] is null && bbOnly["SLG"] is null && bbOnly["OPS"] is null,
             "walk-only bin retains OBP but leaves AB-based rates and OPS null");
