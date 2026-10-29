@@ -33,6 +33,9 @@ static void ChainCases()
     c = FieldingRecordBuilder.ParseChain("1루주자 박재현 : 다른주자수비하는 사이 2루까지 진루 (투수->3루수->포수)");
     Check(c.IsEmpty, "fielder sequence without out or error is ignored");
     Check(FieldingRecordBuilder.ParseChain("강민호 : 좌익수 플라이 아웃").IsEmpty, "no parenthetical gives an empty chain");
+    Check(FieldingRecordBuilder.ErrorFielderFromText("1루주자 한승택 : 2루수 실책으로 2루까지 진루") == "2B", "error fielder read from runner body text");
+    Check(FieldingRecordBuilder.ErrorFielderFromText("3루주자 김현준 : 실책으로 홈인") is null, "body text without a fielder gives no error fielder");
+    Check(FieldingRecordBuilder.ErrorFielderFromText("타자 : 좌익수 앞 1루타 (우익수 포구 실책)") is null, "parenthetical error is not read as body text");
 }
 
 static void BuildCases()
@@ -66,6 +69,7 @@ static void BuildCases()
         new("pa3", 30, 1, A, 10, true, "1루주자 : 포스아웃 (유격수->2루수 2루 터치아웃)"),            // 병살 연결 반복 → 중복 제외
         new("pa4", 40, 1, A, 11, true, "1루주자 : 태그아웃 (1루수->유격수->2루수->유격수 태그아웃)"), // 두 번째 아웃
         new("pa5", 50, 1, A, 5, false, "1루주자 : 실책으로 3루까지 진루"),                            // 타석 실책과 같은 실책
+        new("pa8", 80, 3, A, 5, false, "3루주자 : 포수 실책으로 홈인"),                               // 연결 없는 본문 실책 → 포수 E
         new("pa6", 60, 1, A, 10, true, "1루주자 : 포스아웃 (2루수->유격수 2루 터치아웃)"),
         new("pa7", 70, 1, A, 7, true, "1루주자 : 견제사아웃 (투수 견제->1루수 태그아웃)"),
         new("pa8", 80, 1, A, 2, false, "1루주자 : 도루로 2루까지 진루"),
@@ -91,6 +95,7 @@ static void BuildCases()
     Check(result.Diagnostics.UnmappedFielderCredits == 0 && result.Diagnostics.UnclassifiedErrors == 0, "every credit mapped to a player");
     var c1 = Row("c1|C");
     Check(c1.Putouts == 1 && c1.Assists == 1, "catcher: strikeout PO, CS throw assist");
+    Check(c1.Errors == 1, "catcher error read from runner body text");
     Check(c1.StolenBasesAllowed == 1 && c1.CaughtStealing == 1 && Math.Abs(c1.CaughtStealingRate!.Value - 0.5) < 1e-9 && c1.PassedBalls == 1,
         "catcher SB/CS/CS%/PB");
     Check(c1.DoublePlays == 0, "strikeout with a separate caught stealing is not a double play unless the PA records 2 outs");
@@ -126,6 +131,7 @@ static async Task DatabaseCase(string path)
     var result = FieldingRecordBuilder.Build(games, AnalyticsGrouping.PlayerByTeam);
     var d = result.Diagnostics;
     Console.WriteLine($"INFO outs {d.TotalOuts} credited {d.CreditedPutouts} unclassified {d.UnclassifiedOuts} over {d.OverCreditedOuts} unclassified errors {d.UnclassifiedErrors} unmapped {d.UnmappedFielderCredits}");
+    foreach (var sample in d.Samples) Console.WriteLine("SAMPLE " + sample);
     var putouts = result.Rows.Sum(r => r.Putouts);
     Check(putouts == d.CreditedPutouts + d.OverCreditedOuts, $"row PO sum {putouts} = credited {d.CreditedPutouts} + over {d.OverCreditedOuts}, outs {d.TotalOuts}");
     Check(d.UnclassifiedOuts + d.OverCreditedOuts <= Math.Max(2, d.TotalOuts / 50), "unclassified + over-credited outs within 2% of outs");

@@ -49,7 +49,10 @@ public sealed record FieldingChain(IReadOnlyList<string> OutFielders, string? Er
 }
 
 public sealed record FieldingDiagnostics(int Games, int TotalOuts, int CreditedPutouts, int UnclassifiedOuts, int OverCreditedOuts,
-    int UnclassifiedErrors, int UnmappedFielderCredits);
+    int UnclassifiedErrors, int UnmappedFielderCredits, IReadOnlyList<string> Samples)
+{
+    public const int SampleLimitForDisplay = 20;
+}
 
 public sealed record FieldingBuildResult(IReadOnlyList<BatterFieldingRecordRow> Rows, FieldingDiagnostics Diagnostics);
 
@@ -67,6 +70,17 @@ public static class FieldingRecordBuilder
     private static readonly Regex PositionToken = new("투수|포수|1루수|2루수|3루수|유격수|좌익수|중견수|우익수", RegexOptions.Compiled);
     private static readonly Regex Parenthetical = new(@"\(([^()]*)\)", RegexOptions.Compiled);
     private const int ReasonStolenBase = 2, ReasonCaughtStealing = 3, ReasonForceOut = 10, ReasonTagOut = 11;
+    private const int SampleLimit = 40;
+    private static readonly Regex ErrorInText = new(@"(투수|포수|1루수|2루수|3루수|유격수|좌익수|중견수|우익수)\s*(?:포구|송구|수비)?\s*실책", RegexOptions.Compiled);
+
+    /// <summary>괄호 연결이 없는 "2루수 실책으로 2루까지 진루"류 본문에서 실책 수비수를 읽습니다.</summary>
+    public static string? ErrorFielderFromText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var body = Parenthetical.Replace(text, "");
+        var m = ErrorInText.Match(body);
+        return m.Success ? PositionCodes[m.Groups[1].Value] : null;
+    }
 
     public static string? PositionCode(string? korean)
         => korean is not null && PositionCodes.TryGetValue(korean.Trim(), out var code) ? code : null;
@@ -98,6 +112,13 @@ public static class FieldingRecordBuilder
         var totals = new Dictionary<string, Tally>(StringComparer.Ordinal);
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
         int gameCount = 0, totalOuts = 0, credited = 0, unclassifiedOuts = 0, overCredited = 0, unclassifiedErrors = 0, unmapped = 0;
+        var samples = new List<string>();
+        void Sample(string kind, string? text, IEnumerable<string>? extra = null)
+        {
+            if (samples.Count >= SampleLimit) return;
+            var line = kind + ": " + (text ?? "(없음)") + (extra is null ? "" : string.Concat(extra.Select(x => " / " + x)));
+            if (!samples.Contains(line)) samples.Add(line);
+        }
 
         foreach (var game in games)
         {
@@ -187,7 +208,7 @@ public static class FieldingRecordBuilder
                 int putoutsHere = 0;
                 void Credit(string position, int po, int a, int e)
                 {
-                    if (!map.TryGetValue(position, out var pcode)) { unmapped += po + a + e; putoutsHere += po; return; }
+                    if (!map.TryGetValue(position, out var pcode)) { unmapped += po + a + e; putoutsHere += po; Sample($"담당 미확인 {position}", pa.ResultText); return; }
                     var tally = TallyFor(fieldingTeam, position, pcode);
                     tally.Putouts += po; tally.Assists += a; tally.Errors += e; putoutsHere += po;
                     if ((po > 0 || a > 0) && !creditedHere.Contains(tally)) creditedHere.Add(tally);
@@ -226,10 +247,11 @@ public static class FieldingRecordBuilder
                         if (runner.Reason == ReasonCaughtStealing && chain.OutFielders.Count > 0 && map.TryGetValue("C", out var c))
                             TallyFor(fieldingTeam, "C", c).CaughtStealing++;
                     }
-                    if (chain.ErrorFielder is not null && chain.ErrorFielder != paChain.ErrorFielder && runnerErrorChains.Add(runner.RawText ?? ""))
-                        Credit(chain.ErrorFielder, 0, 0, 1);
-                    else if (chain.ErrorFielder is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
-                        unclassifiedErrors++;
+                    var runnerError = chain.ErrorFielder ?? ErrorFielderFromText(runner.RawText);
+                    if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(runner.RawText ?? ""))
+                        Credit(runnerError, 0, 0, 1);
+                    else if (runnerError is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
+                    { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
                 }
 
                 var batterOuts = pa.OutsRecorded - runnerOuts;
@@ -241,9 +263,8 @@ public static class FieldingRecordBuilder
                 }
                 if (paHasError)
                 {
-                    if (paChain.ErrorFielder is not null) Credit(paChain.ErrorFielder, 0, 0, 1);
-                    else if (PositionCode(pa.PrimaryFielder) is { } fielder) Credit(fielder, 0, 0, 1);
-                    else unclassifiedErrors++;
+                    if ((paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText) ?? PositionCode(pa.PrimaryFielder)) is { } fielder) Credit(fielder, 0, 0, 1);
+                    else { unclassifiedErrors++; Sample("미분류 실책", pa.ResultText); }
                 }
                 if (passedBall && map.TryGetValue("C", out var pbCatcher)) TallyFor(fieldingTeam, "C", pbCatcher).PassedBalls++;
 
@@ -252,8 +273,13 @@ public static class FieldingRecordBuilder
                 if (doublePlay) foreach (var tally in creditedHere) tally.DoublePlays++;
 
                 credited += Math.Min(putoutsHere, pa.OutsRecorded);
-                if (putoutsHere < pa.OutsRecorded) unclassifiedOuts += pa.OutsRecorded - putoutsHere;
-                else if (putoutsHere > pa.OutsRecorded) overCredited += putoutsHere - pa.OutsRecorded;
+                if (putoutsHere != pa.OutsRecorded)
+                {
+                    if (putoutsHere < pa.OutsRecorded) unclassifiedOuts += pa.OutsRecorded - putoutsHere;
+                    else overCredited += putoutsHere - pa.OutsRecorded;
+                    Sample(putoutsHere < pa.OutsRecorded ? $"미분류 아웃 {pa.OutsRecorded}중 {putoutsHere}" : $"중복 배정 {pa.OutsRecorded}중 {putoutsHere}",
+                        pa.ResultText, (runnersByPa.GetValueOrDefault(pa.PlateAppearanceId) ?? []).Select(r => r.RawText ?? ""));
+                }
 
                 foreach (var (position, pcode) in map)
                     TallyFor(fieldingTeam, position, pcode).Outs += pa.OutsRecorded;
@@ -280,7 +306,7 @@ public static class FieldingRecordBuilder
                 PassedBalls = catcher ? t.PassedBalls : null,
             };
         }).OrderByDescending(r => r.FieldingInnings).ThenBy(r => r.Name, StringComparer.Ordinal).ToList();
-        return new(rows, new(gameCount, totalOuts, credited, unclassifiedOuts, overCredited, unclassifiedErrors, unmapped));
+        return new(rows, new(gameCount, totalOuts, credited, unclassifiedOuts, overCredited, unclassifiedErrors, unmapped, samples));
     }
 
     private static bool IsPrefix(IReadOnlyList<string> shorter, IReadOnlyList<string> longer)
