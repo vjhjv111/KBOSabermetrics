@@ -66,6 +66,8 @@ static void BuildCases()
         Pa(13, "타자 : 타구맞음 아웃", true, 1),                            // 포수 PO
         Pa(14, "타자 : 1루수 병살타 아웃 (1루수 1루 터치아웃)", true, 2, primary: "1루수"), // 1루수 혼자 두 아웃
         Pa(15, "타자 : 볼넷", false, 0),
+        Pa(16, "타자 : 3루수 앞 땅볼로 출루", false, 0, primary: "3루수"),      // 3루수 실책 + 2루수 송구 실책 = 2개
+        Pa(17, "타자 : 중견수 플라이 아웃", true, 2, primary: "중견수"),         // 더블 오프 → DP
         Pa(9, "타자 : 3루수 땅볼 아웃 (3루수->1루수 송구아웃)", true, 1),   // 유격수 교체 뒤
         Pa(10, "타자 : 중견수 플라이 아웃", true, 2, primary: "중견수"),
     };
@@ -77,6 +79,7 @@ static void BuildCases()
         new("pa8", 80, 3, A, 5, false, "3루주자 : 포수 실책으로 홈인"),                               // 연결 없는 본문 실책 → 포수 E
         new("pa6", 60, 1, A, 10, true, "1루주자 : 포스아웃 (2루수->유격수 2루 터치아웃)"),
         new("pa7", 70, 1, A, 7, true, "1루주자 : 견제사아웃 (투수 견제->1루수 태그아웃)"),
+        new("pa11", 110, 3, A, 5, false, "3루주자 : 실책으로 홈인 (투수 송구 실책->포수)"),   // 같은 투수 실책의 연결 표기 → 중복 아님
         new("pa8", 80, 1, A, 2, false, "1루주자 : 도루로 2루까지 진루"),
         new("pa8", 80, 2, A, 4, false, "2루주자 : 포일로 3루까지 진루"),
         new("pa10", 100, 1, A, 3, true, "1루주자 : 도루실패아웃 (포수->유격수 태그아웃)"),
@@ -86,6 +89,8 @@ static void BuildCases()
         new("pa14", 140, 1, A, 11, true, "1루주자 : 태그아웃 (1루수 태그아웃)"),
         new("pa15", 150, 1, A, 5, false, "1루주자 : 3루수 실책으로 3루까지 진루 (3루수 송구 실책->1루수)"), // 같은 실책, 주자 둘
         new("pa15", 150, 2, A, 5, false, "2루주자 : 3루수 실책으로 홈인 (3루수 송구 실책->1루수)"),
+        new("pa16", 160, 1, A, 5, false, "1루주자 : 2루수 실책으로 2루까지 진루 (2루수 송구 실책->1루수)"),
+        new("pa17", 170, 1, A, 11, true, "1루주자 : 태그아웃 (중견수->1루수 태그아웃)"),
     };
     var changes = new List<FieldingChangeSource>
     {
@@ -96,12 +101,12 @@ static void BuildCases()
         // 경기 마지막 타석 뒤의 이동: 반영되지 않지만 "중견수였다"는 선발 위치 복원에 쓰입니다.
         new(200, 1, 1, H, 2, null, null, null, null, "cf1", "중견수", "우익수"),
     };
-    var game = new FieldingGameSource("G1", H, A, lineup, plateAppearances, runners, changes);
+    var game = new FieldingGameSource("G1", H, A, HomeErrors: 6, AwayErrors: 0, lineup, plateAppearances, runners, changes);
     var result = FieldingRecordBuilder.Build([game], AnalyticsGrouping.PlayerByTeam);
     var rows = result.Rows.ToDictionary(r => $"{r.Pcode}|{r.Position}");
     BatterFieldingRecordRow Row(string key) => rows.TryGetValue(key, out var r) ? r : throw new Exception("missing row " + key);
 
-    Check(result.Diagnostics.TotalOuts == 15 && result.Diagnostics.CreditedPutouts == 15 && result.Diagnostics.UnclassifiedOuts == 0
+    Check(result.Diagnostics.TotalOuts == 17 && result.Diagnostics.CreditedPutouts == 17 && result.Diagnostics.UnclassifiedOuts == 0
         && result.Diagnostics.OverCreditedOuts == 0, $"all 12 outs credited exactly once ({result.Diagnostics})");
     Check(result.Diagnostics.UnmappedFielderCredits == 0, "every credit mapped to a player");
     var c1 = Row("c1|C");
@@ -114,26 +119,32 @@ static void BuildCases()
     Check(ss1.Putouts == 2 && ss1.Assists == 2 && ss1.Errors == 1 && ss1.DoublePlays == 2, $"starting SS: PO {ss1.Putouts} A {ss1.Assists} E {ss1.Errors} DP {ss1.DoublePlays}");
     Check(Math.Abs(ss1.FieldingInnings - 3.0) < 1e-9, $"starting SS innings = 9 outs before substitution ({ss1.FieldingInnings})");
     var ss2 = Row("ss2|SS");
-    Check(ss2.Games == 1 && ss2.GamesStarted == 0 && ss2.Putouts == 1 && Math.Abs(ss2.FieldingInnings - 2.0) < 1e-9,
-        "substitute SS: appears, no start, CS tag putout, 6 outs of innings");
+    Check(ss2.Games == 1 && ss2.GamesStarted == 0 && ss2.Putouts == 1 && Math.Abs(ss2.FieldingInnings - 8 / 3.0) < 1e-9,
+        "substitute SS: appears, no start, CS tag putout, 8 outs of innings");
     var b2 = Row("b2|2B");
     Check(b2.Putouts == 1 && b2.Assists == 3 && b2.DoublePlays == 2, $"2B: DP pivot PO+A, rundown A, force PO (PO {b2.Putouts} A {b2.Assists} DP {b2.DoublePlays})");
     var b1 = Row("b1|1B");
-    Check(b1.Putouts == 7 && b1.Assists == 1 && b1.Errors == 0 && b1.DoublePlays == 3, $"1B: PO {b1.Putouts} A {b1.Assists} E {b1.Errors} DP {b1.DoublePlays} (identical chains count as two outs)");
-    Check(Row("b3|3B").Errors == 1, "one error for two runners advancing on the same throwing error");
+    Check(b1.Putouts == 8 && b1.Assists == 1 && b1.Errors == 0 && b1.DoublePlays == 4, $"1B: PO {b1.Putouts} A {b1.Assists} E {b1.Errors} DP {b1.DoublePlays} (identical chains count as two outs)");
+    Check(Row("b3|3B").Errors == 2 && Row("b2|2B").Errors == 1, "grounder reach + different fielder's throwing error = two errors");
+    Check(Row("cf1|CF").DoublePlays == 1 && Row("b1|1B").DoublePlays == 4, "fly out with a runner doubled off counts as a double play");
+    Check(result.Diagnostics.DoublePlayCount == 4, "four double-play plays counted once each");
     var p1 = Row("p1|P");
-    Check(p1.Putouts == 0 && p1.Assists == 2 && p1.Errors == 1, "pitcher: ground-ball assist, pickoff assist, implied error on reach-on-grounder");
+    Check(p1.Putouts == 0 && p1.Assists == 2 && p1.Errors == 1 && p1.Pickoffs == 1, "pitcher: ground-ball assist, pickoff assist+PKO, one error for grounder+chain on the same play");
+
     Check(result.Diagnostics.UnclassifiedErrors == 1, "runner error after a hit stays unclassified (no fielder named)");
+    Check(result.Diagnostics.ErrorCheckedTeamGames == 2 && result.Diagnostics.ErrorMismatchTeamGames == 0, "computed team errors match the box score (home 6, away 0)");
+    var mismatch = FieldingRecordBuilder.Build([game with { HomeErrors = 3 }], AnalyticsGrouping.PlayerByTeam).Diagnostics;
+    Check(mismatch.ErrorMismatchTeamGames == 1 && mismatch.ErrorsOverOfficial == 3 && mismatch.Samples.Any(s => s.StartsWith("실책 과잉 G1 HT 계산 6 공식 3")), "box-score mismatch is reported with the error texts");
     Check(Row("lf1|LF").Putouts == 1 && Row("lf1|LF").Games == 1 && Row("ph1|LF").Games == 1 && Row("ph1|LF").Putouts == 0
-        && Math.Abs(Row("ph1|LF").FieldingInnings - 2.0) < 1e-9, "pinch hitter shifted to LF gets innings after the shift");
+        && Math.Abs(Row("ph1|LF").FieldingInnings - 8 / 3.0) < 1e-9, "pinch hitter shifted to LF gets innings after the shift");
     Check(!rows.ContainsKey("dh1|DH") && !rows.ContainsKey("ph1|PH"), "DH and pinch hitter are not fielding rows");
-    Check(Row("cf1|CF").Errors == 0, "no CF error implied by a runner advance on a single");
-    Check(Row("b3|3B").Assists == 1 && Row("cf1|CF").Putouts == 1 && Row("cf1|CF").GamesStarted == 1 && !rows.ContainsKey("cf1|RF"), "3B assist and CF fly putout; starting position restored from the later shift");
-    Check(Math.Abs(Row("b1|1B").FieldingPercentage!.Value - 1.0) < 1e-9 && Row("b1|1B").TotalChances == 8 && Math.Abs(ss1.FieldingPercentage!.Value - 0.8) < 1e-9, "FPCT=(PO+A)/TC");
-    Check(Math.Abs(Row("b1|1B").RangeFactorPerNine!.Value - 27.0 * 8 / 15) < 1e-9, "RF/9=27*(PO+A)/outs");
+    Check(Row("cf1|CF").Errors == 0 && Row("cf1|CF").Putouts == 2, "no CF error implied by a runner advance on a single; two fly putouts");
+    Check(Row("b3|3B").Assists == 1 && Row("cf1|CF").GamesStarted == 1 && !rows.ContainsKey("cf1|RF"), "3B assist and CF fly putout; starting position restored from the later shift");
+    Check(Math.Abs(Row("b1|1B").FieldingPercentage!.Value - 1.0) < 1e-9 && Row("b1|1B").TotalChances == 9 && Math.Abs(ss1.FieldingPercentage!.Value - 0.8) < 1e-9, "FPCT=(PO+A)/TC");
+    Check(Math.Abs(Row("b1|1B").RangeFactorPerNine!.Value - 27.0 * 9 / 17) < 1e-9, "RF/9=27*(PO+A)/outs");
 
     var team = FieldingRecordBuilder.Build([game], AnalyticsGrouping.Team).Rows.ToDictionary(r => $"{r.TeamCode}|{r.Position}");
-    Check(team["HT|SS"].Putouts == 3 && team["HT|SS"].Pcode is null && team["HT|SS"].Name == "HT" && Math.Abs(team["HT|SS"].FieldingInnings - 5.0) < 1e-9,
+    Check(team["HT|SS"].Putouts == 3 && team["HT|SS"].Pcode is null && team["HT|SS"].Name == "HT" && Math.Abs(team["HT|SS"].FieldingInnings - 17 / 3.0) < 1e-9,
         "team grouping merges both shortstops");
 }
 
@@ -150,6 +161,7 @@ static async Task DatabaseCase(string path)
     Check(putouts == d.CreditedPutouts + d.OverCreditedOuts, $"row PO sum {putouts} = credited {d.CreditedPutouts} + over {d.OverCreditedOuts}, outs {d.TotalOuts}");
     Check(d.UnclassifiedOuts + d.OverCreditedOuts <= Math.Max(2, d.TotalOuts / 50), "unclassified + over-credited outs within 2% of outs");
     Check(d.UnmappedFielderCredits == 0, "no credit landed on an empty position");
+    Console.WriteLine($"INFO official error check: team-games {d.ErrorCheckedTeamGames}, mismatches {d.ErrorMismatchTeamGames}, over {d.ErrorsOverOfficial}, under {d.ErrorsUnderOfficial}");
     foreach (var teamRows in result.Rows.GroupBy(r => r.TeamCode))
     {
         var teamOuts = teamRows.Where(r => r.Position == "P").Sum(r => r.FieldingInnings) * 3;

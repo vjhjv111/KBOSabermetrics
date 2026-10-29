@@ -15,17 +15,17 @@ public sealed partial class DatabaseCacheService
         var filter = BuildFilteredGamesCte(query with { SelectedPlayerCodes = null, PitcherStartsOnly = null });
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
 
-        var games = new Dictionary<string, (string? Home, string? Away)>(StringComparer.Ordinal);
+        var games = new Dictionary<string, (string? Home, string? Away, int? HomeErrors, int? AwayErrors)>(StringComparer.Ordinal);
         var order = new List<string>();
         var lineups = new Dictionary<string, List<FieldingLineupSource>>(StringComparer.Ordinal);
         var plateAppearances = new Dictionary<string, List<FieldingPlateAppearanceSource>>(StringComparer.Ordinal);
         var runners = new Dictionary<string, List<FieldingRunnerSource>>(StringComparer.Ordinal);
         var changes = new Dictionary<string, List<FieldingChangeSource>>(StringComparer.Ordinal);
 
-        await ReadAsync("SELECT GameId,HomeTeamCode,AwayTeamCode FROM FilteredGames ORDER BY GameDate,GameId", reader =>
+        await ReadAsync("SELECT GameId,HomeTeamCode,AwayTeamCode,HomeErrors,AwayErrors FROM FilteredGames ORDER BY GameDate,GameId", reader =>
         {
             var id = reader.GetString(0);
-            if (games.TryAdd(id, (Text(reader, 1), Text(reader, 2)))) order.Add(id);
+            if (games.TryAdd(id, (Text(reader, 1), Text(reader, 2), Int(reader, 3), Int(reader, 4)))) order.Add(id);
         }).ConfigureAwait(false);
         await ReadAsync("""
             SELECT gp.GameId,gp.Pcode,gp.TeamCode,gp.Name,gp.Position,gp.LineupSequence FROM GamePlayers gp
@@ -51,7 +51,7 @@ public sealed partial class DatabaseCacheService
             """, reader => Add(changes, reader.GetString(0), new FieldingChangeSource(Int(reader, 1), Int(reader, 2), reader.GetInt32(3),
             Text(reader, 4), reader.GetInt32(5), Text(reader, 6), Text(reader, 7), Text(reader, 8), Text(reader, 9), Text(reader, 10), Text(reader, 11), Text(reader, 12)))).ConfigureAwait(false);
 
-        return order.Select(id => new FieldingGameSource(id, games[id].Home, games[id].Away,
+        return order.Select(id => new FieldingGameSource(id, games[id].Home, games[id].Away, games[id].HomeErrors, games[id].AwayErrors,
             lineups.GetValueOrDefault(id) ?? [], plateAppearances.GetValueOrDefault(id) ?? [],
             runners.GetValueOrDefault(id) ?? [], changes.GetValueOrDefault(id) ?? [])).ToList();
 

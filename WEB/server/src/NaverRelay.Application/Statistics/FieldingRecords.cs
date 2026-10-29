@@ -19,6 +19,7 @@ public sealed class BatterFieldingRecordRow
     [DisplayName("A")] public int Assists { get; init; }
     [DisplayName("E")] public int Errors { get; init; }
     [DisplayName("DP")] public int DoublePlays { get; init; }
+    [DisplayName("PKO")] public int Pickoffs { get; init; }
     [DisplayName("TC")] public int TotalChances { get; init; }
     [DisplayName("FPCT")] public double? FieldingPercentage { get; init; }
     [DisplayName("RF/9")] public double? RangeFactorPerNine { get; init; }
@@ -30,6 +31,7 @@ public sealed class BatterFieldingRecordRow
 
 // 수비 집계에 필요한 경기 원본. DB 조회 계층이 채우고 FieldingRecordBuilder가 소비합니다.
 public sealed record FieldingGameSource(string GameId, string? HomeTeamCode, string? AwayTeamCode,
+    int? HomeErrors, int? AwayErrors,
     IReadOnlyList<FieldingLineupSource> Lineup, IReadOnlyList<FieldingPlateAppearanceSource> PlateAppearances,
     IReadOnlyList<FieldingRunnerSource> RunnerEvents, IReadOnlyList<FieldingChangeSource> Changes);
 public sealed record FieldingLineupSource(string Pcode, string TeamCode, string Name, string? Position, int? LineupSequence);
@@ -49,7 +51,8 @@ public sealed record FieldingChain(IReadOnlyList<string> OutFielders, string? Er
 }
 
 public sealed record FieldingDiagnostics(int Games, int TotalOuts, int CreditedPutouts, int UnclassifiedOuts, int OverCreditedOuts,
-    int UnclassifiedErrors, int UnmappedFielderCredits, IReadOnlyList<string> Samples)
+    int UnclassifiedErrors, int UnmappedFielderCredits, IReadOnlyList<string> Samples,
+    int ErrorCheckedTeamGames = 0, int ErrorMismatchTeamGames = 0, int ErrorsOverOfficial = 0, int ErrorsUnderOfficial = 0, int DoublePlayCount = 0)
 {
     public const int SampleLimitForDisplay = 20;
 }
@@ -69,7 +72,7 @@ public static class FieldingRecordBuilder
     };
     private static readonly Regex PositionToken = new("투수|포수|1루수|2루수|3루수|유격수|좌익수|중견수|우익수", RegexOptions.Compiled);
     private static readonly Regex Parenthetical = new(@"\(([^()]*)\)", RegexOptions.Compiled);
-    private const int ReasonStolenBase = 2, ReasonCaughtStealing = 3, ReasonForceOut = 10, ReasonTagOut = 11;
+    private const int ReasonStolenBase = 2, ReasonCaughtStealing = 3, ReasonPickoff = 7, ReasonForceOut = 10, ReasonTagOut = 11;
     private const int SampleLimit = 40;
     private static readonly Regex ErrorInText = new(@"(투수|포수|1루수|2루수|3루수|유격수|좌익수|중견수|우익수)\s*(?:포구|송구|수비)?\s*실책", RegexOptions.Compiled);
 
@@ -112,6 +115,7 @@ public static class FieldingRecordBuilder
         var totals = new Dictionary<string, Tally>(StringComparer.Ordinal);
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
         int gameCount = 0, totalOuts = 0, credited = 0, unclassifiedOuts = 0, overCredited = 0, unclassifiedErrors = 0, unmapped = 0;
+        int errorCheckedTeamGames = 0, errorMismatchTeamGames = 0, errorsOverOfficial = 0, errorsUnderOfficial = 0, doublePlayCount = 0;
         var samples = new List<string>();
         void Sample(string kind, string? text, IEnumerable<string>? extra = null)
         {
@@ -123,6 +127,8 @@ public static class FieldingRecordBuilder
         foreach (var game in games)
         {
             gameCount++;
+            var teamErrors = new Dictionary<string, int>(StringComparer.Ordinal);
+            var errorTexts = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             var alignment = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal); // team -> position -> pcode
             var appeared = new HashSet<string>(StringComparer.Ordinal);
             Tally TallyFor(string team, string position, string pcode)
@@ -211,6 +217,7 @@ public static class FieldingRecordBuilder
                     if (!map.TryGetValue(position, out var pcode)) { unmapped += po + a + e; putoutsHere += po; Sample($"담당 미확인 {position}", pa.ResultText); return; }
                     var tally = TallyFor(fieldingTeam, position, pcode);
                     tally.Putouts += po; tally.Assists += a; tally.Errors += e; putoutsHere += po;
+                    if (e > 0) teamErrors[fieldingTeam] = teamErrors.GetValueOrDefault(fieldingTeam) + e;
                     if ((po > 0 || a > 0) && !creditedHere.Contains(tally)) creditedHere.Add(tally);
                 }
                 void CreditChain(IReadOnlyList<string> chain, int outs)
@@ -228,7 +235,7 @@ public static class FieldingRecordBuilder
 
                 var paChain = ParseChain(pa.ResultText);
                 var paHasError = pa.ResultText?.Contains("실책", StringComparison.Ordinal) == true;
-                var runnerOuts = 0; var runnerCaughtStealing = false;
+                var runnerOuts = 0; var runnerCaughtStealing = false; var runnerForcedOrTagged = false;
                 var runnerErrorChains = new HashSet<string>(StringComparer.Ordinal);
                 var passedBall = false;
                 // "투수 앞 땅볼로 출루"처럼 안타도 아웃도 아닌 출루 타구에 주자 문구만 "실책으로 진루"면 타구를 처리한 수비수의 실책 1개로 봅니다.
@@ -238,6 +245,7 @@ public static class FieldingRecordBuilder
                     && pa.ResultText is { } reachText && reachText.Contains("로 출루", StringComparison.Ordinal)
                     && !reachText.Contains("안타", StringComparison.Ordinal) && !reachText.Contains("루타", StringComparison.Ordinal);
                 var impliedError = false;
+                var runnerErrorFielders = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var runner in runnersByPa.GetValueOrDefault(pa.PlateAppearanceId) ?? [])
                 {
                     var chain = ParseChain(runner.RawText);
@@ -247,6 +255,7 @@ public static class FieldingRecordBuilder
                     if (runner.IsOut)
                     {
                         if (runner.Reason == ReasonCaughtStealing) runnerCaughtStealing = true;
+                        if (runner.Reason is ReasonForceOut or ReasonTagOut) runnerForcedOrTagged = true;
                         // 병살 타석의 "포스아웃 (유격수->2루수 ...)"는 타석 연결의 앞부분을 되풀이한 것이라 한 번만 셉니다.
                         // 연결이 완전히 같으면("1루수 1루 터치아웃" + "1루수 태그아웃") 같은 수비수가 두 아웃을 잡은 별개 플레이입니다.
                         if (runner.Reason is ReasonForceOut or ReasonTagOut && IsProperPrefix(chain.OutFielders, paChain.OutFielders) && pa.OutsRecorded >= 2) continue;
@@ -256,13 +265,20 @@ public static class FieldingRecordBuilder
                             TallyFor(fieldingTeam, "C", c).CaughtStealing++;
                     }
                     var runnerError = chain.ErrorFielder ?? ErrorFielderFromText(runner.RawText);
+                    // 출루 타구에 주자 실책 문구가 붙으면 타구 처리 수비수의 실책으로 보되, 아래에서 같은 수비수의 연결 실책과는 합칩니다.
+                    if (reachedOnBattedBall && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true) impliedError = true;
                     // 같은 실책으로 여러 주자가 진루하면 주자별 문구가 따로 오므로, 연결 괄호(없으면 수비수 코드) 기준으로 한 번만 셉니다.
                     if (runnerError is not null && runnerError != (paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText)) && runnerErrorChains.Add(ErrorKey(runner.RawText, runnerError)))
-                        Credit(runnerError, 0, 0, 1);
+                    { Credit(runnerError, 0, 0, 1); runnerErrorFielders.Add(runnerError); }
                     else if (runnerError is null && runner.RawText?.Contains("실책", StringComparison.Ordinal) == true && !paHasError)
                     {
-                        if (reachedOnBattedBall) impliedError = true;
-                        else { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
+                        if (!reachedOnBattedBall) { unclassifiedErrors++; Sample("미분류 실책", runner.RawText, [pa.ResultText ?? ""]); }
+                    }
+                    // 견제사: 연결의 첫 수비수(보통 투수)에게 PKO를 줍니다. 연결 없는 견제사는 투수로 봅니다.
+                    if (runner.IsOut && runner.Reason == ReasonPickoff)
+                    {
+                        var pickoffBy = chain.OutFielders.Count > 0 ? chain.OutFielders[0] : "P";
+                        if (map.TryGetValue(pickoffBy, out var pickoffPcode)) TallyFor(fieldingTeam, pickoffBy, pickoffPcode).Pickoffs++;
                     }
                 }
 
@@ -275,7 +291,8 @@ public static class FieldingRecordBuilder
                     else if (pa.IsOut && pa.ResultText?.Contains("타구맞음", StringComparison.Ordinal) == true) Credit("C", 1, 0, 0);
                     else if (pa.IsOut && PositionCode(pa.PrimaryFielder) is { } fielder) Credit(fielder, 1, 0, 0);
                 }
-                if (impliedError) Credit(PositionCode(pa.PrimaryFielder)!, 0, 0, 1);
+                // 같은 플레이의 주자 문구가 이미 그 수비수 실책을 연결로 밝혔으면(예: "투수 송구 실책->포수") 한 번만 셉니다.
+                if (impliedError && !runnerErrorFielders.Contains(PositionCode(pa.PrimaryFielder)!)) Credit(PositionCode(pa.PrimaryFielder)!, 0, 0, 1);
                 if (paHasError)
                 {
                     if ((paChain.ErrorFielder ?? ErrorFielderFromText(pa.ResultText) ?? PositionCode(pa.PrimaryFielder)) is { } fielder) Credit(fielder, 0, 0, 1);
@@ -283,9 +300,10 @@ public static class FieldingRecordBuilder
                 }
                 if (passedBall && map.TryGetValue("C", out var pbCatcher)) TallyFor(fieldingTeam, "C", pbCatcher).PassedBalls++;
 
+                // 병살: 병살 문구, 삼진+도루 저지, 또는 타자 아웃과 같은 플레이의 주자 포스·태그 아웃(라인드라이브 더블 오프 등).
                 var doublePlay = pa.OutsRecorded >= 2 && (pa.ResultText?.Contains("병살", StringComparison.Ordinal) == true
-                    || pa.IsStrikeout && runnerCaughtStealing);
-                if (doublePlay) foreach (var tally in creditedHere) tally.DoublePlays++;
+                    || pa.IsStrikeout && runnerCaughtStealing || pa.IsOut && runnerForcedOrTagged);
+                if (doublePlay) { doublePlayCount++; foreach (var tally in creditedHere) tally.DoublePlays++; }
 
                 credited += Math.Min(putoutsHere, pa.OutsRecorded);
                 if (putoutsHere != pa.OutsRecorded)
@@ -298,6 +316,25 @@ public static class FieldingRecordBuilder
 
                 foreach (var (position, pcode) in map)
                     TallyFor(fieldingTeam, position, pcode).Outs += pa.OutsRecorded;
+
+                var runnerTexts = (runnersByPa.GetValueOrDefault(pa.PlateAppearanceId) ?? []).Select(r => r.RawText ?? "").ToList();
+                if (pa.ResultText?.Contains("실책", StringComparison.Ordinal) == true || runnerTexts.Any(t => t.Contains("실책", StringComparison.Ordinal)))
+                {
+                    if (!errorTexts.TryGetValue(fieldingTeam, out var list)) errorTexts[fieldingTeam] = list = new List<string>();
+                    list.Add(pa.ResultText + string.Concat(runnerTexts.Where(t => t.Contains("실책", StringComparison.Ordinal)).Select(t => " / " + t)));
+                }
+            }
+
+            // 박스스코어의 팀 실책 수와 경기 단위로 대조해 과잉·누락 배정이 난 경기를 찾습니다.
+            foreach (var (team, official) in new[] { (game.HomeTeamCode, game.HomeErrors), (game.AwayTeamCode, game.AwayErrors) })
+            {
+                if (string.IsNullOrEmpty(team) || official is null) continue;
+                errorCheckedTeamGames++;
+                var computed = teamErrors.GetValueOrDefault(team);
+                if (computed == official.Value) continue;
+                errorMismatchTeamGames++;
+                if (computed > official.Value) errorsOverOfficial += computed - official.Value; else errorsUnderOfficial += official.Value - computed;
+                Sample($"실책 {(computed > official.Value ? "과잉" : "누락")} {game.GameId} {team} 계산 {computed} 공식 {official.Value}", null, errorTexts.GetValueOrDefault(team));
             }
         }
 
@@ -312,7 +349,7 @@ public static class FieldingRecordBuilder
                 Name = grouping == AnalyticsGrouping.Team ? t.Team : names.GetValueOrDefault(t.Pcode, t.Pcode),
                 TeamCode = t.Team, Position = t.Position,
                 Games = t.Games, GamesStarted = t.GamesStarted, FieldingInnings = t.Outs / 3.0,
-                Putouts = t.Putouts, Assists = t.Assists, Errors = t.Errors, DoublePlays = t.DoublePlays, TotalChances = chances,
+                Putouts = t.Putouts, Assists = t.Assists, Errors = t.Errors, DoublePlays = t.DoublePlays, Pickoffs = t.Pickoffs, TotalChances = chances,
                 FieldingPercentage = chances > 0 ? (double)(t.Putouts + t.Assists) / chances : null,
                 RangeFactorPerNine = t.Outs > 0 ? 27.0 * (t.Putouts + t.Assists) / t.Outs : null,
                 StolenBasesAllowed = catcher ? t.StolenBasesAllowed : null,
@@ -321,7 +358,8 @@ public static class FieldingRecordBuilder
                 PassedBalls = catcher ? t.PassedBalls : null,
             };
         }).OrderByDescending(r => r.FieldingInnings).ThenBy(r => r.Name, StringComparer.Ordinal).ToList();
-        return new(rows, new(gameCount, totalOuts, credited, unclassifiedOuts, overCredited, unclassifiedErrors, unmapped, samples));
+        return new(rows, new(gameCount, totalOuts, credited, unclassifiedOuts, overCredited, unclassifiedErrors, unmapped, samples,
+            errorCheckedTeamGames, errorMismatchTeamGames, errorsOverOfficial, errorsUnderOfficial, doublePlayCount));
     }
 
     private static string ErrorKey(string? text, string fielder)
@@ -342,6 +380,6 @@ public static class FieldingRecordBuilder
         public string Pcode { get; } = pcode;
         public string Team { get; } = team;
         public string Position { get; } = position;
-        public int Games, GamesStarted, Outs, Putouts, Assists, Errors, DoublePlays, StolenBasesAllowed, CaughtStealing, PassedBalls;
+        public int Games, GamesStarted, Outs, Putouts, Assists, Errors, DoublePlays, Pickoffs, StolenBasesAllowed, CaughtStealing, PassedBalls;
     }
 }

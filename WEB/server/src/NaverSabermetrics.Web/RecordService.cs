@@ -263,6 +263,8 @@ public sealed partial class RecordService
             warnings.Add("수비 기록은 공식 기록이 아니라 중계 문구의 수비 연결(예: 유격수->1루수 송구아웃)과 라인업·교체 기록으로 복원한 수비 배치에서 계산한 추정치입니다. 연결의 마지막 수비수가 PO, 그 앞의 수비수가 A(수비수당 1회), 실책 앞의 수비수가 E입니다. 연결 없는 플라이·라인드라이브는 해당 수비수 PO, 삼진은 포수 PO입니다. DP는 아웃 2개 이상인 병살 문구 타석(삼진+도루 저지 포함)에서 PO·A를 기록한 수비수에게 1회씩 줍니다. Inn은 그 포지션을 맡은 동안 팀이 잡은 아웃÷3입니다. 규정 비율과 팀 기록의 국적 조건은 이 탭에 적용하지 않습니다.");
             if (_fieldingDiagnostics.TryGetValue(FieldingDiagnosticsKey(request, query), out var fd))
                 warnings.Add($"수비 분류 현황: 경기 {fd.Games}, 아웃 {fd.TotalOuts} 중 PO 배정 {fd.CreditedPutouts}, 미분류 아웃 {fd.UnclassifiedOuts}, 중복 배정 {fd.OverCreditedOuts}, 미분류 실책 {fd.UnclassifiedErrors}, 담당 선수 미확인 기록 {fd.UnmappedFielderCredits}. 미분류 건은 어느 선수에게도 배정하지 않습니다.");
+            if (_fieldingDiagnostics.TryGetValue(FieldingDiagnosticsKey(request, query), out var fdErrors) && fdErrors.ErrorCheckedTeamGames > 0)
+                warnings.Add($"박스스코어 실책 대조: 팀-경기 {fdErrors.ErrorCheckedTeamGames}건 중 불일치 {fdErrors.ErrorMismatchTeamGames}건, 과잉 배정 {fdErrors.ErrorsOverOfficial}, 누락 {fdErrors.ErrorsUnderOfficial}. 병살 플레이 수 {fdErrors.DoublePlayCount}(DP 열은 참여 횟수).");
             if (_fieldingDiagnostics.TryGetValue(FieldingDiagnosticsKey(request, query), out var fdSamples) && fdSamples.Samples.Count > 0)
                 warnings.Add("수비 미분류 사례(최대 " + FieldingDiagnostics.SampleLimitForDisplay + "건): " + string.Join(" ‖ ", fdSamples.Samples.Take(FieldingDiagnostics.SampleLimitForDisplay)));
         }
