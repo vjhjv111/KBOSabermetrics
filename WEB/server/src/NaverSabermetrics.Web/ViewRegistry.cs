@@ -34,6 +34,7 @@ public static class ViewRegistry
         new("batter", "direction", "타구방향", typeof(BatterDirectionRecordRow)),
         new("batter", "discipline", "투구", typeof(BatterPitchProfileRecordRow)),
         new("batter", "pitch-types", "구종", typeof(BatterPitchTypeMatrixRow)),
+        new("batter", "fielding", "수비", typeof(BatterFieldingRecordRow)),
         new("pitcher", "basic", "기본", typeof(PitcherBasicRecordRow)),
         new("pitcher", "advanced", "심화", typeof(PitcherAdvancedRecordRow)),
         new("pitcher", "value", "가치", typeof(PitcherDetailedValueRecordRow)),
@@ -80,14 +81,14 @@ public static class ViewRegistry
         if (p.Name.Contains("WarPerInning", StringComparison.OrdinalIgnoreCase)) return "decimal6";
         if (p.Name.EndsWith("Plus") && label.EndsWith("+") || label == "ERA-") return "integer";
         if (label.Contains('%') || p.Name.EndsWith("Usage", StringComparison.Ordinal) || label.Contains("사용률") || label.Contains("구사율") || label.Contains("성공률")) return "percent";
-        if (p.Name is "InningsPitched" or "StarterInnings" or "ReliefInnings") return "innings";
+        if (p.Name is "InningsPitched" or "StarterInnings" or "ReliefInnings" or "FieldingInnings") return "innings";
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
         if (t == typeof(int) || t == typeof(long)) return "integer";
         if (label.Contains("wRC", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Wrc", StringComparison.OrdinalIgnoreCase)) return "decimal1";
         if (IsWarMetric(p)) return "decimal2";
         if (label.EndsWith("/9", StringComparison.Ordinal)) return "decimal2";
         if (label.Contains("AVG") || label.Contains("OBP") || label.Contains("SLG") || label.Contains("OPS") && !label.Contains('+')
-            || label.Contains("BABIP") || label.Contains("BACON") || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA" or "잔루/PA") return "decimal3";
+            || label.Contains("BABIP") || label.Contains("BACON") || label == "FPCT" || label.Contains("wOBA") || label.StartsWith("Iso") || label is "ISO" or "R/ePA" or "잔루/PA") return "decimal3";
         if (label.Contains("OPS+") || label.EndsWith("FIP-")) return "integer";
         if (p.Name.Contains("War", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Runs") || p.Name.Contains("Speed") || label.Contains("PF")) return "decimal1";
         return "decimal2";

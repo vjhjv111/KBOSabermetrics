@@ -20,6 +20,8 @@ public sealed partial class RecordService
     private readonly object _cacheLock = new();
     private readonly Dictionary<string,(byte[] Bytes, DateTime At)> _cache = new();
     private long _cacheBytes;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,FieldingDiagnostics> _fieldingDiagnostics = new(StringComparer.Ordinal);
+    private static string FieldingDiagnosticsKey(RecordRequest r, GameQuery q) => $"{r.Room}|{q.CacheKey}";
     public const string FormulaVersion = "Uploaded-KboPitcherWarV3-web.14-plus";
 
     public RecordService(DatabaseCacheService db, SiteOptions options)
@@ -101,6 +103,8 @@ public sealed partial class RecordService
         // Do not silently show whole-game ER/WAR on event-only queries.
         if (query.HasSituationFilters && (request.Role == "combined" || request.View == "value" || request.Role == "pitcher" && request.View is "starter" or "reliever"))
             throw new RequestError("이 탭은 경기 최종 기록이 필요합니다. 이닝·아웃·주자·카운트 조건을 해제하세요.");
+        if (query.HasSituationFilters && request.Role == "batter" && request.View == "fielding")
+            throw new RequestError("수비 탭은 수비 배치 기준이라 이닝·아웃·주자·카운트 조건을 적용할 수 없습니다. 상황 조건을 해제하세요.");
         if (query.HasSituationFilters && request.Role == "batter" && !string.IsNullOrEmpty(request.Position))
             throw new RequestError("상황별 타석에는 정확한 수비 포지션 이닝이 없습니다. 포지션을 전체로 바꾸세요.");
         if (query.HasSituationFilters && request.Role == "pitcher" && request.QualificationPercent > 0)
@@ -254,6 +258,12 @@ public sealed partial class RecordService
         if (request.View == "advanced") warnings.Add("Plus Stats는 선택 연도·기간·대회의 리그 전체 합산 기록을 100으로 비교합니다. 팀·선수·상황 필터는 기준값에 적용하지 않으며 구장 보정은 하지 않습니다. 타자 K%+·투수 BB%+는 낮을수록 유리합니다. ERA-는 정규시즌 단일 연도에서 공식 ER·IP와 실제 투구 구장별 이닝 가중 득점 PF를 사용합니다. 상황별·통산·PF 누락 시 -로 표시합니다.");
         if (request.Role == "pitcher" && request.View == "pitch-types")
             warnings.Add("구종별 평균·최저·최고 구속은 현재 조회 조건의 수집된 구속(km/h) 기준입니다. 누락·0·음수는 제외하며, 유효한 구속이 없으면 -로 표시합니다.");
+        if (request.Role == "batter" && request.View == "fielding")
+        {
+            warnings.Add("수비 기록은 공식 기록이 아니라 중계 문구의 수비 연결(예: 유격수->1루수 송구아웃)과 라인업·교체 기록으로 복원한 수비 배치에서 계산한 추정치입니다. 연결의 마지막 수비수가 PO, 그 앞의 수비수가 A(수비수당 1회), 실책 앞의 수비수가 E입니다. 연결 없는 플라이·라인드라이브는 해당 수비수 PO, 삼진은 포수 PO입니다. DP는 아웃 2개 이상인 병살 문구 타석(삼진+도루 저지 포함)에서 PO·A를 기록한 수비수에게 1회씩 줍니다. Inn은 그 포지션을 맡은 동안 팀이 잡은 아웃÷3입니다. 규정 비율과 팀 기록의 국적 조건은 이 탭에 적용하지 않습니다.");
+            if (_fieldingDiagnostics.TryGetValue(FieldingDiagnosticsKey(request, query), out var fd))
+                warnings.Add($"수비 분류 현황: 경기 {fd.Games}, 아웃 {fd.TotalOuts} 중 PO 배정 {fd.CreditedPutouts}, 미분류 아웃 {fd.UnclassifiedOuts}, 중복 배정 {fd.OverCreditedOuts}, 미분류 실책 {fd.UnclassifiedErrors}, 담당 선수 미확인 기록 {fd.UnmappedFielderCredits}. 미분류 건은 어느 선수에게도 배정하지 않습니다.");
+        }
         if (request.Role == "batter" && request.View == "team-batting")
             warnings.Add(request.Room == "team"
                 ? "병살 상황은 2아웃 미만에 1루 주자가 있고 타석 결과 전까지 1루를 떠나지 않은 타석입니다. 팀 잔루는 PA-득점-아웃입니다. 희생번트 실패는 주자가 있는 2아웃 미만의 번트 관련 타석 중 안타·희생타 성공·실책 출루·볼넷류·야수선택이 아닌 타자 아웃입니다. 번트 아웃은 바로 포함하고, 그 밖의 아웃은 첫 2스트라이크를 번트 파울·번트 헛스윙·루킹 스트라이크로만 만든 타석에 한해 포함합니다."
@@ -367,6 +377,15 @@ public sealed partial class RecordService
         var core = r.Role == "batter"
             ? new[] { "basic","advanced","value","extended","power","team-batting","steal","baserunning","discipline" }.Contains(r.View)
             : new[] { "basic","advanced","value","starter","reliever" }.Contains(r.View);
+        if (r.Role == "batter" && r.View == "fielding")
+        {
+            // 수비 탭은 스냅샷 대신 타석·주자·교체 원본으로 포지션별 행을 직접 만듭니다.
+            var fielding = FieldingRecordBuilder.Build(await _db.QueryFieldingGamesAsync(q, token).ConfigureAwait(false), q.Grouping);
+            _fieldingDiagnostics[FieldingDiagnosticsKey(r, q)] = fielding.Diagnostics;
+            IEnumerable<BatterFieldingRecordRow> fieldingRows = fielding.Rows;
+            if (r.Room != "team" && !string.IsNullOrEmpty(r.Position)) fieldingRows = fieldingRows.Where(x => x.Position == r.Position);
+            return fieldingRows.Cast<object>().ToList();
+        }
         var needsSnapshot = core || r.QualificationPercent > 0 || !string.IsNullOrEmpty(r.Position);
         var needsLeague = needsSnapshot || r.View is "clutch" or "wp" or "reliever";
         var league = needsLeague ? await _db.GetLeagueReferenceAsync(cancellationToken:token).ConfigureAwait(false) : new LeagueReference();
