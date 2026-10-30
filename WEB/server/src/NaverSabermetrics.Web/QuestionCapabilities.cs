@@ -5,13 +5,17 @@ namespace NaverSabermetrics.Web;
 
 public static class QuestionCapabilities
 {
+    private const string WrcPlusAliases = @"우르크|(?<![a-z])wrc\s*(?:[+＋]|플러스|plus)(?![a-z])";
     public static bool RequestsWrcPlus(string question) =>
-        Regex.IsMatch(question, @"우르크|(?<![a-z])wrc\s*(?:[+＋]|플러스|plus)", RegexOptions.IgnoreCase);
+        Regex.IsMatch(question, WrcPlusAliases, RegexOptions.IgnoreCase);
+    public static string ForPlanner(string question) =>
+        Regex.Replace(question, WrcPlusAliases, "WrcPlusParkAdjusted", RegexOptions.IgnoreCase);
     public static QuestionPlan NormalizeMetric(string question, QuestionPlan plan)
     {
-        if (!RequestsWrcPlus(question)) return plan;
-        if (plan.Role != "batter" || !Regex.IsMatch(plan.Metric, @"^wrc(?:plus(?:parkadjusted)?|[+＋])?$", RegexOptions.IgnoreCase))
-            return plan;
+        if (plan.Role != "batter") return plan;
+        var metric = Regex.Replace(plan.Metric, @"\s", "");
+        var alias = Regex.IsMatch(metric, @"^(?:우르크|wrc(?:plus(?:parkadjusted)?|[+＋]|플러스))$", RegexOptions.IgnoreCase);
+        if (!alias && !(RequestsWrcPlus(question) && metric.Equals("wrc", StringComparison.OrdinalIgnoreCase))) return plan;
         return plan with { Metric = "WrcPlusParkAdjusted" };
     }
     public static bool ExplicitTeamTotals(string question)=>

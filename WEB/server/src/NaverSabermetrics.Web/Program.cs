@@ -437,7 +437,7 @@ app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bo
     // wRC+는 파크팩터 보정 전(WrcPlus)·후(WrcPlusParkAdjusted) 두 값이 별도 열로 존재합니다.
     // 봇 호출자가 "wRC+"에 대응하는 값으로 통상 WrcPlus를 보낼 가능성이 높으므로, 여기서는
     // 항상 보정된 값(WrcPlusParkAdjusted)으로 정렬·표시되도록 정규화합니다.
-    var normalizedStat = string.Equals(stat,"WrcPlus",StringComparison.OrdinalIgnoreCase) ? "WrcPlusParkAdjusted" : stat;
+    var normalizedStat = BotRecordCompatibility.NormalizeStat(role, stat);
     var request=new RecordRequest
     {
         Room="season",Role=role,View="basic",Year=year ?? DateTime.UtcNow.Year,
@@ -446,7 +446,8 @@ app.MapGet("/api/bot/record", async (string role, string? team, string? stat, bo
     };
     request.Validate(settings);
     quotas.Consume(Ip(c),request.PageSize);
-    return Results.Ok(await gate.RunAsync(t=>records.QueryAsync(request,t),c.RequestAborted));
+    var page = await gate.RunAsync(t=>records.QueryAsync(request,t),c.RequestAborted);
+    return Results.Ok(BotRecordCompatibility.AddCompatibilityCells(page, stat));
 });
 // 하루치 경기들 중 승부에 가장 큰 영향을 준 장면(|WPA| 상위) — 예전 /wpa5가 Statiz를 스크래핑하던 것을
 // 대체. PlateAppearances.WpaByPlate(타석별 승리확률 변동, %p 단위)를 그대로 사용하며, 투수/타자 이름과

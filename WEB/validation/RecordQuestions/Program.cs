@@ -31,8 +31,14 @@ foreach(var alias in new[]{"우르크","Wrc+","wRC +","wRC＋","wrc plus","wrc�
     var normalized=QuestionCapabilities.NormalizeMetric($"2026년 {alias} 순위",plan with{Metric="Wrc"});
     Check(normalized.Metric=="WrcPlusParkAdjusted",$"wRC+ 별칭 {alias}");
     Check(QuestionCapabilities.Describe(alias).Contains("WrcPlusParkAdjusted"),"AI 후보에 보정 지표 포함");
+    Check(QuestionCapabilities.ForPlanner($"2026년 한화 {alias} 상위 5명 최소 100타석")=="2026년 한화 WrcPlusParkAdjusted 상위 5명 최소 100타석","AI 미지원 판단 전에 별칭 정규화");
+    foreach(var modelMetric in new[]{alias,"WrcPlus","wrcplusparkadjusted","Wrc"})
+        Check(QuestionCapabilities.NormalizeMetric(alias,plan with{Metric=modelMetric}).Metric=="WrcPlusParkAdjusted","AI 응답 별칭 정규화: "+modelMetric);
 }
 Check(QuestionCapabilities.NormalizeMetric("2026년 wRC 순위",plan with{Metric="Wrc"}).Metric=="Wrc","일반 wRC 구분");
+Check(QuestionCapabilities.ForPlanner("2026년 wRC 순위")=="2026년 wRC 순위","일반 wRC 원문 유지");
+Check(QuestionCapabilities.ForPlanner("2026년 WrcPlusParkAdjusted 순위")=="2026년 WrcPlusParkAdjusted 순위","정규화된 입력 유지");
+Check(!QuestionCapabilities.NormalizeMetric("우르크",plan with{Supported=false,Metric="우르크"}).Supported,"실제 미지원 조건을 임의로 허용하지 않음");
 var site=new SiteOptions{QuerySeconds=120,StateDirectory=Path.Combine(Path.GetTempPath(),"record-questions-"+Guid.NewGuid())};
 var request=RecordQuestionService.ToRequest(plan,site,[2026]);
 Check(new RecordQuestionOptions().DailyLimit==1000 && new RecordQuestionOptions().PerIpDailyLimit==10,"운영 기본 한도 전체 1000/IP 10");

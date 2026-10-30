@@ -73,6 +73,7 @@ public sealed class OpenAiRecordPlanner(RecordQuestionOptions options, HttpMessa
             Years: {string.Join(',',years)}; Korea date: {BotGamesService.ParseDate(null):yyyy-MM-dd}. Ask for year if absent (올해=current year); career uses latest available year. Dates are inclusive. Month means its full date range.
             Metric candidates from the actual record registry: {QuestionCapabilities.Describe(question)}
             우르크, Wrc+, wRC＋, wrc plus, wrc플러스 mean batter WrcPlusParkAdjusted (park-adjusted wRC+), NEVER Wrc. Plain wRC means Wrc.
+            WrcPlusParkAdjusted IS AVAILABLE in the record registry. Input aliases are canonicalized before planning. Never reject this metric as unavailable or requiring external data. Resolve the remaining year, sample size, team and other constraints normally; ask only for genuinely missing or unsupported conditions.
             Basic aliases: batter hr=홈런,hits=안타,rbi=타점,runs=득점,sb=도루,bb=볼넷,so=삼진,avg=타율,obp=출루율,slg=장타율,ops=OPS; pitcher so=탈삼진,bb=볼넷,ip=이닝,era=평균자책점,whip=WHIP,hra=피홈런,ra=실점. Other metrics use exact property names from candidates.
             Filters (empty array if absent): room=season/team/career; competition=정규시즌/시범경기/포스트시즌/전체; opponent=team code; venue=홈/원정; stadium=Korean venue name; outs=0/1/2; runners=주자 없음/1루/2루/3루/1·2루/1·3루/2·3루/만루/득점권; score=동점/리드/열세/1점차 이내/2점차 이내/3점차 이내; balls=0..3 plus strikes=0..2; recentGames=5/10/20/30; recentDays=7/14/30/60/90.
             Team aggregate questions MUST set filters room=team, not individual-player rankings. Example: '타석수 무관 2026기준 키움히어로즈 만루 ops알려줘' => team=WO, room=team, runners=만루, metric=ops, minimumVolume=0, supported=true. A club's OPS/ERA is its aggregate, never the average of player rates. Player rankings explicitly asking 선수/타자/투수/상위 N명 keep room=season.
@@ -195,7 +196,7 @@ public sealed class RecordQuestionService(RecordQuestionOptions options,SiteOpti
         {
             var catalog=await db.GetCatalogAsync(ct);var years=catalog.Years.ToArray();
             await ReserveAsync(ip,ct,authenticatedBot);
-            var plan=await planner.PlanAsync(question.Trim(),years,ct);
+            var plan=await planner.PlanAsync(QuestionCapabilities.ForPlanner(question.Trim()),years,ct);
             if(!plan.Supported)return new{answer=string.IsNullOrWhiteSpace(plan.Clarification)?"연도·기간·조회할 기본 지표를 구체적으로 알려 주세요.":plan.Clarification[..Math.Min(500,plan.Clarification.Length)],clarification=true};
             plan=QuestionCapabilities.NormalizeMetric(question,plan);
             plan=QuestionTeams.Normalize(question,plan);
