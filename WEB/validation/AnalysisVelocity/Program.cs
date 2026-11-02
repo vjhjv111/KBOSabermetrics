@@ -97,7 +97,17 @@ static async Task SyntheticCases()
         {
             await Pa("S" + game, "Scope", game: game); await Pitch("S" + game, "Scope", 150, game: game, pitcher: "ScopeP");
         }
+        await Pa("FastballMix", "FastballMix");
+        await Pitch("FastballMix", "FastballMix", 145, actual:1, type:"직구");
+        await Pitch("FastballMix", "FastballMix", 140, actual:2, type:"커터");
+        await Pitch("FastballMix", "FastballMix", 142, actual:3, type:"투심");
+        await Pitch("FastballMix", "FastballMix", 130, actual:4, type:"슬라이더");
         var service = Service(path);
+        var fastballs=await service.QueryAsync(new AnalysisRequest(Section:"velocity",Code:"FastballMix",PitchType:"__fastball__"),default);
+        Check(Sum(fastballs,"N")==3 && Sum(fastballs,"PA")==0,"fastball group includes three types without borrowing terminal slider outcome");
+        var cutter=await service.QueryAsync(new AnalysisRequest(Section:"velocity",Code:"FastballMix",PitchType:"커터"),default);
+        Check(Sum(cutter,"N")==1,"individual pitch filter remains available");
+
         var request = new AnalysisRequest(Section: "velocity", Code: "Boundary");
         await Execute("CREATE TABLE OfficialPlayerProfiles(Pcode TEXT PRIMARY KEY,DraftText TEXT)");
         await Execute("INSERT INTO OfficialPlayerProfiles VALUES('P','자유선발'),('Boundary','아시아쿼터')");

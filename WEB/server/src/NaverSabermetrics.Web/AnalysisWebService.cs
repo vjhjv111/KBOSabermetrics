@@ -38,7 +38,7 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
     private const string SeasonNote = "선택 연도 정규시즌(kbo_r)만 포함하며 올스타전·시범경기·포스트시즌은 제외합니다.";
     private const string SampleNote = "0은 관측된 0이며, 분모가 없거나 자료가 누락된 값은 —로 표시합니다. 작은 표본의 비율은 변동이 큽니다.";
     private const string GamesFilter = "g.SeasonYear=$year AND LOWER(TRIM(g.RoundCode))='kbo_r' AND UPPER(g.HomeTeamCode) NOT IN ('EA','WE') AND UPPER(g.AwayTeamCode) NOT IN ('EA','WE') AND ($start='' OR g.GameDate >= $start) AND ($end='' OR g.GameDate <= $end)";
-    private const string PitchFilter = "($type='' OR COALESCE(NULLIF(p.PitchType,''),'미상')=$type) AND ($stance='' OR p.BatterStance=$stance) AND ($count='' OR CAST(p.BallsBefore AS TEXT)||'-'||CAST(p.StrikesBefore AS TEXT)=$count)";
+    private const string PitchFilter = "($type='' OR COALESCE(NULLIF(p.PitchType,''),'미상')=$type OR ($type='__fastball__' AND p.PitchType IN ('직구','커터','투심'))) AND ($stance='' OR p.BatterStance=$stance) AND ($count='' OR CAST(p.BallsBefore AS TEXT)||'-'||CAST(p.StrikesBefore AS TEXT)=$count)";
     private static string PlayerFilter(AnalysisRequest r) => r.Role == "pitcher" ? "p.PitcherPcode=$code" : "p.BatterPcode=$code";
     private static string TeamExpression(AnalysisRequest r) => r.Role == "pitcher"
         ? "CASE p.BattingSide WHEN 0 THEN g.HomeTeamCode WHEN 1 THEN g.AwayTeamCode END"

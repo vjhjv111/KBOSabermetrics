@@ -41,7 +41,7 @@ function analysisInitialize(){
   form.append(analysisField('year','시즌',years),analysisField('team','팀',[['','전체 팀'],...state.catalog.teams.map(t=>[t,teamNames[t]??t])]),analysisField('role','선수 구분',[['pitcher','투수'],['batter','타자']]));
   const search=analysisField('playerSearch','선수 검색',null,'search'),searchInput=search.querySelector('input');searchInput.placeholder='이름·팀·코드';searchInput.maxLength=30;
   const player=analysisField('code','선수',[['','선수를 불러오는 중…']]);player.classList.add('analysis-player');form.append(search,player,analysisField('opponentNationality','상대 선수 구분',[['','전체'],['domestic','국내 선수'],['foreign','외국인 선수'],['asian','아시아쿼터'],['foreign-asian','외국인 + 아시아쿼터']]));
-  form.append(analysisField('pitchType','구종',[['','전체 구종']]),analysisField('stance','타자 타석',[['','전체'],['L','좌타'],['R','우타']]),analysisField('count','투구 전 카운트',[['','전체'],...[0,1,2,3].flatMap(b=>[0,1,2].map(s=>[`${b}-${s}`,`${b}-${s}`]))]));
+  form.append(analysisField('pitchType','구종',[['','전체 구종'],['__fastball__','패스트볼 (직구·커터·투심)']]),analysisField('stance','타자 타석',[['','전체'],['L','좌타'],['R','우타']]),analysisField('count','투구 전 카운트',[['','전체'],...[0,1,2,3].flatMap(b=>[0,1,2].map(s=>[`${b}-${s}`,`${b}-${s}`]))]));
   form.append(analysisField('start','시작일',null,'date'),analysisField('end','종료일',null,'date'),analysisField('window','이동 평균',[['5','최근 5경기'],['10','최근 10경기'],['15','최근 15경기'],['20','최근 20경기']]));
   const game=analysisField('gameId','경기 ID (선택)',null,'text');game.querySelector('input').maxLength=40;game.querySelector('input').placeholder='비우면 선수의 최근 타석';form.append(game);
   const actions=text('div','','analysis-filter-actions'),submit=text('button','분석 조회','button primary');submit.type='submit';submit.id='an-submit';
@@ -105,7 +105,7 @@ async function analysisCatalog(signal,seq){
   const players=analysisRows(catalog,'players'),seen=new Set();analysisState.playerOptions=[];
   for(const player of players){if(seen.has(player.Code))continue;seen.add(player.Code);analysisState.playerOptions.push([`${player.Name} · ${teamNames[player.Team]??player.Team??''} (${player.Code})`,String(player.Code)]);}
   analysisRenderPlayers();
-  const oldType=$('an-pitchType').value;const types=analysisRows(catalog,'pitchTypes');$('an-pitchType').replaceChildren(new Option('전체 구종',''));for(const row of types)if(row.Type)$('an-pitchType').add(new Option(row.Type,row.Type));if(types.some(r=>r.Type===oldType))$('an-pitchType').value=oldType;
+  const oldType=$('an-pitchType').value;const types=analysisRows(catalog,'pitchTypes');$('an-pitchType').replaceChildren(new Option('전체 구종',''),new Option('패스트볼 (직구·커터·투심)','__fastball__'));for(const row of types)if(row.Type)$('an-pitchType').add(new Option(row.Type,row.Type));if(oldType==='__fastball__'||types.some(r=>r.Type===oldType))$('an-pitchType').value=oldType;
 }
 async function analysisLoad(clear=true){
   if(!analysisActive())return;analysisState.controller?.abort();analysisStopPlayback();const controller=new AbortController();analysisState.controller=controller;const seq=++analysisState.seq;
