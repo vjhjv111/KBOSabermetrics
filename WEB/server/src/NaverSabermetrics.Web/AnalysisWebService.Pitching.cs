@@ -4,6 +4,7 @@ public sealed partial class AnalysisWebService
 {
     private static string PaScope(AnalysisRequest r) => $"""
         {GamesFilter} AND pa.IsOfficial=1 AND pa.Status=0
+        AND {OpponentFilter(r, r.Role == "pitcher" ? "pa.BatterPcode" : "COALESCE(NULLIF(pa.FinalPitcherPcode,''),pa.PitcherPcode)")}
         AND {(r.Role == "pitcher" ? "COALESCE(NULLIF(pa.FinalPitcherPcode,''),pa.PitcherPcode)" : "pa.BatterPcode")}=$code
         AND ($team='' OR {(r.Role == "pitcher" ? "pa.FieldingTeamCode" : "pa.BattingTeamCode")}=$team)
         """;

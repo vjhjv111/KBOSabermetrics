@@ -6,7 +6,7 @@ namespace NaverSabermetrics.Web;
 
 public sealed record AnalysisRequest(string Section = "zones", int Year = 2026, string Code = "",
     string Role = "batter", string Team = "", string Start = "", string End = "", string PitchType = "",
-    string Stance = "", string Count = "", string GameId = "", string PaId = "", int Page = 1, int Window = 5)
+    string Stance = "", string Count = "", string GameId = "", string PaId = "", int Page = 1, int Window = 5, string OpponentNationality = "")
 {
     public void Validate()
     {
@@ -19,6 +19,8 @@ public sealed record AnalysisRequest(string Section = "zones", int Year = 2026, 
             || PitchType is null || PitchType.Length > 40 || PitchType.Any(char.IsControl)
             || Stance is not ("" or "L" or "R") || Count is null
             || (Count != "" && !(Count.Length == 3 && Count[0] is >= '0' and <= '3' && Count[1] == '-' && Count[2] is >= '0' and <= '2'))
+            || OpponentNationality is not ("" or "domestic" or "foreign" or "asian" or "foreign-asian")
+            || (OpponentNationality != "" && Section is not ("zones" or "velocity" or "sequences" or "trend" or "times"))
             || Page is < 1 or > 100 || Window is < 1 or > 30)
             throw new RequestError("분석 조회 조건이 잘못되었습니다.");
     }
@@ -41,18 +43,30 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
     private static string TeamExpression(AnalysisRequest r) => r.Role == "pitcher"
         ? "CASE p.BattingSide WHEN 0 THEN g.HomeTeamCode WHEN 1 THEN g.AwayTeamCode END"
         : "CASE p.BattingSide WHEN 0 THEN g.AwayTeamCode WHEN 1 THEN g.HomeTeamCode END";
-    private static string PitchScope(AnalysisRequest r) => $"{GamesFilter} AND {PlayerFilter(r)} AND ($team='' OR {TeamExpression(r)}=$team)";
+    private static string OpponentFilter(AnalysisRequest r, string code) => r.OpponentNationality == "" ? "1=1" : $"opponent_category({code}) IN ({(r.OpponentNationality == "foreign-asian" ? "'foreign','asian'" : "$opponent")})";
+    private static string PitchScope(AnalysisRequest r) => $"{GamesFilter} AND {PlayerFilter(r)} AND ($team='' OR {TeamExpression(r)}=$team) AND {OpponentFilter(r, r.Role == "pitcher" ? "p.BatterPcode" : "p.PitcherPcode")}";
 
     private async Task<List<Dictionary<string, object?>>> SqlAsync(string sql, AnalysisRequest r, CancellationToken ct)
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         { DataSource = db.DatabasePath, Mode = SqliteOpenMode.ReadOnly }.ToString());
         await connection.OpenAsync(ct);
+        if (r.OpponentNationality != "")
+        {
+            var drafts = await db.GetPlayerDraftTextsAsync(ct);
+            var categories = drafts.ToDictionary(x=>x.Key, x=>PlayerNationalityRegistry.ClassifyByDraftText(x.Value) switch {
+                PlayerNationalityCategory.Foreign => "foreign", PlayerNationalityCategory.AsianQuota => "asian", _ => "domestic" });
+            if (PlayerNationalityRegistry.HasAnyEntries)
+                foreach (var player in await db.GetWebPlayerIdentitiesAsync(ct))
+                    if (PlayerNationalityRegistry.Lookup(player.Name,player.Team) is {} category)
+                        categories[player.Code] = category == PlayerNationalityCategory.Foreign ? "foreign" : "asian";
+            connection.CreateFunction<string?,string>("opponent_category", code => code is not null ? categories.GetValueOrDefault(code,"unknown") : "unknown", isDeterministic:true);
+        }
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.CommandTimeout = options.QuerySeconds;
         foreach (var (name, value) in new (string, object)[] { ("$year", r.Year), ("$code", r.Code), ("$role", r.Role),
-            ("$team", r.Team), ("$start", r.Start), ("$end", r.End), ("$type", r.PitchType), ("$stance", r.Stance),
+            ("$opponent", r.OpponentNationality), ("$team", r.Team), ("$start", r.Start), ("$end", r.End), ("$type", r.PitchType), ("$stance", r.Stance),
             ("$count", r.Count), ("$game", r.GameId), ("$pa", r.PaId), ("$offset", (r.Page-1)*50), ("$window", r.Window) })
             command.Parameters.AddWithValue(name, value);
         using var registration = ct.Register(command.Cancel);
@@ -90,7 +104,7 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
     public async Task<AnalysisResult> QueryAsync(AnalysisRequest r, CancellationToken ct)
     {
         r.Validate();
-        return r.Section switch
+        var result = r.Section switch
         {
             "catalog" => await CatalogAsync(r, ct), "zones" => await ZonesAsync(r, ct),
             "velocity" => await VelocityAsync(r, ct),
@@ -100,6 +114,7 @@ public sealed partial class AnalysisWebService(DatabaseCacheService db, SiteOpti
             "expectancy" => await ExpectancyAsync(r, ct), "replay" => await ReplayAsync(r, ct),
             "provenance" => await ProvenanceAsync(r, ct), _ => throw new RequestError("알 수 없는 분석입니다.")
         };
+        return r.OpponentNationality == "" ? result : result with { Notes = [..result.Notes, "상대 선수 구분은 수집된 공식 프로필의 지명순위 기준입니다. 분류 자료가 없는 선수는 조건 적용 시 제외합니다. 과거 시즌 당시 등록 구분과 다를 수 있습니다."] };
     }
 
     private static AnalysisResult Selection(AnalysisRequest r, string title) => new(r.Section, title,

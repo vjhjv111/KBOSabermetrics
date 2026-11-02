@@ -99,6 +99,20 @@ static async Task SyntheticCases()
         }
         var service = Service(path);
         var request = new AnalysisRequest(Section: "velocity", Code: "Boundary");
+        await Execute("CREATE TABLE OfficialPlayerProfiles(Pcode TEXT PRIMARY KEY,DraftText TEXT)");
+        await Execute("INSERT INTO OfficialPlayerProfiles VALUES('P','자유선발'),('Boundary','아시아쿼터')");
+        var allOpponents = await service.QueryAsync(request, default);
+        var foreignOpponent = await service.QueryAsync(request with { OpponentNationality="foreign" }, default);
+        Check(Sum(foreignOpponent,"N") == Sum(allOpponents,"N"), "batter filter classifies opposing pitcher");
+        Check(Sum(await service.QueryAsync(request with { OpponentNationality="domestic" },default),"N")==0,"foreign pitcher excluded from domestic");
+        Check(Sum(await service.QueryAsync(request with { OpponentNationality="foreign-asian" },default),"N")==Sum(allOpponents,"N"),"combined category includes foreign");
+        var asianBatters=await service.QueryAsync(request with { Role="pitcher",Code="P",OpponentNationality="asian" },default);
+        Check(Sum(asianBatters,"N")==Sum(allOpponents,"N"),"pitcher filter classifies opposing batter and excludes unknown profiles");
+        await Execute("UPDATE OfficialPlayerProfiles SET DraftText='2차 1라운드' WHERE Pcode='P'");
+        Check(Sum(await service.QueryAsync(request with { OpponentNationality="domestic" },default),"N")==Sum(allOpponents,"N"),"domestic profile recognized");
+        await Execute("DELETE FROM OfficialPlayerProfiles WHERE Pcode='P'");
+        Check(Sum(await service.QueryAsync(request with { OpponentNationality="domestic" },default),"N")==0,"missing profile not classified domestic");
+
         async Task<AnalysisResult> Query(AnalysisRequest r) => await service.QueryAsync(r, CancellationToken.None);
         var boundary = await Query(request);
         Check(AllBands(boundary).Select(r => Number(r, "Band")).SequenceEqual(new long[] { 0, 1, 2, 3, 4, 5 }), "four exclusive bands then 152+/155+ in velocity order");

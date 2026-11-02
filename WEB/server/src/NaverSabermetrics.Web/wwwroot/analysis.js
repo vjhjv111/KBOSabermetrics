@@ -40,7 +40,7 @@ function analysisInitialize(){
   const years=[...state.catalog.years].sort((a,b)=>b-a).map(y=>[y,String(y)]);
   form.append(analysisField('year','시즌',years),analysisField('team','팀',[['','전체 팀'],...state.catalog.teams.map(t=>[t,teamNames[t]??t])]),analysisField('role','선수 구분',[['pitcher','투수'],['batter','타자']]));
   const search=analysisField('playerSearch','선수 검색',null,'search'),searchInput=search.querySelector('input');searchInput.placeholder='이름·팀·코드';searchInput.maxLength=30;
-  const player=analysisField('code','선수',[['','선수를 불러오는 중…']]);player.classList.add('analysis-player');form.append(search,player);
+  const player=analysisField('code','선수',[['','선수를 불러오는 중…']]);player.classList.add('analysis-player');form.append(search,player,analysisField('opponentNationality','상대 선수 구분',[['','전체'],['domestic','국내 선수'],['foreign','외국인 선수'],['asian','아시아쿼터'],['foreign-asian','외국인 + 아시아쿼터']]));
   form.append(analysisField('pitchType','구종',[['','전체 구종']]),analysisField('stance','타자 타석',[['','전체'],['L','좌타'],['R','우타']]),analysisField('count','투구 전 카운트',[['','전체'],...[0,1,2,3].flatMap(b=>[0,1,2].map(s=>[`${b}-${s}`,`${b}-${s}`]))]));
   form.append(analysisField('start','시작일',null,'date'),analysisField('end','종료일',null,'date'),analysisField('window','이동 평균',[['5','최근 5경기'],['10','최근 10경기'],['15','최근 15경기'],['20','최근 20경기']]));
   const game=analysisField('gameId','경기 ID (선택)',null,'text');game.querySelector('input').maxLength=40;game.querySelector('input').placeholder='비우면 선수의 최근 타석';form.append(game);
@@ -73,7 +73,7 @@ function analysisConfigure(){
   for(const link of $('analysis-tabs').querySelectorAll('a'))link.setAttribute('aria-current',link.dataset.section===section?'page':'false');
   const pitcherOnly=['times','workload'].includes(section);if(pitcherOnly&&$('an-role').value!=='pitcher'){$('an-role').value='pitcher';analysisState.catalogKey='';}$('an-role').disabled=pitcherOnly;
   const pitchFilters=['zones','velocity','sequences','trend','times'].includes(section);
-  for(const id of ['pitchType','stance','count'])$('an-field-'+id).hidden=!pitchFilters;
+  for(const id of ['pitchType','stance','count','opponentNationality'])$('an-field-'+id).hidden=!pitchFilters;
   $('an-field-window').hidden=section!=='trend';$('an-field-gameId').hidden=!['replay','provenance'].includes(section);
   $('an-field-start').hidden=section==='workload';
   $('an-field-code').hidden=$('an-field-playerSearch').hidden=section==='expectancy';$('an-field-role').hidden=section==='expectancy';
@@ -89,7 +89,7 @@ async function analysisRoute(){
 }
 function analysisRequest(section=analysisState.section){
   const r={section,year:Number($('an-year').value),team:$('an-team').value,role:$('an-role').value,code:$('an-code').value||'',page:analysisState.page,window:Number($('an-window').value)||5};
-  for(const key of ['start','end','pitchType','stance','count'])if(!$(`an-field-${key}`).hidden&&$(`an-${key}`).value)r[key]=$(`an-${key}`).value;
+  for(const key of ['start','end','pitchType','stance','count','opponentNationality'])if(!$(`an-field-${key}`).hidden&&$(`an-${key}`).value)r[key]=$(`an-${key}`).value;
   if(['replay','provenance'].includes(section)){r.gameId=analysisState.gameId||$('an-gameId').value.trim();r.paId=analysisState.paId;}
   if(section==='expectancy')r.code='';return r;
 }
@@ -97,7 +97,7 @@ async function analysisCatalog(signal,seq){
   const key=[$('an-year').value,$('an-team').value,$('an-role').value,analysisState.section==='workload'].join('|');if(key===analysisState.catalogKey)return;
   const requested=analysisRequest('catalog');requested.code='';requested.page=1;
   // Selector membership is season-wide; narrowing dates must not strand a saved player.
-  requested.start=requested.end=requested.pitchType=requested.stance=requested.count='';
+  requested.start=requested.end=requested.pitchType=requested.stance=requested.count=requested.opponentNationality='';
   let catalog=await api('/api/analysis',requested,signal);if(seq!==analysisState.seq)return;
   // The catalog has its own small pages; collect them before displaying a complete selector.
   let attempts=0;while(catalog.hasMore&&attempts++<3){requested.page++;const more=await api('/api/analysis',requested,signal);if(seq!==analysisState.seq)return;for(const table of catalog.tables??[]){const addition=more.tables?.find(t=>t.key===table.key);if(addition)table.rows.push(...addition.rows);}catalog.hasMore=more.hasMore;}
