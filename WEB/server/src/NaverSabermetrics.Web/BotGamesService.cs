@@ -16,7 +16,7 @@ public sealed record BotGamesResponse(string Date,string TimeZone,DateTimeOffset
     int RefreshSeconds,BotGame[] Games,string Text);
 
 // A bounded score-only query. No forecast/WAR calculation and no per-request upstream scraping.
-public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,HomeLiveService live)
+public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,HomeLiveService live, BotStartersService starters)
 {
     private static readonly Dictionary<string,string> Names=new(StringComparer.OrdinalIgnoreCase)
     { ["HH"]="한화",["HT"]="KIA",["KT"]="KT",["LG"]="LG",["LT"]="롯데",["NC"]="NC",["OB"]="두산",["SK"]="SSG",["SS"]="삼성",["WO"]="키움" };
@@ -35,7 +35,7 @@ public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,
         var games=new Dictionary<string,BotGame>(StringComparer.Ordinal);
         await using var c=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=db.DatabasePath,Mode=SqliteOpenMode.ReadOnly}.ToString());
         await c.OpenAsync(ct);await using var cmd=c.CreateCommand();cmd.CommandTimeout=options.QuerySeconds;
-        cmd.CommandText="SELECT GameId,GameDateTime,Stadium,StatusCode,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore FROM Games WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND LOWER(TRIM(RoundCode)) IN ('kbo_r','kbo_scheduled') AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') ORDER BY GameDateTime,GameId LIMIT 20";
+        cmd.CommandText="SELECT GameId,GameDateTime,Stadium,StatusCode,AwayTeamCode,HomeTeamCode,AwayScore,HomeScore FROM Games WHERE SeasonYear=$year AND SUBSTR(GameDate,1,10)=$date AND (LOWER(TRIM(RoundCode)) IN ('kbo_r','kbo_scheduled') OR LOWER(TRIM(RoundCode)) LIKE 'kbo_ps%') AND UPPER(HomeTeamCode) NOT IN ('EA','WE') AND UPPER(AwayTeamCode) NOT IN ('EA','WE') ORDER BY GameDateTime,GameId LIMIT 20";
         cmd.Parameters.AddWithValue("$year",date.Year);cmd.Parameters.AddWithValue("$date",day);using var cancel=ct.Register(cmd.Cancel);
         await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct))
         {
@@ -51,9 +51,26 @@ public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,
             if(games.TryGetValue(g.Id,out var stored)&&stored.Finished)continue;
             games[g.Id]=FromLive(g);
         }
+        MergeSchedule(games,starters.Get(day));
         var rows=games.Values.OrderBy(g=>g.Time,StringComparer.Ordinal).ThenBy(g=>g.Id,StringComparer.Ordinal).ToArray();
         var updated=rows.Select(g=>g.UpdatedAt).Max();
         return new(day,"Asia/Seoul",updated,rows.Any(g=>RenderCollectionPolicy.IsLiveStatus(g.Status)),60,rows,Format(day,rows,updated));
+    }
+    public static void MergeSchedule(Dictionary<string,BotGame> games, StarterDay? schedule)
+    {
+        if(schedule is null)return;
+        var ids=schedule.Games.Select(g=>g.Id).ToHashSet(StringComparer.Ordinal);
+        foreach(var old in games.Values.Where(g=>g.Date==schedule.Date && g.Status is "BEFORE" or "READY").ToArray())
+            if(!ids.Contains(old.Id))games.Remove(old.Id);
+        foreach(var g in schedule.Games)
+        {
+            if(g.Id.Length!=17)continue;
+            if(games.TryGetValue(g.Id,out var existing) && existing.Status is not ("BEFORE" or "READY"))continue;
+            var away=g.Id.Substring(8,2);var home=g.Id.Substring(10,2);
+            var statusText=g.Status is "BEFORE" or "READY" ? "예정" : g.Status=="CANCEL" ? "취소" : RenderCollectionPolicy.IsFinalStatus(g.Status) ? "종료" : "진행 중";
+            games[g.Id]=new(g.Id,schedule.Date,g.Time,null,g.Status,statusText,away,Name(away),home,Name(home),null,null,
+                g.AwayStarter,g.HomeStarter,[],schedule.UpdatedAt);
+        }
     }
     private static BotGameDecision[] Decisions(IEnumerable<object> values)=>values.Select(p=>{
         var json=JsonSerializer.SerializeToElement(p);return new BotGameDecision(json.GetProperty("label").GetString()!,json.GetProperty("name").GetString()!);
@@ -69,7 +86,7 @@ public sealed class BotGamesService(DatabaseCacheService db,SiteOptions options,
         foreach(var g in games)
         {
             if(g.Status=="CANCEL")lines.Add($"{g.AwayName} vs {g.HomeName} 취소");
-            else if(g.Status=="BEFORE")lines.Add($"{g.AwayName} vs {g.HomeName} {(g.Time is {Length:>=16}?g.Time[11..16]:"시간 미정")} 예정");
+            else if(g.Status is "BEFORE" or "READY")lines.Add($"{g.AwayName} vs {g.HomeName} {(g.Time is {Length:>=16}?g.Time[11..16]:"시간 미정")} 예정");
             else lines.Add($"{g.AwayName} {g.AwayScore?.ToString()??"—"} : {g.HomeScore?.ToString()??"—"} {g.HomeName} {g.StatusText.Replace("회 초","회초").Replace("회 말","회말")}");
         }
         if(updated.HasValue && games.Any(g=>RenderCollectionPolicy.IsLiveStatus(g.Status)) && DateTimeOffset.UtcNow-updated.Value>TimeSpan.FromMinutes(3))

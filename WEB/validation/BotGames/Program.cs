@@ -1,0 +1,18 @@
+using NaverSabermetrics.Web;
+var games=new Dictionary<string,BotGame>();
+var row=new StarterGame("77771103SSKT02026","2026-11-03T18:30:00","삼성","KT","BEFORE",null,null,null,false);
+var day=new StarterDay("2026-11-03",DateTimeOffset.UtcNow,[row]);
+BotGamesService.MergeSchedule(games,day);
+if(!BotGamesService.Format(day.Date,games.Values.ToArray(),null).Contains("삼성 vs KT 18:30 예정"))throw new Exception("Schedule missing");
+var live=games[row.Id] with {Status="PLAY",AwayScore=3,HomeScore=1};games[row.Id]=live;
+BotGamesService.MergeSchedule(games,day);
+if(games[row.Id]!=live)throw new Exception("Live overwritten");
+games[row.Id]=live with {Status="RESULT"};
+BotGamesService.MergeSchedule(games,day with {Games=[]});
+if(!games.ContainsKey(row.Id))throw new Exception("Final removed");
+games[row.Id]=live with {Status="BEFORE"};
+BotGamesService.MergeSchedule(games,day with {Games=[]});
+if(games.Count!=0)throw new Exception("Removed schedule retained");
+BotGamesService.MergeSchedule(games,day with {Games=[row with {Status="READY"}]});
+if(!BotGamesService.Format(day.Date,games.Values.ToArray(),null).Contains("18:30 예정"))throw new Exception("Ready rendering");
+Console.WriteLine("PASS schedule fallback, live/final preservation, removed schedule and READY rendering");
