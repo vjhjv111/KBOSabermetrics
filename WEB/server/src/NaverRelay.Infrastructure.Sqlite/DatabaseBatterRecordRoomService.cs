@@ -5,7 +5,7 @@ namespace NaverRelay.Infrastructure.Sqlite;
 
 public sealed class DatabaseBatterRecordRoomService : IBatterRecordRoomQueryService
 {
-    private const string CacheVersion = "batter-record-room-v3-re24-bacon";
+    private const string CacheVersion = "batter-record-room-v4-pull-air";
     private readonly DatabaseCacheService _database;
 
     public DatabaseBatterRecordRoomService(DatabaseCacheService database) => _database = database;

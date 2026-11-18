@@ -220,6 +220,7 @@ public sealed class BatterBattedBallRecordRow
     [DisplayName("Team")] public string? TeamCode { get; init; }
     [DisplayName("PA")] public int PA { get; init; }
     [DisplayName("BIP")] public int BallsInPlay { get; init; }
+    [DisplayName("Pull Air%")] public double? PullAirRate { get; init; }
     [DisplayName("BABIP")] public double? BABIP { get; init; }
     [DisplayName("BACON")] public double? BACON { get; init; }
     [DisplayName("GB%")] public double? GroundBallRate { get; init; }

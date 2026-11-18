@@ -113,7 +113,14 @@ public sealed partial class DatabaseCacheService
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
-            {filter.Cte}
+            {filter.Cte},
+            RankedStance AS (
+                SELECT p.PlateAppearanceId, UPPER(TRIM(p.BatterStance)) AS Stance,
+                       ROW_NUMBER() OVER (PARTITION BY p.PlateAppearanceId
+                           ORDER BY p.ActualPitchIndex DESC, p.SourceOptionIndex DESC, p.PitchEventId DESC) AS rn
+                FROM Pitches p INNER JOIN FilteredGames fg ON fg.GameId=p.GameId
+                WHERE p.PlateAppearanceId IS NOT NULL
+            )
             SELECT {identity.SelectColumns},
                    COUNT(*),
                    SUM(CASE WHEN pa.BattedBallType<>0 OR pa.ResultType=6 THEN 1 ELSE 0 END),
@@ -128,9 +135,15 @@ public sealed partial class DatabaseCacheService
                    SUM(CASE WHEN pa.IsHit=1 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=6 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN pa.ResultType=10 THEN 1 ELSE 0 END),
-                   SUM(CASE WHEN pa.ResultType=17 THEN 1 ELSE 0 END)
+                   SUM(CASE WHEN pa.ResultType=17 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN (pa.BattedBallType BETWEEN 1 AND 5 OR pa.ResultType=6)
+                       AND pa.FieldDirection BETWEEN 1 AND 11 AND rs.Stance IN ('L','R') THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN (pa.BattedBallType IN (2,3,4) OR pa.ResultType=6) AND (
+                       (rs.Stance='R' AND pa.FieldDirection IN (1,2,10,11)) OR
+                       (rs.Stance='L' AND pa.FieldDirection IN (4,5,8,9))) THEN 1 ELSE 0 END)
             FROM PlateAppearances pa
             INNER JOIN FilteredGames g ON g.GameId=pa.GameId
+            LEFT JOIN RankedStance rs ON rs.PlateAppearanceId=pa.PlateAppearanceId AND rs.rn=1
             {identity.JoinClause}
             WHERE pa.IsOfficial=1
               AND ($resultTeam='' OR pa.BattingTeamCode=$resultTeam)
@@ -163,6 +176,8 @@ public sealed partial class DatabaseCacheService
             var hr = ReadInt32(reader, i++);
             var so = ReadInt32(reader, i++);
             var sf = ReadInt32(reader, i++);
+            var classifiedContact = ReadInt32(reader, i++);
+            var pulledAir = ReadInt32(reader, i++);
             var airBalls = fb + popup;
 
             rows.Add(new BatterBattedBallRecordRow
@@ -172,6 +187,7 @@ public sealed partial class DatabaseCacheService
                 TeamCode = team,
                 PA = pa,
                 BallsInPlay = bip,
+                PullAirRate = DivideRecordRoom(pulledAir, classifiedContact),
                 BABIP = DivideRecordRoom(hits - hr, ab - so - hr + sf),
                 BACON = DivideRecordRoom(hits, ab - so + sf),
                 GroundBallRate = DivideRecordRoom(gb, bip),

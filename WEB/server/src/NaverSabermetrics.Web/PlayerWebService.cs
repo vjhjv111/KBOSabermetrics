@@ -62,7 +62,7 @@ public sealed partial class RecordService
         var pc=def.RowType.GetProperty("Pcode");
         var target=rows.FirstOrDefault(x=>Convert.ToString(pc?.GetValue(x))==code);
         if(target is null)return Array.Empty<PlayerMetric>();
-        var allowed=role=="batter" ? new[]{"AVG","OBP","SLG","OPS","ISO","BABIP","BACON","wRC+","wOBA","HR","BB%","K%","WAR","O-Swing%","Whiff%","Swing%","Z-Swing%","Z-Contact%"}
+        var allowed=role=="batter" ? new[]{"AVG","OBP","SLG","OPS","ISO","BABIP","BACON","wRC+","wOBA","HR","BB%","K%","WAR","Pull Air%","O-Swing%","Whiff%","Swing%","Z-Swing%","Z-Contact%"}
             : new[]{"ERA","FIP","WHIP","K/9","BB/9","K%","BB%","K-BB%","피OPS","KBO fWAR","KBO fWAR v4","O-Swing%","Whiff/Swing%","Swing%","Z-Swing%","Z-Contact%"};
         var result=new List<PlayerMetric>();
         foreach(var p in ViewRegistry.Properties(def))
@@ -135,7 +135,7 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         if(r.Section=="summary")
         {
             var combined=new List<PlayerMetric>();
-            foreach(var view in new[]{"basic","advanced","value","discipline"})
+            foreach(var view in (r.Role=="batter" ? new[]{"basic","advanced","value","discipline","batted-ball"} : new[]{"basic","advanced","value","discipline"}))
                 combined.AddRange(await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,view,true,ct));
             var metrics=combined.DistinctBy(m=>m.Label).OrderBy(m=>ViewRegistry.IsWarMetric(m.Label)?1:0).ToArray();
             return new{metrics,reference="선택 시즌·경기 구분에 기록이 있는 전체 타자 또는 전체 투수 기준입니다. 규정타석·규정이닝 제한 없이 지표별 유효값을 비교합니다. 동률은 중간 순위입니다. 스윙률·존 안 스윙률은 높을수록 많이 스윙한다는 뜻이며 우열을 의미하지 않습니다. 나머지는 100에 가까울수록 우수한 방향입니다. 비교군 2명 미만이면 표시하지 않습니다."};
