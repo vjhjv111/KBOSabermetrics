@@ -560,8 +560,9 @@ function svgNode(tag,attrs={},content){const e=document.createElementNS('http://
 function renderPlayerOverview(data){
   const content=$('player-content'),grid=text('div','','player-overview-grid');
   const ranking=playerCard(`${playerState.year} 지표별 백분위`);ranking.classList.add('percentile-card');
-  ranking.append(text('p','전체 선수 기준 · 100에 가까울수록 좋은 기록입니다.','muted'));
-  const metrics=data.metrics.filter(m=>m.population>0);
+  ranking.append(text('p','전체 선수 기준 · 스윙률 두 지표는 스윙 빈도, 나머지는 100에 가까울수록 좋은 기록입니다.','muted'));
+  const metricNames={'O-Swing%':'존 밖 스윙률','Whiff%':'헛스윙률','Whiff/Swing%':'헛스윙률','Swing%':'스윙률','Z-Swing%':'존 안 스윙률','Z-Contact%':'존 안 컨택률'};
+  const metrics=data.metrics.filter(m=>m.population>0).map(m=>({...m,label:metricNames[m.label]??m.label}));
   if(!metrics.length)ranking.append(text('p','선택한 시즌에 비교할 수 있는 퍼센타일 기록이 없습니다.','player-empty'));
   const chart=svgNode('svg',{viewBox:`0 0 470 ${60+metrics.length*35}`,role:'img','aria-label':'선수 스탯 퍼센타일. 왼쪽 낮음, 가운데 평균, 오른쪽 우수.'});
   for(const [x,label] of [[122,'낮음'],[260,'평균'],[398,'우수']])chart.append(svgNode('text',{x,y:18,'text-anchor':'middle',class:'pct-axis'},label));
