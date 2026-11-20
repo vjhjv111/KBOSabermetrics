@@ -493,7 +493,7 @@ async function playerRoute(keep=false){
     const data=await api('/api/player',{code,section:'profile',competition:$('pp-competition').value,pageSize:Math.min(25,state.catalog?.limits.maxPageSize??25)},controller.signal);
     if(seq!==playerState.profileSequence)return;playerState.profile=data;
     const p=data.profile;$('player-title').textContent=p.name;document.title=`${p.name} · 선수 기록 | FANZAI`;
-    $('player-bio').replaceChildren(teamNamesNode(p.latestTeam),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
+    $('player-bio').replaceChildren(document.createTextNode('소속 조회 중'),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));
     $('player-history').textContent=`경기 DB · 생년월일 ${p.birthDate} · 활동 ${p.activeYears} · 선수 코드 ${p.pcode}`;
     if(data.details){const x=data.details;$('player-history').textContent+=` · 등번호 ${x.BackNumber||'—'} · ${x.Height||'—'}cm / ${x.Weight||'—'}kg (${x.Date?.slice(0,10)??'최근 기록'} 기준)`;}
     renderPlayerOfficialProfile(data.officialProfile,p.name);
@@ -526,6 +526,8 @@ function configurePlayerControls(){
 async function loadPlayerSection(){
   playerState.controller?.abort();const controller=new AbortController();playerState.controller=controller;const seq=++playerState.sequence;
   playerState.year=Number($('pp-year').value)||null;playerState.view=$('pp-view').value;
+  const profile=playerState.profile;
+  if(profile){const teams=profile.seasons.filter(x=>x.Role===playerState.role&&Number(x.Year)===playerState.year).map(x=>x.Team).filter(Boolean).join(',');const p=profile.profile;$('player-bio').replaceChildren(document.createTextNode(`${playerState.year} · `),teamNamesNode(teams),document.createTextNode(` · ${p.primaryPosition} · ${p.batsThrows} · ${p.role}`));}
   const s=playerState.section;$('player-content').replaceChildren();$('player-status').textContent='기록을 불러오는 중…';$('player-content').setAttribute('aria-busy','true');$('player-pagination').hidden=true;
   if(!playerState.year){$('player-status').textContent='선택한 경기 구분에 수집된 기록이 없습니다.';$('player-content').setAttribute('aria-busy','false');return;}
   const req={code:playerState.code,role:playerState.role,section:s,year:playerState.year,view:playerState.view,competition:$('pp-competition').value,page:playerState.page,pageSize:s==='years'?Math.min(50,state.catalog?.limits.maxPageSize??50):Math.min(25,state.catalog?.limits.maxPageSize??25),sort:playerState.sort,descending:playerState.descending};
@@ -590,7 +592,7 @@ function renderPlayerOverview(data){
   const labels=playerState.role==='batter'?['WAR','PA','HR','AVG','OPS','wRC+']:['KBO fWAR','KBO fWAR v4','IP','ERA','FIP','WHIP','SO'];
   for(const m of data.metrics.filter(m=>labels.includes(m.label)).slice(0,6)){const k=text('div','','player-kpi');k.append(text('span',m.label),text('strong',m.display));kpis.append(k);}stats.append(kpis);aside.append(stats);
   const direction=playerCard('안타 방향');direction.id='pp-direction';direction.append(text('p','방향별 기록을 불러오는 중…','muted'));aside.append(direction);grid.append(aside);content.append(grid);
-  const all=playerCard('시즌 기록');const row={};for(const m of data.metrics)row[m.label]=m.display;all.append(playerTableElement(Object.keys(row),[row]));content.append(all);
+  const all=playerCard('시즌 기록');const row={Team:(data.teams??[]).map(t=>t.Team).join(',')};for(const m of data.metrics)if(m.label!=='Team')row[m.label]=m.display;all.append(playerTableElement(Object.keys(row),[row]));if(data.teamRows?.length){all.append(text('h3','당시 소속팀별 기록'),playerTableElement(Object.keys(data.teamRows[0]),data.teamRows));}content.append(all);
 }
 function renderPlayerDirection(data){
   const card=$('pp-direction');card.replaceChildren(text('h2','안타 방향'));const total=data.rows.reduce((n,r)=>n+Number(r.H??0),0);

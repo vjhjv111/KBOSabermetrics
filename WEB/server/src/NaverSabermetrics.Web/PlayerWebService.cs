@@ -50,17 +50,17 @@ public sealed record PlayerTable(IReadOnlyList<string> Columns,IReadOnlyList<Dic
 public sealed partial class RecordService
 {
     // Use the same factories and formula/version-aware cache as the record rooms.
-    public async Task<IReadOnlyList<PlayerMetric>> PlayerMetricsAsync(string code,string role,int? year,string competition,string view,bool calculatePercentiles,CancellationToken ct)
+    public async Task<IReadOnlyList<PlayerMetric>> PlayerMetricsAsync(string code,string role,int? year,string competition,string view,bool calculatePercentiles,CancellationToken ct,string? team=null)
     {
         var def=ViewRegistry.Get(role,view);
         var r=new RecordRequest{Room="season",Role=role,Year=year,Competition=competition,View=view};
-        var q=new GameQuery{SeasonYear=year,Competition=competition,Grouping=AnalyticsGrouping.PlayerCareer};
+        var q=new GameQuery{SeasonYear=year,Competition=competition,Grouping=team is null?AnalyticsGrouping.PlayerCareer:AnalyticsGrouping.PlayerByTeam};
         var version=await _db.GetWebSourceVersionAsync(ct);
-        var key=$"player-v1|{version}|{role}|{year}|{competition}|{view}";
+        var key=$"player-v1|{version}|{role}|{year}|{competition}|{view}|{team}";
         var rows=TryRead(key,def.RowType);
         if(rows is null){rows=await ComputeAsync(r,q,def,ct);Store(key,rows);}
         var pc=def.RowType.GetProperty("Pcode");
-        var target=rows.FirstOrDefault(x=>Convert.ToString(pc?.GetValue(x))==code);
+        var target=rows.FirstOrDefault(x=>Convert.ToString(pc?.GetValue(x))==code && (team is null || Convert.ToString(def.RowType.GetProperty("TeamCode")?.GetValue(x))==team));
         if(target is null)return Array.Empty<PlayerMetric>();
         var allowed=role=="batter" ? new[]{"AVG","OBP","SLG","OPS","ISO","BABIP","BACON","wRC+","wOBA","HR","BB%","K%","WAR","Pull Air%","O-Swing%","Whiff%","Swing%","Z-Swing%","Z-Contact%"}
             : new[]{"ERA","FIP","WHIP","K/9","BB/9","K%","BB%","K-BB%","피OPS","KBO fWAR","KBO fWAR v4","O-Swing%","Whiff/Swing%","Swing%","Z-Swing%","Z-Contact%"};
@@ -111,6 +111,9 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
         }
         return rows;
     }
+    private Task<List<Dictionary<string,object?>>> SeasonTeams(PlayerWebRequest r,CancellationToken ct) =>
+        Sql($"SELECT s.TeamCode Team FROM {(r.Role=="batter"?"BatterGameStats":"PitcherGameStats")} s JOIN Games g ON g.GameId=s.GameId WHERE s.Pcode=$code AND {Season(r)} AND COALESCE(s.TeamCode,'')<>'' GROUP BY s.TeamCode ORDER BY MIN(g.GameDate),s.TeamCode",r,ct);
+
     public async Task<object> QueryAsync(PlayerWebRequest r,CancellationToken ct)
     {
         var profile=await db.GetPlayerAsync(r.Code,ct)??throw new RequestError("선수를 찾을 수 없습니다.",404,"PLAYER_NOT_FOUND");
@@ -138,7 +141,17 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
             foreach(var view in (r.Role=="batter" ? new[]{"basic","advanced","value","discipline","batted-ball"} : new[]{"basic","advanced","value","discipline"}))
                 combined.AddRange(await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,view,true,ct));
             var metrics=combined.DistinctBy(m=>m.Label).OrderBy(m=>ViewRegistry.IsWarMetric(m.Label)?1:0).ToArray();
-            return new{metrics,reference="선택 시즌·경기 구분에 기록이 있는 전체 타자 또는 전체 투수 기준입니다. 규정타석·규정이닝 제한 없이 지표별 유효값을 비교합니다. 동률은 중간 순위입니다. 스윙률·존 안 스윙률은 높을수록 많이 스윙한다는 뜻이며 우열을 의미하지 않습니다. 나머지는 100에 가까울수록 우수한 방향입니다. 비교군 2명 미만이면 표시하지 않습니다."};
+            var teams=await SeasonTeams(r,ct);
+            var teamRows=new List<Dictionary<string,object?>>();
+            if(teams.Count>1)foreach(var team in teams)
+            {
+                var row=new Dictionary<string,object?>{{"Team",team["Team"]}};
+                foreach(var view in new[]{"basic","advanced","value"})
+                    foreach(var m in await records.PlayerMetricsAsync(r.Code,r.Role,r.Year,r.Competition,view,false,ct,Convert.ToString(team["Team"])))
+                        if(m.Label!="Team")row.TryAdd(m.Label,m.Display);
+                teamRows.Add(row);
+            }
+            return new{metrics,teams,teamRows,reference="선택 시즌·경기 구분에 기록이 있는 전체 타자 또는 전체 투수 기준입니다. 규정타석·규정이닝 제한 없이 지표별 유효값을 비교합니다. 동률은 중간 순위입니다. 스윙률·존 안 스윙률은 높을수록 많이 스윙한다는 뜻이며 우열을 의미하지 않습니다. 나머지는 100에 가까울수록 우수한 방향입니다. 비교군 2명 미만이면 표시하지 않습니다."};
         }
         if(r.Section=="years")
         {
@@ -149,9 +162,18 @@ public sealed class PlayerWebService(DatabaseCacheService db,RecordService recor
             {
                 var y=Convert.ToInt32(year["Year"]);var metrics=await records.PlayerMetricsAsync(r.Code,r.Role,y,r.Competition,r.View,false,ct);
                 if(metrics.Count==0)continue;
-                var row=new Dictionary<string,object?>{{"Year",y}};foreach(var m in metrics)row[m.Label]=m.Display;rows.Add(row);
+                var teams=await SeasonTeams(r with{Year=y},ct);
+                var row=new Dictionary<string,object?>{{"Year",y},{"Team",teams.Count>1?"합계":teams.FirstOrDefault()?.GetValueOrDefault("Team")}};
+                foreach(var m in metrics)if(m.Label!="Team")row[m.Label]=m.Display;rows.Add(row);
+                if(teams.Count>1)foreach(var team in teams)
+                {
+                    var split=new Dictionary<string,object?>{{"Year",y},{"Team",team["Team"]}};
+                    foreach(var m in await records.PlayerMetricsAsync(r.Code,r.Role,y,r.Competition,r.View,false,ct,Convert.ToString(team["Team"])))
+                        if(m.Label!="Team")split[m.Label]=m.Display;
+                    rows.Add(split);
+                }
             }
-            return new PlayerTable(rows.FirstOrDefault()?.Keys.ToArray()??new[]{"Year"},rows,r.Page,years.Count>r.Page*r.PageSize,$"DB에 적재된 전체 시즌을 한 번에 표시합니다(페이지당 최대 {r.PageSize}시즌). 이적한 시즌은 선수 전체 기록으로 합산합니다. WAR는 사이트 자체 계산값입니다.");
+            return new PlayerTable(rows.FirstOrDefault()?.Keys.ToArray()??new[]{"Year"},rows,r.Page,years.Count>r.Page*r.PageSize,$"DB에 적재된 전체 시즌을 한 번에 표시합니다(페이지당 최대 {r.PageSize}시즌). 이적한 시즌은 합계와 당시 소속팀별 기록을 함께 표시합니다. WAR는 사이트 자체 계산값입니다.");
         }
         if(r.Section is "games" or "trend")return await Games(r,ct);
         return await Events(r,ct);
